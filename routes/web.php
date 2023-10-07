@@ -13,9 +13,6 @@ use Illuminate\Support\Facades\Route;
 | contains the "web" middleware group. Now create something great!
 |
 */
-/** USERS  */
-Route::get('/apps/users/list', [UserController::class, 'getUsers'])->name('getUsers');
-Route::post('/apps/users/store', [UserController::class, 'store'])->name('storeUser');
 
 
 Route::get('{any?}', function() {
