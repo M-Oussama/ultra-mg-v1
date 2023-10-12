@@ -38,11 +38,16 @@ class UserController extends Controller
     )])]
     public function getUsers(Request $request): JsonResponse
     {
+        $searchValue = $request->input('searchValue', ''); // search value
+
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
-        $users = User::paginate($perPage, ['*'], 'page', $currentPage);
-
+        $users = User::when($searchValue, function ($queryBuilder) use ($searchValue) {
+            // Search for users with matching name or email
+            $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
+                ->orWhere('email', 'LIKE', '%' . $searchValue . '%');
+        })->paginate($perPage, ['*'], 'page', $currentPage);
         $totalUsers = $users->total(); // Total number of users matching the query
         $totalPage = ceil($totalUsers / $perPage); // Calculate total pages
 
@@ -119,11 +124,15 @@ class UserController extends Controller
             'password' => 'string',
         ]);
 
-        // Check if the password field is present in the request data
-        if(isset($validatedData['password'])) {
-            // Hash the password before storing it in the database
-            $validatedData['password'] = bcrypt($validatedData['password']);
+        // Check if the passwordChanged field is present in the request data,and it is true the user want to change password
+        if(isset($validatedData['passwordChanged']) && $validatedData['passwordChanged']){
+            // Check if the password field is present in the request data
+            if(isset($validatedData['password'])) {
+                // Hash the password before storing it in the database
+                $validatedData['password'] = bcrypt($validatedData['password']);
+            }
         }
+
 
         $user = User::find($id);
 
@@ -157,7 +166,6 @@ class UserController extends Controller
     {
         $user = User::find($id);
         $user->delete();
-
         return response()->json(["message" => "User deleted successfully"]);
     }
 }

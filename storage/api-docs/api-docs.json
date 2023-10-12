@@ -5,6 +5,109 @@
         "version": "0.1"
     },
     "paths": {
+        "/api/clients/list": {
+            "get": {
+                "tags": [
+                    "clients"
+                ],
+                "summary": "get List Of All Users",
+                "description": "Returns the list of clients",
+                "operationId": "getClients",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IClient"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/clients/store": {
+            "post": {
+                "tags": [
+                    "clients"
+                ],
+                "summary": "create a new user",
+                "description": "Create a new Client",
+                "operationId": "createClient",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "surname",
+                                    "email",
+                                    "address",
+                                    "phone",
+                                    "NRC",
+                                    "NIS",
+                                    "NART",
+                                    "NIF"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "john"
+                                    },
+                                    "surname": {
+                                        "type": "string",
+                                        "example": "john"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "0665461326"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "address"
+                                    },
+                                    "NRC": {
+                                        "type": "string",
+                                        "example": "NRC"
+                                    },
+                                    "NIS": {
+                                        "type": "string",
+                                        "example": "NIS"
+                                    },
+                                    "NART": {
+                                        "type": "string",
+                                        "example": "NART"
+                                    },
+                                    "NIF": {
+                                        "type": "string",
+                                        "example": "NIF"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "doe@gmail.com"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IClient"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/users/list": {
             "get": {
                 "tags": [
@@ -169,6 +272,70 @@
     },
     "components": {
         "schemas": {
+            "IClient": {
+                "required": [
+                    "id",
+                    "name",
+                    "surname",
+                    "email",
+                    "address",
+                    "NRC",
+                    "NIF",
+                    "NART",
+                    "NIS",
+                    "created_at",
+                    "updated_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "jon"
+                    },
+                    "surname": {
+                        "type": "string",
+                        "example": "jon"
+                    },
+                    "email": {
+                        "type": "string",
+                        "example": "doe@gmail.com"
+                    },
+                    "address": {
+                        "type": "string",
+                        "example": "address"
+                    },
+                    "NRC": {
+                        "type": "string",
+                        "example": "NRC"
+                    },
+                    "NIF": {
+                        "type": "string",
+                        "example": "NIF"
+                    },
+                    "NART": {
+                        "type": "string",
+                        "example": "NART"
+                    },
+                    "NIS": {
+                        "type": "string",
+                        "example": "NIS"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-08-13"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-08-13"
+                    }
+                },
+                "type": "object"
+            },
             "IUser": {
                 "required": [
                     "id",

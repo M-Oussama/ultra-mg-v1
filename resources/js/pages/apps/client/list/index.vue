@@ -1,10 +1,10 @@
 <script setup>
-import AddNewUserDrawer from '@/views/apps/user/list/AddNewUserDrawer.vue'
-import EditUserDrawer from '@/views/apps/user/list/EditUserDrawer.vue';
-import ConfirmationDialog from '@/views/apps/user/list/ConfirmationDialog.vue';
-import { useUserListStore } from '@/views/apps/user/useUserListStore'
+import AddNewClientDrawer from '@/views/apps/client/list/AddNewClientDrawer.vue'
+import EditClientDrawer from '@/views/apps/client/list/EditClientDrawer.vue';
+import ConfirmationDialog from '@/views/apps/client/list/ConfirmationDialog.vue';
+import {useClientListStore} from "@/views/apps/client/useClientListStore";
 
-const userListStore = useUserListStore()
+const clientListStore = useClientListStore()
 const searchQuery = ref('')
 const loading = ref(false)
 const isTyping = ref(true)
@@ -14,19 +14,21 @@ const selectedStatus = ref()
 const rowPerPage = ref(10)
 const currentPage = ref(1)
 const totalPage = ref(1)
-const totalUsers = ref(0)
-let users = ref([])
+const totalClients = ref(0)
+let clients = ref([])
 
-// 👉 Fetching users
-const fetchUsers = () => {
-  userListStore.fetchUsers({
+// 👉 Fetching Clients
+const fetchClients = () => {
+  clientListStore.fetchClients({
      searchValue: searchQuery.value,
      perPage: rowPerPage.value,
      currentPage: currentPage.value,
   }).then(response => {
-     users.value = response.data.users.data
+
+     clients.value = response.data.clients.data
+    console.log(clients.value)
      totalPage.value = response.data.totalPage
-     totalUsers.value = response.data.totalUsers
+     totalClients.value = response.data.totalClients
     loading.value = false;
     // Focus on the text field after loading is complete
     // Focus on the text field after loading is complete
@@ -40,72 +42,25 @@ const fetchUsers = () => {
 
 
 
-watchEffect(fetchUsers)
+watchEffect(fetchClients)
 
 // 👉 watching current page
 watchEffect(() => {
   if (currentPage.value > totalPage.value)
     currentPage.value = totalPage.value
 })
-// 👉 Watching changes in searchQuery and executing fetchUsers
+// 👉 Watching changes in searchQuery and executing fetchClients
 watch(searchQuery, () => {
-  loading.value = true;
-  fetchUsers();
+
+  //loading.value = true;
+  fetchClients();
 });
 
-const status = [
-  {
-    title: 'Pending',
-    value: 'pending',
-  },
-  {
-    title: 'Active',
-    value: 'active',
-  },
-  {
-    title: 'Inactive',
-    value: 'inactive',
-  },
-]
 
-const resolveUserRoleVariant = role => {
-  if (role === 'subscriber')
-    return {
-      color: 'warning',
-      icon: 'tabler-user',
-    }
-  if (role === 'author')
-    return {
-      color: 'success',
-      icon: 'tabler-circle-check',
-    }
-  if (role === 'maintainer')
-    return {
-      color: 'primary',
-      icon: 'tabler-chart-pie-2',
-    }
-  if (role === 'editor')
-    return {
-      color: 'info',
-      icon: 'tabler-pencil',
-    }
-  if (role === 'admin')
-    return {
-      color: 'secondary',
-      icon: 'tabler-device-laptop',
-    }
-  
-  return {
-    color: 'primary',
-    icon: 'tabler-user',
-  }
-}
-
-
-const isAddNewUserDrawerVisible = ref(false)
-const isEditUserDrawerVisible = ref(false)
+const isAddNewClientDrawerVisible = ref(false)
+const isEditClientDrawerVisible = ref(false)
 const isDialogVisible = ref(false)
-let selectedUser = ref()
+let selectedClient = ref()
 
 // 👉 watching current page
 watchEffect(() => {
@@ -115,83 +70,51 @@ watchEffect(() => {
 
 // 👉 Computing pagination data
 const paginationData = computed(() => {
-  const firstIndex = users.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
-  const lastIndex = users.value.length + (currentPage.value - 1) * rowPerPage.value
+  const firstIndex = clients.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
+  const lastIndex = clients.value.length + (currentPage.value - 1) * rowPerPage.value
   
-  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalUsers.value } entries`
+  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalClients.value } entries`
 })
 
-const addNewUser = userData => {
-  userListStore.addUser(userData)
+const addNewClient = clientData => {
+  clientListStore.addClient(clientData)
 
   // refetch User
-  fetchUsers()
+  fetchClients()
 }
-const updateUser = userData => {
-  userListStore.updateUser(userData)
+
+const updateClient = clientData => {
+  clientListStore.updateClient(clientData)
 
   // refetch User
-  fetchUsers()
-}
-const deleteUser = userData =>  {
-  userListStore.deleteUser(userData)
-
-  // refetch User
-  fetchUsers()
+  fetchClients()
 }
 
-const openUpdateDrawer = (user) => {
-  isEditUserDrawerVisible.value = true;
-  selectedUser = user;
+const deleteClient = clientData =>  {
+  clientListStore.deleteClient(clientData)
 
+  // refetch Client
+  fetchClients()
 }
-const openConfirmationDialog = (user) => {
+
+const openUpdateDrawer = (client) => {
+  isEditClientDrawerVisible.value = true;
+  selectedClient = client;
+}
+
+const openConfirmationDialog = (client) => {
   isDialogVisible.value = true;
-  selectedUser = user;
+  selectedClient = client;
+
 }
 
-// 👉 List
-const userListMeta = [
-  {
-    icon: 'tabler-user',
-    color: 'primary',
-    title: 'Session',
-    stats: '21,459',
-    percentage: +29,
-    subtitle: 'Total Users',
-  },
-  {
-    icon: 'tabler-user-plus',
-    color: 'error',
-    title: 'Paid Users',
-    stats: '4,567',
-    percentage: +18,
-    subtitle: 'Last week analytics',
-  },
-  {
-    icon: 'tabler-user-check',
-    color: 'success',
-    title: 'Active Users',
-    stats: '19,860',
-    percentage: -14,
-    subtitle: 'Last week analytics',
-  },
-  {
-    icon: 'tabler-user-exclamation',
-    color: 'warning',
-    title: 'Pending Users',
-    stats: '237',
-    percentage: +42,
-    subtitle: 'Last week analytics',
-  },
-]
 </script>
 
 <template>
   <section>
     <VRow>
       <VCol cols="12">
-        <VCard title="Users">
+        <VCard title="Clients">
           <VDivider />
 
           <VCardText class="d-flex flex-wrap py-4 gap-4">
@@ -211,7 +134,7 @@ const userListMeta = [
 
             <div class="app-user-search-filter d-flex align-center flex-wrap gap-4">
               <!-- 👉 Search  -->
-              <div style="width: 10rem;">
+              <div style="width: 9rem;">
                 <v-progress-circular
                   v-if="loading"
                   indeterminate
@@ -236,12 +159,12 @@ const userListMeta = [
                 Export
               </VBtn>
 
-              <!-- 👉 Add user button -->
+              <!-- 👉 Add client button -->
               <VBtn
                 prepend-icon="tabler-plus"
-                @click="isAddNewUserDrawerVisible = true"
+                @click="isAddNewClientDrawerVisible = true"
               >
-                Add New User
+                Add New Client
               </VBtn>
             </div>
           </VCardText>
@@ -256,7 +179,7 @@ const userListMeta = [
                   ID
                 </th>
                 <th scope="col">
-                  USER
+                  Client
                 </th>
                 <th scope="col">
                   email
@@ -271,13 +194,13 @@ const userListMeta = [
             <!-- 👉 table body -->
             <tbody>
               <tr
-                v-for="user in users"
-                :key="user.id"
+                v-for="client in clients"
+                :key="client.id"
                 style="height: 3.75rem;"
               >
                 <!-- 👉 ID -->
                 <td>
-                  {{user.id}}
+                  {{client.id}}
                 </td>
 
                 <!-- 👉 User -->
@@ -285,34 +208,34 @@ const userListMeta = [
                   <div class="d-flex align-center">
                     <VAvatar
                       variant="tonal"
-                      :color="resolveUserRoleVariant(user.role).color"
+
                       class="me-3"
                       size="38"
                     >
                       <VImg
-                        v-if="user.avatar"
-                        :src="user.avatar"
+                        v-if="client.avatar"
+                        :src="client.avatar"
                       />
-                      <span v-else>{{ user.name.toUpperCase().charAt(0) }} </span>
+                      <span v-else>{{ client.name.toUpperCase().charAt(0) }} </span>
                     </VAvatar>
 
                     <div class="d-flex flex-column">
                       <h6 class="text-base">
                         <RouterLink
-                          :to="{ name: 'apps-user-view-id', params: { id: user.id } }"
+                          :to="{ name: 'apps-user-view-id', params: { id: client.id } }"
                           class="font-weight-medium user-list-name"
                         >
-                          {{ user.name }}
+                          {{ client.name }}
                         </RouterLink>
                       </h6>
-                      <span class="text-sm text-disabled">@{{ user.email }}</span>
+                      <span class="text-sm text-disabled">@{{ client.email }}</span>
                     </div>
                   </div>
                 </td>
 
                 <!-- 👉 email -->
                 <td>
-                  <span class="text-capitalize text-base font-weight-semibold">{{ user.email }}</span>
+                  <span class="text-capitalize text-base font-weight-semibold">{{ client.email }}</span>
                 </td>
 
 
@@ -326,7 +249,7 @@ const userListMeta = [
                     size="x-small"
                     color="default"
                     variant="text"
-                    @click="openUpdateDrawer(user)"
+                    @click="openUpdateDrawer(client)"
 
                   >
                     <VIcon
@@ -341,7 +264,7 @@ const userListMeta = [
                     size="x-small"
                     color="default"
                     variant="text"
-                    @click="openConfirmationDialog(user)"
+                    @click="openConfirmationDialog(client)"
 
                   >
                     <VIcon
@@ -379,7 +302,7 @@ const userListMeta = [
             </tbody>
 
             <!-- 👉 table footer  -->
-            <tfoot v-show="!users.length">
+            <tfoot v-show="!clients.length">
               <tr>
                 <td
                   colspan="7"
@@ -409,25 +332,26 @@ const userListMeta = [
       </VCol>
     </VRow>
 
-    <!-- 👉 Add New User -->
-    <AddNewUserDrawer
-      v-model:isDrawerOpen="isAddNewUserDrawerVisible"
-      @user-data="addNewUser"
+    <!-- 👉 Add New Client -->
+    <AddNewClientDrawer
+      v-model:isDrawerOpen="isAddNewClientDrawerVisible"
+      @client-data="addNewClient"
     />
 
-    <!-- 👉 Edit User -->
-    <EditUserDrawer
-      v-model:isDrawerOpen="isEditUserDrawerVisible"
-      v-model:user = "selectedUser"
-      @user-data="updateUser"
+    <!-- 👉 Edit Client -->
+    <EditClientDrawer
+      v-model:isDrawerOpen="isEditClientDrawerVisible"
+      v-model:client = "selectedClient"
+      @client-data="updateClient"
     />
 
     <ConfirmationDialog
       v-model:isDialogVisible="isDialogVisible"
-      v-model:user="selectedUser"
-      @user-data="deleteUser"
+      v-model:client="selectedClient"
+      @client-data="deleteClient"
       v-if="isDialogVisible"
       />
+
   </section>
 </template>
 
