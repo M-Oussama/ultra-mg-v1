@@ -102,7 +102,7 @@ class ProductController extends Controller
             'SKU' => 'string|max:255',
             'min_stock_level' => 'integer',
             'price' => 'numeric',
-            'is_available' => 'boolean',
+            'stockable' => 'boolean',
             'tax_rate' => 'numeric',
             'type_id' => 'integer',
         ]);
@@ -168,7 +168,7 @@ class ProductController extends Controller
             'SKU' => 'string|max:255',
             'min_stock_level' => 'integer',
             'price' => 'numeric',
-            'is_available' => 'boolean',
+            'stockable' => 'boolean',
             'tax_rate' => 'numeric',
             'type_id' => 'integer',
         ]);
@@ -176,6 +176,9 @@ class ProductController extends Controller
         $product = Product::find($id);
 
         $product->update($validatedData);
+
+        $product->stockable = $request->input('stockable');
+        $product->save();
 
         return response()->json(['message' => 'Product updated successfully', 'product' => $product]);
     }

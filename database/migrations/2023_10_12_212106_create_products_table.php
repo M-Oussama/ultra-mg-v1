@@ -23,10 +23,10 @@ return new class extends Migration
             $table->string('SKU')->nullable();
             $table->integer('min_stock_level')->default(0);
             $table->decimal('price', 10, 2);
-            $table->boolean('is_available')->default(false);
+            $table->boolean('stockable')->default(0);
             $table->decimal('tax_rate', 5, 2);
-            $table->unsignedBigInteger('type_id');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
