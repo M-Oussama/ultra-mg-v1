@@ -25,6 +25,7 @@ return new class extends Migration
             $table->string('NART')->nullable();
             $table->string('NIS')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

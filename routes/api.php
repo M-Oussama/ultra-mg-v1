@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -27,6 +28,13 @@ Route::get('/clients/list', [ClientController::class, 'getClients'])->name('getC
 Route::post('/clients/store', [ClientController::class, 'store'])->name('store');
 Route::post('/clients/update/{id}', [ClientController::class, 'update'])->name('update');
 Route::delete('/clients/delete/{id}', [ClientController::class, 'delete'])->name('delete');
+
+/** PRODUCTS  */
+
+Route::get('/products/list', [ProductController::class, 'getProducts'])->name('getProducts');
+Route::post('/products/store', [ProductController::class, 'store'])->name('store');
+Route::post('/products/update/{id}', [ProductController::class, 'update'])->name('update');
+Route::delete('/products/delete/{id}', [ProductController::class, 'delete'])->name('delete');
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

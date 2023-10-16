@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use OpenApi\Attributes as OA;
 
 #[OA\Schema(schema: "IClient",
@@ -26,7 +27,7 @@ use OpenApi\Attributes as OA;
 
 class Client extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.

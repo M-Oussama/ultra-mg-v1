@@ -110,5 +110,8 @@ export default [
   {
     title: 'Client', to: 'apps-client-list', icon: { icon: 'tabler-address-book' },
   },
+  {
+    title: 'Product', to: 'apps-product-list', icon: { icon: 'tabler-box' },
+  },
 
 ]
