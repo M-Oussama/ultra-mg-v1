@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use OpenApi\Attributes as OA;
 
 #[OA\Schema(
-        schema: "Product",
+        schema: "IProduct",
         required: ["id", "name", "brand", "description", "product_code", "category_id", "SKU", "min_stock_level", "price", "is_available", "tax_rate", "type_id", "created_at", "updated_at"],
         properties: [
             new OA\Property(property: "id", type: "integer", example: "1"),
