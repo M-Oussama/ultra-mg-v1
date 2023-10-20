@@ -5,6 +5,85 @@
         "version": "0.1"
     },
     "paths": {
+        "/api/certifyInvoices/list": {
+            "get": {
+                "tags": [
+                    "certifyInvoice"
+                ],
+                "summary": "get List Of All Invoices",
+                "description": "Returns the list of invoices",
+                "operationId": "getInvoices",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ICertifyInvoice"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/certifyInvoices/store": {
+            "post": {
+                "tags": [
+                    "certifyInvoice"
+                ],
+                "summary": "Create a new Certify Invoice",
+                "description": "Create a new Certify Invoice",
+                "operationId": "store",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "client_id",
+                                    "amount",
+                                    "date"
+                                ],
+                                "properties": {
+                                    "client_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": "123"
+                                    },
+                                    "date": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "example": "2023-08-13"
+                                    },
+                                    "payment_type": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ICertifyInvoice"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/clients/list": {
             "get": {
                 "tags": [
@@ -102,6 +181,380 @@
                                 "schema": {
                                     "$ref": "#/components/schemas/IClient"
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/clients/update/{id}": {
+            "post": {
+                "tags": [
+                    "clients"
+                ],
+                "description": "update Client",
+                "operationId": "updateClient",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "number"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "surname",
+                                    "email",
+                                    "address",
+                                    "phone",
+                                    "NRC",
+                                    "NIS",
+                                    "NART",
+                                    "NIF"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "john"
+                                    },
+                                    "surname": {
+                                        "type": "string",
+                                        "example": "john"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "0665461326"
+                                    },
+                                    "address": {
+                                        "type": "string",
+                                        "example": "address"
+                                    },
+                                    "NRC": {
+                                        "type": "string",
+                                        "example": "NRC"
+                                    },
+                                    "NIS": {
+                                        "type": "string",
+                                        "example": "NIS"
+                                    },
+                                    "NART": {
+                                        "type": "string",
+                                        "example": "NART"
+                                    },
+                                    "NIF": {
+                                        "type": "string",
+                                        "example": "NIF"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "example": "doe@gmail.com"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IClient"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/clients/delete/{id}": {
+            "delete": {
+                "tags": [
+                    "users"
+                ],
+                "summary": "Delete a client",
+                "description": "delete a client",
+                "operationId": "deleteClient",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "boolean"
+                                },
+                                "example": true
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/products/list": {
+            "get": {
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get List Of All Products",
+                "description": "Returns the list of products",
+                "operationId": "getProducts",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IProduct"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/products/store": {
+            "post": {
+                "tags": [
+                    "products"
+                ],
+                "summary": "Create a new product",
+                "description": "Create a new Product",
+                "operationId": "createProduct",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "brand",
+                                    "description",
+                                    "product_code",
+                                    "category_id",
+                                    "SKU",
+                                    "min_stock_level",
+                                    "price",
+                                    "is_available",
+                                    "tax_rate",
+                                    "type_id"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Sample Product"
+                                    },
+                                    "brand": {
+                                        "type": "string",
+                                        "example": "Sample Brand"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Product Description"
+                                    },
+                                    "product_code": {
+                                        "type": "string",
+                                        "example": "PROD123"
+                                    },
+                                    "category_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "SKU": {
+                                        "type": "string",
+                                        "example": "SKU123"
+                                    },
+                                    "min_stock_level": {
+                                        "type": "integer",
+                                        "example": "10"
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": "99.99"
+                                    },
+                                    "is_available": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "tax_rate": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": "0.08"
+                                    },
+                                    "type_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IProduct"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/products/update/{id}": {
+            "post": {
+                "tags": [
+                    "products"
+                ],
+                "summary": "Update a product",
+                "description": "Update a Product",
+                "operationId": "updateProduct",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "brand",
+                                    "description",
+                                    "product_code",
+                                    "category_id",
+                                    "SKU",
+                                    "min_stock_level",
+                                    "price",
+                                    "is_available",
+                                    "tax_rate",
+                                    "type_id"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Sample Product"
+                                    },
+                                    "brand": {
+                                        "type": "string",
+                                        "example": "Sample Brand"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Product Description"
+                                    },
+                                    "product_code": {
+                                        "type": "string",
+                                        "example": "PROD123"
+                                    },
+                                    "category_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    },
+                                    "SKU": {
+                                        "type": "string",
+                                        "example": "SKU123"
+                                    },
+                                    "min_stock_level": {
+                                        "type": "integer",
+                                        "example": "10"
+                                    },
+                                    "price": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": "99.99"
+                                    },
+                                    "is_available": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "tax_rate": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": "0.08"
+                                    },
+                                    "type_id": {
+                                        "type": "integer",
+                                        "example": "1"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IProduct"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/products/delete/{id}": {
+            "delete": {
+                "tags": [
+                    "products"
+                ],
+                "summary": "Delete a product",
+                "description": "Delete a Product",
+                "operationId": "deleteProduct",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "boolean"
+                                },
+                                "example": true
                             }
                         }
                     }
@@ -272,6 +725,56 @@
     },
     "components": {
         "schemas": {
+            "ICertifyInvoice": {
+                "required": [
+                    "id",
+                    "client_id",
+                    "amount",
+                    "date",
+                    "fac_id",
+                    "payment_type",
+                    "created_at",
+                    "updated_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "client_id": {
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "amount": {
+                        "type": "number",
+                        "example": "123"
+                    },
+                    "date": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-08-13"
+                    },
+                    "fac_id": {
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "payment_type": {
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-08-13"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-08-13"
+                    }
+                },
+                "type": "object"
+            },
             "IClient": {
                 "required": [
                     "id",
@@ -332,6 +835,87 @@
                         "type": "string",
                         "format": "date-time",
                         "example": "2023-08-13"
+                    }
+                },
+                "type": "object"
+            },
+            "IProduct": {
+                "required": [
+                    "id",
+                    "name",
+                    "brand",
+                    "description",
+                    "product_code",
+                    "category_id",
+                    "SKU",
+                    "min_stock_level",
+                    "price",
+                    "is_available",
+                    "tax_rate",
+                    "type_id",
+                    "created_at",
+                    "updated_at"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Sample Product"
+                    },
+                    "brand": {
+                        "type": "string",
+                        "example": "Sample Brand"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Product Description"
+                    },
+                    "product_code": {
+                        "type": "string",
+                        "example": "PROD123"
+                    },
+                    "category_id": {
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "SKU": {
+                        "type": "string",
+                        "example": "SKU123"
+                    },
+                    "min_stock_level": {
+                        "type": "integer",
+                        "example": "10"
+                    },
+                    "price": {
+                        "type": "number",
+                        "format": "float",
+                        "example": "99.99"
+                    },
+                    "is_available": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "tax_rate": {
+                        "type": "number",
+                        "format": "float",
+                        "example": "0.08"
+                    },
+                    "type_id": {
+                        "type": "integer",
+                        "example": "1"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-08-13T12:00:00Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2023-08-13T14:30:00Z"
                     }
                 },
                 "type": "object"

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CertifyInvoiceController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
@@ -35,6 +36,11 @@ Route::get('/products/list', [ProductController::class, 'getProducts'])->name('g
 Route::post('/products/store', [ProductController::class, 'store'])->name('store');
 Route::post('/products/update/{id}', [ProductController::class, 'update'])->name('update');
 Route::delete('/products/delete/{id}', [ProductController::class, 'delete'])->name('delete');
+
+/** Certify Invoices */
+Route::get('/certifyInvoices/list', [CertifyInvoiceController::class, 'getInvoices'])->name('getInvoices');
+Route::post('/certifyInvoices/store', [CertifyInvoiceController::class, 'store'])->name('store');
+
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

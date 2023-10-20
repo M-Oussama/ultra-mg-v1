@@ -11,7 +11,28 @@ const props = defineProps({
     required: true,
 
   },
+  product: {
+    type: Object,
+
+  },
 })
+
+// 👉 Watch for changes in the Client prop and update form fields
+watch(() => props.product, (newProduct) => {
+  console.log(newProduct);
+  if (newProduct) {
+      id.value =  newProduct.id || 0;
+      name.value = newProduct.name || '';
+      brand.value = newProduct.brand|| '';
+      description.value = newProduct.description|| '';
+      product_code.value = newProduct.product_code|| '';
+      sku.value = newProduct.SKU|| '';
+      min_stock_level.value = newProduct.min_stock_level || 0;
+      price.value = newProduct.price|| 0;
+      stockable.value = newProduct.stockable|| 0;
+      tax_rate.value = newProduct.tax_rate|| 0;
+  }
+});
 
 const emit = defineEmits([
   'update:isDrawerOpen',
@@ -20,6 +41,7 @@ const emit = defineEmits([
 
 const isFormValid = ref(false)
 const refForm = ref()
+const id = ref()
 const name = ref('')
 const brand = ref('')
 const description = ref('')
@@ -27,8 +49,9 @@ const product_code = ref('')
 const sku = ref('')
 const min_stock_level = ref(0)
 let price = ref(0)
-let stockable = ref(false)
+let stockable = ref(0)
 const tax_rate = ref(0.00)
+
 // 👉 drawer close
 const closeNavigationDrawer = () => {
   emit('update:isDrawerOpen', false)
@@ -42,6 +65,7 @@ const onSubmit = () => {
   refForm.value?.validate().then(({ valid }) => {
     if (valid) {
       emit('productData', {
+        id: id.value,
         name : name.value,
         brand: brand.value,
         description: description.value,
@@ -49,7 +73,7 @@ const onSubmit = () => {
         SKU: sku.value,
         min_stock_level: min_stock_level.value,
         price: price.value,
-        stockable: stockable.value,
+        stockable: !!stockable.value,
         tax_rate: tax_rate.value,
       })
       emit('update:isDrawerOpen', false)
@@ -73,12 +97,12 @@ const handleDrawerModelValueUpdate = val => {
     location="end"
     class="scrollable-content"
     :model-value="props.isDrawerOpen"
-    @update:model-value="handleDrawerModelValueUpdate"
+
   >
     <!-- 👉 Title -->
     <div class="d-flex align-center pa-6 pb-1">
       <h6 class="text-h6">
-        Add User
+        Edit Product
       </h6>
 
       <VSpacer />
@@ -109,7 +133,6 @@ const handleDrawerModelValueUpdate = val => {
             @submit.prevent="onSubmit"
           >
             <VRow>
-              <!-- 👉 name -->
               <VCol cols="12">
                 <VTextField
                   v-model="name"
@@ -181,6 +204,9 @@ const handleDrawerModelValueUpdate = val => {
                   label="Tax Rate"
                 />
               </VCol>
+
+
+
 
               <!-- 👉 Submit and Cancel -->
               <VCol cols="12">

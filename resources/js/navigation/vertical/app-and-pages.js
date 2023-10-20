@@ -113,5 +113,8 @@ export default [
   {
     title: 'Product', to: 'apps-product-list', icon: { icon: 'tabler-box' },
   },
+  {
+    title: 'Certify Invoices', to: 'apps-certifyInvoice-list', icon: { icon: 'tabler-archive' },
+  },
 
 ]
