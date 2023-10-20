@@ -25,6 +25,14 @@ class CertifyInvoices extends Model
 {
     use HasFactory;
 
+    protected $fillable = [
+        'client_id',
+        'amount',
+        'date',
+        'payment_type',
+        'fac_id'
+    ];
+
     protected $with = [
       'client'
     ];

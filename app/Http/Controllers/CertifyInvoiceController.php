@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CertifyInvoiceProducts;
 use App\Models\CertifyInvoices;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,6 +55,16 @@ class CertifyInvoiceController extends Controller
                     new OA\Property(property: "amount", type: "number", format: "float", example: "123"),
                     new OA\Property(property: "date",  type: "string", format: "date-time", example: "2023-08-13"),
                     new OA\Property(property: "payment_type", type: "integer", example: "1"),
+                    new OA\Property(property: "products", type: "array",
+                        items: new OA\Items(
+                            properties: [  // Example object of type object
+                            new OA\Property(property: "product_id", type: "integer", example: "1"),
+                            new OA\Property(property: "quantity", type: "number", example: "2"),
+                            new OA\Property(property: "price", type: "number", example: "2"),
+                            new OA\Property(property: "total", type: "number", example: "2"),
+                            ],
+
+                        )),
 
                 ]
             )
@@ -72,14 +83,29 @@ class CertifyInvoiceController extends Controller
 
     public function store(Request $request) {
 
-        $validatedData = $request->validate([
+        $request->validate([
             'client_id' => 'required|integer',
             'amount' => 'required|numeric',
             'date' => 'required|date',
             'payment_type' => 'required|integer',
         ]);
 
-        //$product = CertifyInvoices::create($validatedData);
+        $validatedData = array_merge($request->all(), ['fac_id' => '1']);
+
+        $invoice = CertifyInvoices::create($validatedData);
+
+        $products = $request->input('products');
+
+        foreach ($products as $product) {
+
+            CertifyInvoiceProducts::create([
+               'product_id' => $product['product_id'],
+               'price' => $product['price'],
+               'quantity' => $product['quantity'],
+               'total' => $product['total'],
+               'certify_invoice_id' => $invoice->id,
+            ]);
+        }
 
         return response()->json(['message' => 'Product created successfully', 'product' => $validatedData]);
 

@@ -8,4 +8,12 @@ use Illuminate\Database\Eloquent\Model;
 class CertifyInvoiceProducts extends Model
 {
     use HasFactory;
+
+    protected $fillable = [
+        'certify_invoice_id',
+        'product_id',
+        'price',
+        'quantity',
+        'total',
+    ];
 }

@@ -76,7 +76,6 @@ class ProductController extends Controller
                     new OA\Property(property: "price", type: "number", format: "float", example: "99.99"),
                     new OA\Property(property: "is_available", type: "boolean", example: true),
                     new OA\Property(property: "tax_rate", type: "number", format: "float", example: "0.08"),
-                    new OA\Property(property: "type_id", type: "integer", example: "1"),
                 ]
             )
         ]
@@ -104,7 +103,6 @@ class ProductController extends Controller
             'price' => 'numeric',
             'stockable' => 'boolean',
             'tax_rate' => 'numeric',
-            'type_id' => 'integer',
         ]);
 
         $product = Product::create($validatedData);

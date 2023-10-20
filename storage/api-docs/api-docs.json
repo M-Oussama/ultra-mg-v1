@@ -63,6 +63,30 @@
                                     "payment_type": {
                                         "type": "integer",
                                         "example": "1"
+                                    },
+                                    "products": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "product_id": {
+                                                    "type": "integer",
+                                                    "example": "1"
+                                                },
+                                                "quantity": {
+                                                    "type": "number",
+                                                    "example": "2"
+                                                },
+                                                "price": {
+                                                    "type": "number",
+                                                    "example": "2"
+                                                },
+                                                "total": {
+                                                    "type": "number",
+                                                    "example": "2"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
                                     }
                                 },
                                 "type": "object"
@@ -400,10 +424,6 @@
                                         "type": "number",
                                         "format": "float",
                                         "example": "0.08"
-                                    },
-                                    "type_id": {
-                                        "type": "integer",
-                                        "example": "1"
                                     }
                                 },
                                 "type": "object"

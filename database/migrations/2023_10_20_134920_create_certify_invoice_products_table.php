@@ -19,7 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('product_id');
             $table->unsignedBigInteger('price');
             $table->unsignedBigInteger('quantity');
-            $table->unsignedBigInteger('amount');
+            $table->unsignedBigInteger('total');
             $table->timestamps();
             $table->softDeletes();
         });
