@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from '@axios'
 import { successMiddleware } from '@/middlewares/successMiddleware';
-import {errorsMiddleware} from "@/middlewares/errorsMiddleware"; // Import your success middleware
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 
 export const useCertifyInvoiceListStore = defineStore('CertifyInvoiceListStore', {
   actions: {
@@ -16,17 +16,13 @@ export const useCertifyInvoiceListStore = defineStore('CertifyInvoiceListStore',
       const { client_id, date, amount, payment_type, products} = invoiceData;
       return new Promise((resolve, reject) => {
         axios.post('/api/certifyInvoices/store', {
-          client_id,
-          date,
-          amount,
-          payment_type,
-          products,
+          invoiceData,
         }).then(response => {
-          this.successMiddleware(response);
+
           resolve(response)
         })
           .catch(error => {
-            this.errorsMiddleware(error);
+
             reject(error)
 
           })

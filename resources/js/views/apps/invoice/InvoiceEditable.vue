@@ -5,6 +5,7 @@ import { themeConfig } from '@themeConfig'
 import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
 import "vue-search-select/dist/VueSearchSelect.css"
 import { ModelListSelect } from 'vue-search-select'
+import { requiredValidator } from '@validators'
 
 const props = defineProps({
   data: {
@@ -16,11 +17,10 @@ const props = defineProps({
 const certifyInvoiceListStore = useCertifyInvoiceListStore()
 
 // 👉 Clients
-const products = ref([])
+const selectedProducts = ref([])
 let availableproducts = ref([])
 let placeholder_value = ref('Search for a Product')
-const  added_products = ref([])
-const selectedProducts = ref([])
+const added_products = ref([])
 let totalInvoice = ref(0)
 const product = ref({
   id: -1,
@@ -59,16 +59,36 @@ const selectedItem = ref({
     quantity : 0,
   }
 })
+const defaultSelect = ref({
+  id: -1,
+  name: '',
+  brand: '',
+  description: '',
+  product_code: '',
+  SKU: '',
+  price: 0,
+  stockable: false,
+  tax_rate: 0,
+  product_stock: {
+    quantity : 0,
+  }
+})
+
+watch(props.data , ()=> {
+  console.log(availableproducts.value.length)
+  if(availableproducts.value.length ===0)
+     availableproducts.value = Array.from(props.data.products);
+})
 
 // 👉 fetchClients
-certifyInvoiceListStore.fetchData().then(response => {
-  products.value = response.data.products
-  //companyProfile.value = response.data.companyProfile
-
-  availableproducts.value = Array.from(products.value);
-}).catch(err => {
-  console.log(err)
-})
+// certifyInvoiceListStore.fetchData().then(response => {
+//   products.value = response.data.products
+//   //companyProfile.value = response.data.companyProfile
+//
+//   //availableproducts.value = Array.from(props.data.products);
+// }).catch(err => {
+//   console.log(err)
+// })
 
 function findIndexById(selectedProducts, selectedItemId) {
   for (let i = 0; i < selectedProducts.value.length; i++) {
@@ -86,18 +106,22 @@ const totalAmount = data => {
 
 function updateValueInsideArray(data) {
   const index = findIndexById(added_products, data._value.id);
+  const index2 = props.data.purchasedProducts.findIndex(p => p._value.id === data._value.id)
 
   if(index !== -1) {
     added_products._value[index]._value.price = data._value.price
+    props.data.purchasedProducts[index]._value.price = data._value.price
   }
 }
 
 function computeTotal() {
 // Calculate total price for each product (price * quantity)
   let totalPrices = added_products._value.map(product => product._value.price * product._value.product_stock.quantity);
-
+  let totalPrices2 = props.data.purchasedProducts.map(product => product._value.price * product._value.product_stock.quantity);
+  console.log(totalPrices2)
 // Calculate the overall total by summing up the total prices using reduce
-  totalInvoice.value = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+  totalInvoice.value = totalPrices2.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+  props.data.invoice.total = totalPrices2.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
 }
 
 // 👉 Add item function
@@ -106,16 +130,15 @@ const addItem = () => {
   const index_new_selected = findIndexById(selectedProducts, selectedItem.value.id);
   const index_available_selected = availableproducts.value.findIndex(p => p.id === selectedItem.value.id)
 
-  if(products.value.length >= added_products.value.length && selectedItem.value.id !== -1 && index_new_selected ===-1) {
+  if(props.data.products.length >= added_products.value.length && selectedItem.value.id !== -1 && index_new_selected ===-1) {
     added_products.value.push({...selectedItem});
+    props.data.purchasedProducts.push({...selectedItem});
     selectedProducts.value.push({...selectedItem});
     if(index_available_selected !== -1){
-      availableproducts.value.splice(index_available_selected,1);
+      availableproducts._value.splice(index_available_selected,1);
       placeholder_value.value = "Search for a Product";
     }
-
     computeTotal()
-
   }
 }
 
@@ -127,6 +150,8 @@ const removeProduct = Item => {
   const index_available_selected = availableproducts.value.findIndex(p => p.id === Item._rawValue.id);
   const index_selected_selected = findIndexById(selectedProducts, Item._rawValue.id);
   const index_added_product = findIndexById(added_products, Item._rawValue.id);
+  const index2 = props.data.purchasedProducts.findIndex(p => p._value.id === Item._rawValue.id)
+
 
   if(index_available_selected === -1) {
     availableproducts.value.push({...Item._rawValue});
@@ -136,6 +161,8 @@ const removeProduct = Item => {
   }
   if(index_added_product !== -1) {
     added_products.value.splice(index_added_product,1);
+    props.data.purchasedProducts.splice(index2,1);
+
     computeTotal()
   }
 }
@@ -257,7 +284,7 @@ const productfullName = item => {
             <td class="pe-6">
               Payment Method:
             </td>
-            <td>{{ props.data.invoice.selectedPaymentMethod }}</td>
+            <td class="font-weight-semibold">{{ props.data.selectedPaymentMethod }}</td>
           </tr>
             <tr>
               <td class="pe-6">
@@ -337,7 +364,7 @@ const productfullName = item => {
 
       </div>
       <div
-        v-for="(_product, index) in added_products"
+        v-for="(_product, index) in props.data.purchasedProducts"
         :key="index"
         class="ma-sm-4"
       >

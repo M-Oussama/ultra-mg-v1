@@ -94,32 +94,34 @@ class CertifyInvoiceController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $invoiceData = $request->input('invoiceData');
+        $invoice = $invoiceData['invoice'];
+        $client = $invoice['client'];
 
-        $request->validate([
-            'client_id' => 'required|integer',
-            'amount' => 'required|numeric',
-            'date' => 'required|date',
-            'payment_type' => 'required|integer',
+        $fac_id = 1;
+
+         $invoice = CertifyInvoices::create([
+            'fac_id' => $fac_id,
+            'date' => $invoice['date'],
+            'client_id' => $client['id'],
+            'amount' => $invoice['total'],
+            'payment_type' => $invoiceData['selectedPaymentMethod'],
         ]);
 
-        $validatedData = array_merge($request->all(), ['fac_id' => '1']);
-
-        $invoice = CertifyInvoices::create($validatedData);
-
-        $products = $request->input('products');
+        $products = $invoiceData['purchasedProducts'];
 
         foreach ($products as $product) {
 
             CertifyInvoiceProducts::create([
-               'product_id' => $product['product_id'],
-               'price' => $product['price'],
-               'quantity' => $product['quantity'],
-               'total' => $product['total'],
+               'product_id' => $product['_value']['id'],
+               'price' => $product['_value']['price'],
+               'quantity' => $product['_value']['product_stock']['quantity'],
+               'total' => $product['_value']['product_stock']['quantity'] * $product['_value']['price'],
                'certify_invoice_id' => $invoice->id,
             ]);
         }
 
-        return response()->json(['message' => 'Product created successfully', 'product' => $validatedData]);
+        return response()->json(['message' => 'Product created successfully']);
 
     }
 
