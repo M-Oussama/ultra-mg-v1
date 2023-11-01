@@ -2,10 +2,9 @@
 import AddNewProductDrawer from '@/views/apps/product/list/AddNewProductDrawer.vue'
 import EditProductDrawer from '@/views/apps/product/list/EditProductDrawer.vue';
 import ConfirmationDialog from '@/views/apps/product/list/ConfirmationDialog.vue';
-import { useProductListStore } from '@/views/apps/product/useProductListStore'
+import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
 
-
-const productListStore = useProductListStore()
+const invoiceListStore = useCertifyInvoiceListStore()
 const searchQuery = ref('')
 const loading = ref(false)
 const isTyping = ref(true)
@@ -15,22 +14,22 @@ const selectedStatus = ref()
 const rowPerPage = ref(10)
 const currentPage = ref(1)
 const totalPage = ref(1)
-const totalProducts = ref(0)
-let products = ref([])
-
+const totalInvoices = ref(0)
+let invoices = ref([])
 
 // 👉 Fetching products
 const fetchProducts = () => {
-  console.log(app.config)
-  productListStore.fetchProducts({
+  invoiceListStore.fetchCertifyInvoices({
      searchValue: searchQuery.value,
      perPage: rowPerPage.value,
      currentPage: currentPage.value,
   }).then(response => {
-     products.value = response.data.products.data
+    console.log(response.data.invoices.data);
+     invoices.value = response.data.invoices.data
      totalPage.value = response.data.totalPage
-     totalProducts.value = response.data.totalProducts
-     loading.value = false;
+     totalInvoices.value = response.data.totalInvoices
+    loading.value = false;
+
   }).catch(error => {
     console.error(error)
 
@@ -111,10 +110,10 @@ watchEffect(() => {
 
 // 👉 Computing pagination data
 const paginationData = computed(() => {
-  const firstIndex = products.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
-  const lastIndex = products.value.length + (currentPage.value - 1) * rowPerPage.value
+  const firstIndex = invoices.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
+  const lastIndex = invoices.value.length + (currentPage.value - 1) * rowPerPage.value
   
-  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalProducts.value } entries`
+  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalInvoices.value } entries`
 })
 
 const addNewProduct = productData => {
@@ -187,7 +186,7 @@ const productListMeta = [
   <section>
     <VRow>
       <VCol cols="12">
-        <VCard title="Products">
+        <VCard title="Certify Invoices">
           <VDivider />
 
           <VCardText class="d-flex flex-wrap py-4 gap-4">
@@ -199,7 +198,7 @@ const productListMeta = [
                 v-model="rowPerPage"
                 density="compact"
                 variant="outlined"
-                :items="[10, 20, 30, 50]"
+                :items="[10, 20, 30, 50, 100]"
               />
             </div>
 
@@ -232,12 +231,12 @@ const productListMeta = [
                 Export
               </VBtn>
 
-              <!-- 👉 Add product button -->
+              <!-- 👉 Add Certify Invoices button -->
               <VBtn
                 prepend-icon="tabler-plus"
                 @click="isAddNewProductDrawerVisible = true"
               >
-                Add New Product
+                Add New Invoice
               </VBtn>
             </div>
           </VCardText>
@@ -252,13 +251,16 @@ const productListMeta = [
                   ID
                 </th>
                 <th scope="col">
-                  Product
+                  Reference
                 </th>
                 <th scope="col">
-                  SKU
+                  Client
                 </th>
                 <th scope="col">
-                  Stockable
+                  AMOUNT (TTC)
+                </th>
+                <th scope="col">
+                  Date
                 </th>
 
 
@@ -270,13 +272,17 @@ const productListMeta = [
             <!-- 👉 table body -->
             <tbody>
               <tr
-                v-for="product in products"
-                :key="product.id"
+                v-for="invoice in invoices"
+                :key="invoice.id"
                 style="height: 3.75rem;"
               >
                 <!-- 👉 ID -->
                 <td>
-                  {{product.id}}
+                  {{invoice.id}}
+                </td>
+                <!-- 👉 Reference -->
+                <td>
+                 <span class="text-capitalize text-base font-weight-semibold"> FAJ/{{ new Date(invoice.date).getFullYear()  }}/{{invoice.id}}</span>
                 </td>
 
                 <!-- 👉 Product -->
@@ -284,42 +290,38 @@ const productListMeta = [
                   <div class="d-flex align-center">
                     <VAvatar
                       variant="tonal"
-                      :color="resolveProductRoleVariant(product.role).color"
+                      :color="resolveProductRoleVariant(invoice.role).color"
                       class="me-3"
                       size="38"
                     >
                       <VImg
-                        v-if="product.avatar"
-                        :src="product.avatar"
+                        v-if="invoice.avatar"
+                        :src="invoice.avatar"
                       />
-                      <span v-else>{{ product.name.toUpperCase().charAt(0) }} </span>
+                      <span v-else>{{ invoice.client.name.toUpperCase().charAt(0) }} </span>
                     </VAvatar>
 
                     <div class="d-flex flex-column">
                       <h6 class="text-base">
                         <RouterLink
-                          :to="{ name: 'apps-user-view-id', params: { id: product.id } }"
+                          :to="{ name: 'apps-user-view-id', params: { id: invoice.id } }"
                           class="font-weight-medium user-list-name"
                         >
-                          {{ product.name }}
+                          {{ invoice.client.name }}
                         </RouterLink>
                       </h6>
-                      <span class="text-sm text-disabled">@{{ product.brand }}</span>
+                      <span class="text-sm text-disabled">@{{ invoice.id }}</span>
                     </div>
                   </div>
                 </td>
 
                 <!-- 👉 email -->
                 <td>
-                  <span class="text-capitalize text-base font-weight-semibold">{{ product.SKU }}</span>
+                  <span class="text-capitalize text-base font-weight-semibold">{{ invoice.amount }}</span>
                 </td>
-                <td>
-                  <VChip
-                    :color="product.stockable ? 'success' : 'error'"
-                    variant="elevated"
-                  >
-                    {{ product.stockable ? 'YES' : 'NO' }}
-                  </VChip>
+                <td class="bold">
+
+                   <span class="text-capitalize text-base font-weight-semibold"> {{ invoice.date}}</span>
                 </td>
 
 
@@ -333,7 +335,7 @@ const productListMeta = [
                     size="x-small"
                     color="default"
                     variant="text"
-                    @click="openUpdateDrawer(product)"
+                    @click="openUpdateDrawer(invoice)"
 
                   >
                     <VIcon
@@ -348,7 +350,7 @@ const productListMeta = [
                     size="x-small"
                     color="default"
                     variant="text"
-                    @click="openConfirmationDialog(product)"
+                    @click="openConfirmationDialog(invoice)"
 
                   >
                     <VIcon
@@ -386,7 +388,7 @@ const productListMeta = [
             </tbody>
 
             <!-- 👉 table footer  -->
-            <tfoot v-show="!products.length">
+            <tfoot v-show="!invoices.length">
               <tr>
                 <td
                   colspan="7"

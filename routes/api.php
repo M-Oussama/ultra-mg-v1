@@ -40,6 +40,7 @@ Route::delete('/products/delete/{id}', [ProductController::class, 'delete'])->na
 /** Certify Invoices */
 Route::get('/certifyInvoices/list', [CertifyInvoiceController::class, 'getInvoices'])->name('getInvoices');
 Route::post('/certifyInvoices/store', [CertifyInvoiceController::class, 'store'])->name('store');
+Route::get('/certifyInvoices/getData', [CertifyInvoiceController::class, 'getData'])->name('getClientProductData');
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

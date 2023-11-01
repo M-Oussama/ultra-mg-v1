@@ -1,5 +1,8 @@
 <!-- eslint-disable vue/no-mutating-props -->
 <script setup>
+import "vue-search-select/dist/VueSearchSelect.css"
+import { ModelListSelect } from 'vue-search-select'
+
 const props = defineProps({
   id: {
     type: Number,
@@ -9,10 +12,18 @@ const props = defineProps({
     type: Object,
     required: true,
     default: () => ({
-      title: 'App Design',
-      cost: 24,
-      hours: 1,
-      description: 'Designed UI kit & app pages.',
+      id: '',
+      name: '',
+      brand: '',
+      description: '',
+      product_code: '',
+      SKU: '',
+      price: 15,
+      stockable: false,
+      tax_rate: 0.5,
+      product_stock:{
+        quantity:0
+      }
     }),
   },
 })
@@ -22,60 +33,29 @@ const emit = defineEmits([
   'totalAmount',
 ])
 
-const itemsOptions = [
-  {
-    title: 'App Design',
-    cost: 24,
-    hours: 1,
-    description: 'Designed UI kit & app pages.',
-  },
-  {
-    title: 'App Customization',
-    cost: 26,
-    hours: 1,
-    description: 'Customization & Bug Fixes.',
-  },
-  {
-    title: 'ABC Template',
-    cost: 28,
-    hours: 1,
-    description: 'Vuetify admin template.',
-  },
-  {
-    title: 'App Development',
-    cost: 32,
-    hours: 1,
-    description: 'Native App Development.',
-  },
-]
+const totalPrice = computed(() => Number(props.data._value.price) * Number(props.data._value.product_stock.quantity))
 
-const selectedItem = ref({
-  title: 'App Customization',
-  cost: 26,
-  hours: 1,
-  description: 'Customization & Bug Fixes.',
-})
-
-watch(selectedItem, () => {
-  props.data.cost = structuredClone(toRaw(selectedItem.value.cost))
-  props.data.hours = structuredClone(toRaw(selectedItem.value.hours))
-  props.data.description = structuredClone(toRaw(selectedItem.value.description))
-  props.data.title = structuredClone(toRaw(selectedItem.value.title))
-})
 
 const removeProduct = () => {
-  emit('removeProduct', props.id)
+  emit('removeProduct', props.data)
+}
+const totalAmount = () => {
+  emit('totalAmount', props.data)
 }
 
-const totalPrice = computed(() => Number(props.data.cost) * Number(props.data.hours))
-
 watch(totalPrice, () => {
-  emit('totalAmount', totalPrice.value)
+
+  console.log("watch price")
+  totalAmount()
 }, { immediate: true })
+
+
+
 </script>
 
 <template>
   <!-- eslint-disable vue/no-mutating-props -->
+
   <div class="add-products-header mb-2 d-none d-md-flex">
     <VRow class="font-weight-medium px-4">
       <VCol
@@ -91,28 +71,27 @@ watch(totalPrice, () => {
         md="2"
       >
         <span class="text-sm">
-          Cost
-        </span>
-      </VCol>
-      <VCol
-        cols="12"
-        md="2"
-      >
-        <span class="text-sm">
-          Hours
-        </span>
-      </VCol>
-      <VCol
-        cols="12"
-        md="2"
-      >
-        <span class="text-sm">
           Price
+        </span>
+      </VCol>
+      <VCol
+        cols="12"
+        md="2"
+      >
+        <span class="text-sm">
+          Quantity
+        </span>
+      </VCol>
+      <VCol
+        cols="12"
+        md="2"
+      >
+        <span class="text-sm">
+          Total
         </span>
       </VCol>
     </VRow>
   </div>
-
   <VCard
     flat
     border
@@ -121,24 +100,23 @@ watch(totalPrice, () => {
     <!-- 👉 Left Form -->
     <div class="pa-5 flex-grow-1">
       <VRow>
-        <VCol
-          cols="12"
-          md="6"
-        >
-          <VSelect
-            v-model="selectedItem"
-            :items="itemsOptions"
-            label="Select Item"
-            return-object
-            class="mb-3"
-          />
 
-          <VTextarea
-            v-model="props.data.description"
-            rows="2"
-            label="Description"
-            placeholder="Description"
-          />
+
+          <VCol
+            cols="12"
+            md="6"
+            sm="4"
+          >
+            <VTextField
+              v-model="props.data._value.name"
+              type="string"
+              label="Product"
+              disabled
+            />
+
+            <span>{{props.data}}</span>
+
+
         </VCol>
         <VCol
           cols="12"
@@ -146,25 +124,12 @@ watch(totalPrice, () => {
           sm="4"
         >
           <VTextField
-            v-model="props.data.cost"
+            v-model="props.data._value.price"
             type="number"
-            label="Cost"
+            label="Price"
           />
 
-          <div class="text-body-2 text-no-wrap mt-4">
-            <p class="mb-1">
-              Discount
-            </p>
-            <span>0%</span>
-            <span class="mx-2">
-              0%
-              <VTooltip activator="parent">Tax 1</VTooltip>
-            </span>
-            <span>
-              0%
-              <VTooltip activator="parent">Tax 2</VTooltip>
-            </span>
-          </div>
+
         </VCol>
         <VCol
           cols="12"
@@ -172,9 +137,9 @@ watch(totalPrice, () => {
           sm="4"
         >
           <VTextField
-            v-model="props.data.hours"
+            v-model="props.data._value.product_stock.quantity"
             type="number"
-            label="Hours"
+            label="Quantity"
           />
         </VCol>
         <VCol
@@ -184,7 +149,7 @@ watch(totalPrice, () => {
         >
           <p class="text-sm-center my-2">
             <span class="d-inline d-md-none">Price: </span>
-            <span class="text-body-1">${{ totalPrice }}</span>
+            <span class="text-body-1">{{ totalPrice.toFixed(2) }} DZD</span>
           </p>
         </VCol>
       </VRow>
@@ -198,6 +163,7 @@ watch(totalPrice, () => {
         color="default"
         variant="text"
         @click="removeProduct"
+
       >
         <VIcon
           size="20"
@@ -205,17 +171,28 @@ watch(totalPrice, () => {
         />
       </VBtn>
 
-      <VBtn
-        icon
-        size="x-small"
-        color="default"
-        variant="text"
-      >
-        <VIcon
-          size="20"
-          icon="tabler-settings"
-        />
-      </VBtn>
     </div>
   </VCard>
 </template>
+
+<style>
+select option:first-child {
+  font-size: 7pt;
+}
+.ui.dropdown {
+  font-size: large;
+}
+.ui.dropdown .menu>.item {
+  font-size: large;
+}
+.ui.search.selection.dropdown>input.search {
+  font-size: large;
+}
+.v-card {
+  position: unset;
+  overflow: visible;
+}
+.selection> div {
+  color: #000 !important;
+}
+</style>

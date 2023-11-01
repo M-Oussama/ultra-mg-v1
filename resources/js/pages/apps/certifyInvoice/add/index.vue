@@ -1,5 +1,6 @@
 <script setup>
 import InvoiceEditable from '@/views/apps/invoice/InvoiceEditable.vue'
+import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
 
 const invoiceData = ref({
   invoice: {
@@ -12,16 +13,12 @@ const invoiceData = ref({
     balance: '',
     dueDate: '',
     client: {
-      id: '',
-      name: '',
-      surname: '',
       address: '',
-      email: '',
-      phone: '',
-      NRC: '',
-      NIF: '',
-      NART: '',
-      NIS: '',
+      company: '',
+      companyEmail: '',
+      contact: '',
+      country: '',
+      name: '',
     },
   },
   paymentDetails: {
@@ -32,13 +29,21 @@ const invoiceData = ref({
     swiftCode: 'BR91905',
   },
   purchasedProducts: [{
-    title: '',
-    cost: 0,
-    hours: 0,
+    id: '',
+    name: '',
+    brand: '',
     description: '',
+    product_code: '',
+    SKU: '',
+    price: 15,
+    stockable: false,
+    tax_rate: 0.5,
   }],
+  clients:[],
+  products:[],
   note: '',
   paymentMethod: '',
+  selectedPaymentMethod: '',
   salesperson: '',
   thanksNote: '',
 })
@@ -46,18 +51,40 @@ const invoiceData = ref({
 const paymentTerms = ref(true)
 const clientNotes = ref(false)
 const paymentStub = ref(false)
-const selectedPaymentMethod = ref('Bank Account')
-
+const loading = ref(false)
 const paymentMethods = [
-  'Bank Account',
-  'PayPal',
-  'UPI Transfer',
+  'Espece',
+  'Cheque',
+  'Versement Bancaire',
 ]
 
-const saveInvoice = () => {
+const certifyInvoiceListStore = useCertifyInvoiceListStore()
 
-  console.log('save')
+// 👉 fetchClients
+certifyInvoiceListStore.fetchData().then(response => {
+  invoiceData.value.clients = response.data.clients
+  invoiceData.value.products = response.data.products
+  //companyProfile.value = response.data.companyProfile
+}).catch(err => {
+  console.log(err)
+})
+
+const saveInvoice = () => {
+  if(!loading){
+    loading.value = true;
+  }
+
+  console.log(invoiceData);
+
+ /*certifyInvoiceListStore.addCertifyInvoice().then(response => {
+
+
+  }).catch(err => {
+    console.log(err)
+  })*/
 }
+
+
 </script>
 
 <template>
@@ -98,21 +125,22 @@ const saveInvoice = () => {
           </VBtn>
 
           <!-- 👉 Save -->
-          <v-btn
+          <VBtn
+            :loading="loading"
+            :disabled="loading"
             block
-            color="default"
-            variant="tonal"
+            color="success"
+
             @click="saveInvoice"
           >
             Save
-          </v-btn>
-
+          </VBtn>
         </VCardText>
       </VCard>
 
       <!-- 👉 Select payment method -->
       <VSelect
-        v-model="selectedPaymentMethod"
+        v-model="invoiceData.selectedPaymentMethod"
         :items="paymentMethods"
         label="Accept Payment Via"
         class="mb-6"

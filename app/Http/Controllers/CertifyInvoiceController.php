@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\CertifyInvoiceProducts;
 use App\Models\CertifyInvoices;
+use App\Models\Client;
+use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -14,6 +16,7 @@ class CertifyInvoiceController extends Controller
     /**
      * get List Of All Invoices
      *
+     * @param Request $request
      * @return JsonResponse
      */
 
@@ -27,10 +30,18 @@ class CertifyInvoiceController extends Controller
         ref: "#/components/schemas/ICertifyInvoice",
         type: 'object'
     )])]
-    public function getInvoices(): JsonResponse
+    public function getInvoices(Request $request): JsonResponse
     {
-        $invoices = CertifyInvoices::all();
-        return response()->json($invoices);
+        $searchValue = $request->input('searchValue', ''); // search value
+        $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
+        $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
+
+
+        $invoices = CertifyInvoices::paginate($perPage, ['*'], 'page', $currentPage);
+        $totalInvoices = $invoices->total(); // Total number of invoices matching the query
+        $totalPage = ceil($totalInvoices / $perPage); // Calculate total pages
+
+        return response()->json(["invoices" => $invoices, "totalPage" => $totalPage, "totalInvoices"=>$totalInvoices]);
     }
 
     /**
@@ -81,7 +92,8 @@ class CertifyInvoiceController extends Controller
         ]
     )]
 
-    public function store(Request $request) {
+    public function store(Request $request): JsonResponse
+    {
 
         $request->validate([
             'client_id' => 'required|integer',
@@ -109,5 +121,28 @@ class CertifyInvoiceController extends Controller
 
         return response()->json(['message' => 'Product created successfully', 'product' => $validatedData]);
 
+    }
+
+    /**
+     * get List Of Clients and Products
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+
+    #[OA\Get(
+        path: "/api/certifyInvoices/getData",
+        operationId: "getData",
+        description: "Returns the list of clients and products",
+        tags: ["certifyInvoice"],
+    )]
+    #[OA\Response(response:200, description: "Success", content: [new OA\JsonContent(
+        type: 'object'
+    )])]
+    public function getData(Request $request): JsonResponse {
+        $clients = Client::all();
+        $products = Product::all();
+
+        return response()->json(["clients" => $clients, "products" => $products]);
     }
 }

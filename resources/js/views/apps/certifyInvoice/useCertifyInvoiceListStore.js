@@ -1,10 +1,15 @@
 import { defineStore } from 'pinia'
 import axios from '@axios'
+import { successMiddleware } from '@/middlewares/successMiddleware';
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware"; // Import your success middleware
 
 export const useCertifyInvoiceListStore = defineStore('CertifyInvoiceListStore', {
   actions: {
     // 👉 Fetch products data
     fetchCertifyInvoices(params) { return axios.get('/api/certifyInvoices/list', { params }) },
+
+    // 👉 Fetch products data
+    fetchData(params) { return axios.get('/api/certifyInvoices/getData', { params }) },
 
     // 👉 Add Product
     addCertifyInvoice(invoiceData) {
@@ -16,8 +21,15 @@ export const useCertifyInvoiceListStore = defineStore('CertifyInvoiceListStore',
           amount,
           payment_type,
           products,
-        }).then(response => resolve(response))
-          .catch(error => reject(error))
+        }).then(response => {
+          this.successMiddleware(response);
+          resolve(response)
+        })
+          .catch(error => {
+            this.errorsMiddleware(error);
+            reject(error)
+
+          })
       })
     },
 
@@ -57,4 +69,6 @@ export const useCertifyInvoiceListStore = defineStore('CertifyInvoiceListStore',
       })
     },
   },
+
+
 })

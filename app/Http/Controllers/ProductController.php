@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductStock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -106,6 +107,11 @@ class ProductController extends Controller
         ]);
 
         $product = Product::create($validatedData);
+        ProductStock::create(
+            [
+                'product_id' => $product->id,
+            ]
+        );
 
         return response()->json(['message' => 'Product created successfully', 'product' => $product]);
     }

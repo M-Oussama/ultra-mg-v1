@@ -46,4 +46,12 @@ class Product extends Model
         'tax_rate',
         'type_id'
     ];
+
+    protected $with = [
+        'productStock'
+    ];
+
+    public function productStock() {
+        return $this->hasOne(ProductStock::class);
+    }
 }

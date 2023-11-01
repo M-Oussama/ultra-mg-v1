@@ -1,107 +1,34 @@
 <script setup>
-import AddNewProductDrawer from '@/views/apps/product/list/AddNewProductDrawer.vue'
-import EditProductDrawer from '@/views/apps/product/list/EditProductDrawer.vue';
-import ConfirmationDialog from '@/views/apps/product/list/ConfirmationDialog.vue';
-import { useProductListStore } from '@/views/apps/product/useProductListStore'
+import { avatarText } from '@core/utils/formatters'
+import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
 
-const productListStore = useProductListStore()
+const invoiceListStore = useCertifyInvoiceListStore()
 const searchQuery = ref('')
-const loading = ref(false)
-const isTyping = ref(true)
-const selectedRole = ref()
-const selectedPlan = ref()
 const selectedStatus = ref()
 const rowPerPage = ref(10)
 const currentPage = ref(1)
 const totalPage = ref(1)
-const totalProducts = ref(0)
-let products = ref([])
+const totalInvoices = ref(0)
+const invoices = ref([])
+const selectedRows = ref([])
 
-// 👉 Fetching products
-const fetchProducts = () => {
-  productListStore.fetchProducts({
-     searchValue: searchQuery.value,
-     perPage: rowPerPage.value,
-     currentPage: currentPage.value,
-  }).then(response => {
-     products.value = response.data.products.data
-     totalPage.value = response.data.totalPage
-     totalProducts.value = response.data.totalProducts
-    loading.value = false;
-
-  }).catch(error => {
-    console.error(error)
-
-  })
-}
-watchEffect(fetchProducts)
-
-// 👉 watching current page
+// 👉 Fetch Invoices
 watchEffect(() => {
-  if (currentPage.value > totalPage.value)
-    currentPage.value = totalPage.value
+  invoiceListStore.fetchCertifyInvoices({
+    searchValue: searchQuery.value,
+    status: selectedStatus.value,
+    perPage: rowPerPage.value,
+    currentPage: currentPage.value,
+  }).then(response => {
+    invoices.value = response.data.invoices.data
+    totalPage.value = response.data.totalPage
+    totalInvoices.value = response.data.totalInvoices
+  }).catch(error => {
+    console.log(error)
+  })
 })
-// 👉 Watching changes in searchQuery and executing fetchProducts
-watch(searchQuery, () => {
-  loading.value = true;
-  fetchProducts();
-});
 
-const status = [
-  {
-    title: 'Pending',
-    value: 'pending',
-  },
-  {
-    title: 'Active',
-    value: 'active',
-  },
-  {
-    title: 'Inactive',
-    value: 'inactive',
-  },
-]
-
-const resolveProductRoleVariant = role => {
-  if (role === 'subscriber')
-    return {
-      color: 'warning',
-      icon: 'tabler-user',
-    }
-  if (role === 'author')
-    return {
-      color: 'success',
-      icon: 'tabler-circle-check',
-    }
-  if (role === 'maintainer')
-    return {
-      color: 'primary',
-      icon: 'tabler-chart-pie-2',
-    }
-  if (role === 'editor')
-    return {
-      color: 'info',
-      icon: 'tabler-pencil',
-    }
-  if (role === 'admin')
-    return {
-      color: 'secondary',
-      icon: 'tabler-device-laptop',
-    }
-  
-  return {
-    color: 'primary',
-    icon: 'tabler-user',
-  }
-}
-
-
-const isAddNewProductDrawerVisible = ref(false)
-const isEditProductDrawerVisible = ref(false)
-const isDialogVisible = ref(false)
-let selectedProduct = ref()
-
-// 👉 watching current page
+// 👉 Fetch Invoices
 watchEffect(() => {
   if (currentPage.value > totalPage.value)
     currentPage.value = totalPage.value
@@ -109,340 +36,394 @@ watchEffect(() => {
 
 // 👉 Computing pagination data
 const paginationData = computed(() => {
-  const firstIndex = products.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
-  const lastIndex = products.value.length + (currentPage.value - 1) * rowPerPage.value
+  const firstIndex = invoices.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
+  const lastIndex = invoices.value.length + (currentPage.value - 1) * rowPerPage.value
   
-  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalProducts.value } entries`
+  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalInvoices.value } entries`
 })
 
-const addNewProduct = productData => {
-  productListStore.addProduct(productData)
-
-  // refetch product
-  fetchProducts()
-}
-const updateProduct = productData => {
-  productListStore.updateProduct(productData)
-
-  // refetch product
-  fetchProducts()
-}
-const deleteProduct = productData =>  {
-  productListStore.deleteProduct(productData)
-
-  // refetch product
-  fetchProducts()
-}
-
-const openUpdateDrawer = (product) => {
-  isEditProductDrawerVisible.value = true;
-  selectedProduct = product;
-
-}
-const openConfirmationDialog = (product) => {
-  isDialogVisible.value = true;
-  selectedProduct = product;
+// 👉 Invoice balance variant resolver
+const resolveInvoiceBalanceVariant = (balance, total) => {
+  if (balance === total)
+    return {
+      status: 'Unpaid',
+      chip: { color: 'error' },
+    }
+  if (balance === 0)
+    return {
+      status: 'Paid',
+      chip: { color: 'success' },
+    }
+  
+  return {
+    status: balance,
+    chip: { variant: 'text' },
+  }
 }
 
-// 👉 List
-const productListMeta = [
-  {
-    icon: 'tabler-user',
-    color: 'primary',
-    title: 'Session',
-    stats: '21,459',
-    percentage: +29,
-    subtitle: 'Total Users',
-  },
-  {
-    icon: 'tabler-user-plus',
-    color: 'error',
-    title: 'Paid Users',
-    stats: '4,567',
-    percentage: +18,
-    subtitle: 'Last week analytics',
-  },
-  {
-    icon: 'tabler-user-check',
-    color: 'success',
-    title: 'Active Users',
-    stats: '19,860',
-    percentage: -14,
-    subtitle: 'Last week analytics',
-  },
-  {
-    icon: 'tabler-user-exclamation',
-    color: 'warning',
-    title: 'Pending Users',
-    stats: '237',
-    percentage: +42,
-    subtitle: 'Last week analytics',
-  },
-]
+const resolveInvoiceStatusVariantAndIcon = status => {
+  if (status === 'Partial Payment')
+    return {
+      variant: 'success',
+      icon: 'tabler-circle-half-2',
+    }
+  if (status === 'Paid')
+    return {
+      variant: 'warning',
+      icon: 'tabler-chart-pie',
+    }
+  if (status === 'Downloaded')
+    return {
+      variant: 'info',
+      icon: 'tabler-arrow-down-circle',
+    }
+  if (status === 'Draft')
+    return {
+      variant: 'primary',
+      icon: 'tabler-device-floppy',
+    }
+  if (status === 'Sent')
+    return {
+      variant: 'secondary',
+      icon: 'tabler-circle-check',
+    }
+  if (status === 'Past Due')
+    return {
+      variant: 'error',
+      icon: 'tabler-alert-circle',
+    }
+  
+  return {
+    variant: 'secondary',
+    icon: 'tabler-x',
+  }
+}
 </script>
 
 <template>
-  <section>
-    <VRow>
-      <VCol cols="12">
-        <VCard title="Certify Invoices">
-          <VDivider />
+  <VCard
+    v-if="invoices"
+    id="invoice-list"
+  >
+    <VCardText class="d-flex align-center flex-wrap gap-4">
+      <!-- 👉 Rows per page -->
+      <div
+        class="d-flex align-center"
+        style="width: 135px;"
+      >
+        <span class="text-no-wrap me-3">Show:</span>
+        <VSelect
+          v-model="rowPerPage"
+          density="compact"
+          :items="[10, 20, 30, 50, 100]"
+        />
+      </div>
 
-          <VCardText class="d-flex flex-wrap py-4 gap-4">
-            <div
-              class="me-3"
-              style="width: 80px;"
-            >
-              <VSelect
-                v-model="rowPerPage"
-                density="compact"
-                variant="outlined"
-                :items="[10, 20, 30, 50]"
-              />
-            </div>
+      <div class="me-3">
+        <!-- 👉 Create invoice -->
+        <VBtn
+          prepend-icon="tabler-plus"
+          :to="{ name: 'apps-certifyInvoice-add' }"
+        >
+          Create invoice
+        </VBtn>
+      </div>
 
-            <VSpacer />
+      <VSpacer />
 
-            <div class="app-user-search-filter d-flex align-center flex-wrap gap-4">
-              <!-- 👉 Search  -->
-              <div style="width: 8rem;">
-                <v-progress-circular
-                  v-if="loading"
-                  indeterminate
-                  color="primary"
-                ></v-progress-circular>
-                <VTextField
-                  v-else
-                  @input="isTyping = true"
-                  ref="searchField"
-                  v-model="searchQuery"
-                  placeholder="Search"
-                  density="compact"
-                />
-              </div>
+      <div class="d-flex align-center flex-wrap gap-4">
+        <!-- 👉 Search  -->
+        <div class="invoice-list-filter">
+          <VTextField
+            v-model="searchQuery"
+            placeholder="Search Invoice"
+            density="compact"
+          />
+        </div>
 
-              <!-- 👉 Export button -->
-              <VBtn
+        <!-- 👉 Select status -->
+        <div class="invoice-list-filter">
+          <VSelect
+            v-model="selectedStatus"
+            label="Select Status"
+            clearable
+            clear-icon="tabler-x"
+            single-line
+            :items="['Downloaded', 'Draft', 'Sent', 'Paid', 'Partial Payment', 'Past Due']"
+          />
+        </div>
+      </div>
+    </VCardText>
+
+    <VDivider />
+
+    <!-- SECTION Table -->
+    <VTable class="text-no-wrap invoice-list-table">
+      <!-- 👉 Table head -->
+      <thead class="text-uppercase">
+        <tr>
+          <th scope="col">
+            #ID
+          </th>
+          <th scope="col">
+            #FAC
+          </th>
+          <th
+            scope="col"
+            class="text-center"
+          >
+            <VIcon icon="tabler-trending-up" />
+          </th>
+
+          <th scope="col">
+            CLIENT
+          </th>
+
+          <th
+            scope="col"
+            class="text-center"
+          >
+            TOTAL
+          </th>
+
+          <th scope="col">
+            Issued Date
+          </th>
+
+          <th
+            scope="col"
+            class="text-center"
+          >
+            BALANCE
+          </th>
+
+          <th scope="col">
+            ACTIONS
+          </th>
+        </tr>
+      </thead>
+
+      <!-- 👉 Table Body -->
+      <tbody>
+        <tr
+          v-for="invoice in invoices"
+          :key="invoice.id"
+          style="height: 3.75rem;"
+        >
+          <!-- 👉 Id -->
+          <td>
+            <RouterLink :to="{ name: 'apps-invoice-preview-id', params: { id: invoice.id } }">
+              #{{ invoice.id }}
+            </RouterLink>
+          </td>
+
+          <td>
+
+              FAJ/{{ new Date(invoice.date).getFullYear() }}/{{ invoice.id }}
+
+          </td>
+
+          <!-- 👉 Trending -->
+          <td class="text-center">
+            <VTooltip>
+              <template #activator="{ props }">
+                <VAvatar
+                  :size="30"
+                  v-bind="props"
+                  :color="resolveInvoiceStatusVariantAndIcon(invoice.invoiceStatus).variant"
+                  variant="tonal"
+                >
+                  <VIcon
+                    :size="20"
+                    :icon="resolveInvoiceStatusVariantAndIcon(invoice.invoiceStatus).icon"
+                  />
+                </VAvatar>
+              </template>
+
+              <p class="mb-0">
+                {{ invoice.invoiceStatus }}
+              </p>
+              <p class="mb-0">
+                Balance: {{ invoice.balance }}
+              </p>
+              <p class="mb-0">
+                Due date: {{ invoice.dueDate }}
+              </p>
+            </VTooltip>
+          </td>
+
+          <!-- 👉 Client Avatar and Email -->
+          <td>
+            <div class="d-flex align-center">
+              <VAvatar
+                size="34"
+                :color="resolveInvoiceStatusVariantAndIcon(invoice.invoiceStatus).variant"
                 variant="tonal"
-                color="secondary"
-                prepend-icon="tabler-screen-share"
+                class="me-3"
               >
-                Export
-              </VBtn>
+                <VImg
+                  v-if="invoice.avatar"
+                  :src="invoice.avatar"
+                />
+                <span v-else>{{ avatarText(invoice.client.name) }}</span>
+              </VAvatar>
 
-              <!-- 👉 Add Certify Invoices button -->
-              <VBtn
-                prepend-icon="tabler-plus"
-                @click="isAddNewProductDrawerVisible = true"
-              >
-                Add New Invoice
-              </VBtn>
+              <div class="d-flex flex-column">
+                <h6 class="text-base font-weight-medium mb-0">
+                  {{ invoice.client.name }}
+                </h6>
+                <span class="text-disabled text-sm">{{ invoice.client.email }}</span>
+              </div>
             </div>
-          </VCardText>
+          </td>
 
-          <VDivider />
+          <!-- 👉 total -->
+          <td class="text-center">
+            DZD{{ invoice.total }}
+          </td>
 
-          <VTable class="text-no-wrap">
-            <!-- 👉 table head -->
-            <thead>
-              <tr>
-                <th scope="col">
-                  ID
-                </th>
-                <th scope="col">
-                  Client
-                </th>
-                <th scope="col">
-                  AMOUNT (TTC)
-                </th>
-                <th scope="col">
-                  Date
-                </th>
+          <!-- 👉 Date -->
+          <td>{{ invoice.date }}</td>
 
-
-                <th scope="col">
-                  ACTIONS
-                </th>
-              </tr>
-            </thead>
-            <!-- 👉 table body -->
-            <tbody>
-              <tr
-                v-for="invoice in invoices"
-                :key="invoice.id"
-                style="height: 3.75rem;"
-              >
-                <!-- 👉 ID -->
-                <td>
-                  {{invoice.id}}
-                </td>
-
-                <!-- 👉 Product -->
-                <td>
-                  <div class="d-flex align-center">
-                    <VAvatar
-                      variant="tonal"
-                      :color="resolveProductRoleVariant(invoice.role).color"
-                      class="me-3"
-                      size="38"
-                    >
-                      <VImg
-                        v-if="invoice.avatar"
-                        :src="invoice.avatar"
-                      />
-                      <span v-else>{{ invoice.client.name.toUpperCase().charAt(0) }} </span>
-                    </VAvatar>
-
-                    <div class="d-flex flex-column">
-                      <h6 class="text-base">
-                        <RouterLink
-                          :to="{ name: 'apps-user-view-id', params: { id: invoice.id } }"
-                          class="font-weight-medium user-list-name"
-                        >
-                          {{ invoice.client.name }}
-                        </RouterLink>
-                      </h6>
-                      <span class="text-sm text-disabled">@{{ invoice.id }}</span>
-                    </div>
-                  </div>
-                </td>
-
-                <!-- 👉 email -->
-                <td>
-                  <span class="text-capitalize text-base font-weight-semibold">{{ invoice.amount }}</span>
-                </td>
-                <td>
-
-                    {{ product.date}}
-
-                </td>
-
-
-                <!-- 👉 Actions -->
-                <td
-                  class="text-center"
-                  style="width: 5rem;"
-                >
-                  <VBtn
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                    @click="openUpdateDrawer(invoice)"
-
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-edit"
-
-                    />
-                  </VBtn>
-
-                  <VBtn
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                    @click="openConfirmationDialog(invoice)"
-
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-trash"
-                    />
-                  </VBtn>
-
-                  <VBtn
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-dots-vertical"
-                    />
-
-<!--                    <VMenu activator="parent">-->
-<!--                      <VList>-->
-<!--                        <VListItem-->
-<!--                          title="View"-->
-<!--                          :to="{ name: 'apps-user-view-id', params: { id: user.id } }"-->
-<!--                        />-->
-<!--                        <VListItem-->
-<!--                          title="Suspend"-->
-<!--                          href="javascript:void(0)"-->
-<!--                        />-->
-<!--                      </VList>-->
-<!--                    </VMenu>-->
-                  </VBtn>
-                </td>
-              </tr>
-            </tbody>
-
-            <!-- 👉 table footer  -->
-            <tfoot v-show="!invoices.length">
-              <tr>
-                <td
-                  colspan="7"
-                  class="text-center"
-                >
-                  No data available
-                </td>
-              </tr>
-            </tfoot>
-          </VTable>
-
-          <VDivider />
-
-          <VCardText class="d-flex align-center flex-wrap justify-space-between gap-4 py-3 px-5">
-            <span class="text-sm text-disabled">
-              {{ paginationData }}
-            </span>
-
-            <VPagination
-              v-model="currentPage"
+          <!-- 👉 Balance -->
+          <td class="text-center">
+            <VChip
+              label
+              v-bind="resolveInvoiceBalanceVariant(invoice.balance, invoice.total).chip"
               size="small"
-              :total-visible="5"
-              :length="totalPage"
-            />
-          </VCardText>
-        </VCard>
-      </VCol>
-    </VRow>
+            >
+              {{ resolveInvoiceBalanceVariant(invoice.balance, invoice.total).status }}
+            </VChip>
+          </td>
 
-    <!-- 👉 Add New Product -->
-    <AddNewProductDrawer
-      v-model:isDrawerOpen="isAddNewProductDrawerVisible"
-      @product-data="addNewProduct"
-    />
+          <!-- 👉 Actions -->
+          <td style="width: 8rem;">
+            <VBtn
+              icon
+              variant="text"
+              color="default"
+              size="x-small"
+            >
+              <VIcon
+                icon="tabler-mail"
+                :size="22"
+              />
+            </VBtn>
 
-    <!-- 👉 Edit Product -->
-    <EditProductDrawer
-      v-model:isDrawerOpen="isEditProductDrawerVisible"
-      v-model:product = "selectedProduct"
-      @product-data="updateProduct"
-    />
+            <VBtn
+              icon
+              variant="text"
+              color="default"
+              size="x-small"
+              :to="{ name: 'apps-invoice-preview-id', params: { id: invoice.id } }"
+            >
+              <VIcon
+                :size="22"
+                icon="tabler-eye"
+              />
+            </VBtn>
 
-    <ConfirmationDialog
-      v-model:isDialogVisible="isDialogVisible"
-      v-model:product="selectedProduct"
-      @product-data="deleteProduct"
-      v-if="isDialogVisible"
+            <VBtn
+              icon
+              variant="text"
+              color="default"
+              size="x-small"
+            >
+              <VIcon
+                :size="22"
+                icon="tabler-dots-vertical"
+              />
+
+              <VMenu activator="parent">
+                <VList>
+                  <VListItem value="download">
+                    <template #prepend>
+                      <VIcon
+                        size="24"
+                        class="me-3"
+                        icon="tabler-download"
+                      />
+                    </template>
+
+                    <VListItemTitle>Download</VListItemTitle>
+                  </VListItem>
+
+                  <VListItem :to="{ name: 'apps-invoice-edit-id', params: { id: invoice.id } }">
+                    <template #prepend>
+                      <VIcon
+                        size="24"
+                        class="me-3"
+                        icon="tabler-pencil"
+                      />
+                    </template>
+
+                    <VListItemTitle>Edit</VListItemTitle>
+                  </VListItem>
+                  <VListItem value="duplicate">
+                    <template #prepend>
+                      <VIcon
+                        size="24"
+                        class="me-3"
+                        icon="tabler-stack"
+                      />
+                    </template>
+
+                    <VListItemTitle>Duplicate</VListItemTitle>
+                  </VListItem>
+                </VList>
+              </VMenu>
+            </VBtn>
+          </td>
+        </tr>
+      </tbody>
+
+      <!-- 👉 table footer  -->
+      <tfoot v-show="!invoices.length">
+        <tr>
+          <td
+            colspan="8"
+            class="text-center text-body-1"
+          >
+            No data available
+          </td>
+        </tr>
+      </tfoot>
+    </VTable>
+    <!-- !SECTION -->
+
+    <VDivider />
+
+    <!-- SECTION Pagination -->
+    <VCardText class="d-flex align-center flex-wrap gap-4 py-3">
+      <!-- 👉 Pagination meta -->
+      <span class="text-sm text-disabled">
+        {{ paginationData }}
+      </span>
+
+      <VSpacer />
+
+      <!-- 👉 Pagination -->
+      <VPagination
+        v-model="currentPage"
+        size="small"
+        :total-visible="5"
+        :length="totalPage"
+        @next="selectedRows = []"
+        @prev="selectedRows = []"
       />
-  </section>
+    </VCardText>
+    <!-- !SECTION -->
+  </VCard>
 </template>
 
 <style lang="scss">
-.app-user-search-filter {
-  inline-size: 31.6rem;
-}
+#invoice-list {
+  .invoice-list-actions {
+    inline-size: 8rem;
+  }
 
-.text-capitalize {
-  text-transform: capitalize;
-}
-
-.user-list-name:not(:hover) {
-  color: rgba(var(--v-theme-on-background), var(--v-high-emphasis-opacity));
+  .invoice-list-filter {
+    inline-size: 12rem;
+  }
 }
 </style>

@@ -108,6 +108,28 @@
                 }
             }
         },
+        "/api/certifyInvoices/getData": {
+            "get": {
+                "tags": [
+                    "certifyInvoice"
+                ],
+                "summary": "get List Of Clients and Products",
+                "description": "Returns the list of clients and products",
+                "operationId": "getData",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/clients/list": {
             "get": {
                 "tags": [

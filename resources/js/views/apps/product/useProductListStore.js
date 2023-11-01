@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from '@axios'
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
+import {successMiddleware} from "@/middlewares/successMiddleware";
 
 export const useProductListStore = defineStore('ProductListStore', {
   actions: {
@@ -20,8 +22,15 @@ export const useProductListStore = defineStore('ProductListStore', {
           price,
           stockable,
           tax_rate
-        }).then(response => resolve(response))
-          .catch(error => reject(error))
+        }).then(response => {
+
+          successMiddleware('requests.product.success')
+          resolve(response)
+        })
+          .catch(error => {
+            errorsMiddleware(error);
+            reject(error)
+          })
       })
     },
 
@@ -61,4 +70,5 @@ export const useProductListStore = defineStore('ProductListStore', {
       })
     },
   },
+
 })
