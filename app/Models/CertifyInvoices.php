@@ -34,11 +34,20 @@ class CertifyInvoices extends Model
     ];
 
     protected $with = [
-      'client'
+      'client',
+      'certifyInvoiceProducts'
     ];
 
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+    public function products()
+    {
+        return $this->belongsToMany(Product::class, 'certify_invoice_products','certify_invoice_id','product_id');
+    }
+    public function certifyInvoiceProducts()
+    {
+        return $this->hasMany(CertifyInvoiceProducts::class,'certify_invoice_id');
     }
 }

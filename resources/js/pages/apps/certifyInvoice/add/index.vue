@@ -6,14 +6,14 @@ import {successMiddleware} from "@/middlewares/successMiddleware";
 
 const invoiceData = ref({
   invoice: {
-    id: 5037,
+    id: 1,
     issuedDate: '',
     service: '',
     total: 0,
     avatar: '',
     invoiceStatus: '',
     balance: '',
-    date: null,
+    date: new Date().toISOString().slice(0, 10),
     client: {
       id:-1,
       address: '',
@@ -39,12 +39,16 @@ const invoiceData = ref({
   selectedPaymentMethod: '',
   salesperson: '',
   thanksNote: '',
+
 })
 
 const paymentTerms = ref(true)
 const clientNotes = ref(false)
 const paymentStub = ref(false)
-const loading = ref(false)
+const loading = ref({
+  isActive: false
+})
+const invoice_id = ref(null)
 const saved = ref(false)
 
 const paymentMethods = [
@@ -54,14 +58,16 @@ const paymentMethods = [
 ]
 
 const certifyInvoiceListStore = useCertifyInvoiceListStore()
-
-// 👉 fetchClients
-certifyInvoiceListStore.fetchData().then(response => {
-  invoiceData.value.clients = response.data.clients
-  invoiceData.value.products = response.data.products
-  //companyProfile.value = response.data.companyProfile
-}).catch(err => {
-  console.log(err)
+watchEffect(() => {
+  // 👉 fetchClients
+  certifyInvoiceListStore.fetchData().then(response => {
+    invoiceData.value.clients = response.data.clients
+    invoiceData.value.products = response.data.products
+    invoiceData.value.invoice.id = response.data.id
+    //companyProfile.value = response.data.companyProfile
+  }).catch(err => {
+    console.log(err)
+  })
 })
 
 const saveInvoice = () => {
@@ -100,144 +106,147 @@ const saveInvoice = () => {
     }
   } else {
 
-    if(!loading.value) {
-       loading.value = true;
+    if(!loading.isActive) {
+       loading.isActive = true;
       certifyInvoiceListStore.addCertifyInvoice(invoiceData.value).then( response => {
-        loading.value = false;
+        loading.isActive = false;
         saved.value = true;
-
+        invoice_id.value = response.data.id
         successMiddleware('Invoice created Successfully')
 
       }).catch(err => {
-        loading.value = false;
+        loading.isActive = false;
         console.log(err)
         errorsMiddleware('Error','')
         console.log(err)
       })
     }
-
-
-
   }
-
-
-
 }
+
 </script>
 
 <template>
-  <v-overlay
-    :model-value="loading"
-    class="align-center justify-center"
+  <Div
+
+    id="invoice-add"
   >
-    <v-progress-circular
-      color="primary"
-      indeterminate
-      size="64"
-    ></v-progress-circular>
-  </v-overlay>
-  <VForm
-    ref="refForm"
-    @submit.prevent="() => {}"
-  >
-    <VRow>
-      <!-- 👉 InvoiceEditable -->
-      <VCol
-        cols="12"
-        md="9"
+      <v-overlay
+        :model-value="loading.isActive"
+        class="align-center justify-center"
       >
-        <InvoiceEditable :data="invoiceData" />
-      </VCol>
+        <v-progress-circular
+          color="primary"
+          indeterminate
+          size="64"
+        ></v-progress-circular>
+      </v-overlay>
 
-      <!-- 👉 Right Column: Invoice Action -->
-      <VCol
-        cols="12"
-        md="3"
-      >
-        <VCard class="mb-8">
-          <VCardText>
-            <!-- 👉 Send Invoice -->
-            <VBtn
-              block
-              prepend-icon="tabler-send"
-              class="mb-2"
-            >
-              Send Invoice
-            </VBtn>
+        <VRow>
+          <!-- 👉 InvoiceEditable -->
+          <VCol
+            cols="12"
+            md="9"
+          >
+            <InvoiceEditable :data="invoiceData" :loading="loading" />
+          </VCol>
 
-            <!-- 👉 Preview -->
-            <VBtn
-              block
-              color="default"
-              variant="tonal"
-              class="mb-2"
-              :to="{ name: 'apps-certifyInvoice-preview-id', params: { id: '5036' } }"
-            >
-              Preview
-            </VBtn>
+          <!-- 👉 Right Column: Invoice Action -->
+          <VCol
+            cols="12"
+            md="3"
+          >
+            <VCard class="mb-8">
+              <VCardText>
+                <!-- 👉 Send Invoice -->
+                <VBtn
+                  block
+                  prepend-icon="tabler-send"
+                  class="mb-2"
+                >
+                  Send Invoice
+                </VBtn>
+                <VBtn
+                  v-if="saved"
+                  block
+                  color="default"
+                  variant="tonal"
+                  class="mb-2"
+                  :to="{ name: 'apps-certifyInvoice-preview-id', params: { id: invoice_id } }">
+                  Preview
+                </VBtn>
 
-            <!-- 👉 Save -->
-            <VBtn
-              :loading="loading"
-              :disabled="loading"
-              block
-              color="success"
-              @click="saveInvoice"
-              v-if="!saved"
-            >
-              Save
-            </VBtn>
-          </VCardText>
-        </VCard>
+                <!-- 👉 Save -->
+                <VBtn
+                  :loading="loading.isActive"
+                  :disabled="loading.isActive"
+                  block
+                  color="success"
+                  @click="saveInvoice"
+                  v-if="!saved"
+                >
+                  Save
+                </VBtn>
+              </VCardText>
+            </VCard>
 
-        <!-- 👉 Select payment method -->
-        <VSelect
-          v-model="invoiceData.selectedPaymentMethod"
-          :items="paymentMethods"
-          label="Accept Payment Via"
-          class="mb-6"
-        />
-
-        <!-- 👉 Payment Terms -->
-        <div class="d-flex align-center justify-space-between">
-          <VLabel for="payment-terms">
-            Payment Terms
-          </VLabel>
-          <div>
-            <VSwitch
-              id="payment-terms"
-              v-model="paymentTerms"
+            <!-- 👉 Select payment method -->
+            <VSelect
+              v-model="invoiceData.selectedPaymentMethod"
+              :items="paymentMethods"
+              label="Accept Payment Via"
+              class="mb-6"
             />
-          </div>
-        </div>
 
-        <!-- 👉  Client Notes -->
-        <div class="d-flex align-center justify-space-between">
-          <VLabel for="client-notes">
-            Client Notes
-          </VLabel>
-          <div>
-            <VSwitch
-              id="client-notes"
-              v-model="clientNotes"
-            />
-          </div>
-        </div>
+            <!-- 👉 Payment Terms -->
+            <div class="d-flex align-center justify-space-between">
+              <VLabel for="payment-terms">
+                Payment Terms
+              </VLabel>
+              <div>
+                <VSwitch
+                  id="payment-terms"
+                  v-model="paymentTerms"
+                />
+              </div>
+            </div>
 
-        <!-- 👉  Payment Stub -->
-        <div class="d-flex align-center justify-space-between">
-          <VLabel for="payment-stub">
-            Payment Stub
-          </VLabel>
-          <div>
-            <VSwitch
-              id="payment-stub"
-              v-model="paymentStub"
-            />
-          </div>
-        </div>
-      </VCol>
-    </VRow>
-  </VForm>
+            <!-- 👉  Client Notes -->
+            <div class="d-flex align-center justify-space-between">
+              <VLabel for="client-notes">
+                Client Notes
+              </VLabel>
+              <div>
+                <VSwitch
+                  id="client-notes"
+                  v-model="clientNotes"
+                />
+              </div>
+            </div>
+
+            <!-- 👉  Payment Stub -->
+            <div class="d-flex align-center justify-space-between">
+              <VLabel for="payment-stub">
+                Payment Stub
+              </VLabel>
+              <div>
+                <VSwitch
+                  id="payment-stub"
+                  v-model="paymentStub"
+                />
+              </div>
+            </div>
+          </VCol>
+        </VRow>
+
+
+
+
+
+
+  </Div>
 </template>
 
+<style lang="scss">
+
+</style>

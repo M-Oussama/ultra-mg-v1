@@ -7,57 +7,64 @@ import InvoiceAddPaymentDrawer from '@/views/apps/invoice/InvoiceAddPaymentDrawe
 import InvoiceSendInvoiceDrawer from '@/views/apps/invoice/InvoiceSendInvoiceDrawer.vue'
 
 // Store
-import { useInvoiceStore } from '@/views/apps/invoice/useInvoiceStore'
+import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
 
-const invoiceListStore = useInvoiceStore()
+const invoiceListStore = useCertifyInvoiceListStore()
 const route = useRoute()
 const invoiceData = ref({
-  invoice: {
-    id: 5037,
-    issuedDate: '',
-    service: '',
-    total: 0,
-    avatar: '',
-    invoiceStatus: '',
-    balance: '',
-    date: null,
-    client: {
-      id:-1,
-      address: '',
-      company: '',
-      companyEmail: '',
-      contact: '',
-      country: '',
-      name: '',
-    },
+  amount:0,
+  fac_id: 3,
+  date: "2023-11-03",
+  client_id: 1,
+  payment_type: "Espece",
+  amount_letter: "",
+  client:{
+    id: 1,
+    name: "",
+    surname: "",
+    address: "",
+    email: "",
+    phone: "",
+    NRC: "",
+    NIF: "",
+    NART: "",
+    NIS: "",
   },
-  paymentDetails: {
-    totalDue: '$12,110.55',
-    bankName: 'American Bank',
-    country: 'United States',
-    iban: 'ETD95476213874685',
-    swiftCode: 'BR91905',
-  },
-  purchasedProducts: [],
-  clients:[],
-  products:[],
-  note: '',
-  paymentMethod: '',
-  selectedPaymentMethod: '',
-  salesperson: '',
-  thanksNote: '',
+  certify_invoice_products:[{
+    price: 1,
+    quantity: 20,
+    total: 20,
+    id: 1,
+    product : {
+      name: "Sample Product",
+      brand: "Sample Brand",
+      description: "Product Description",
+      product_code: "PROD123",
+      category_id: 1,
+      SKU: "SKU123",
+      min_stock_level: 10,
+      price: "1.00",
+      stockable: 0,
+      tax_rate: "0.08",
+      product_stock: {
+        id: 1,
+        product_id: 1,
+        quantity: 20,
+      }
+    }
+  }]
 })
 const paymentDetails = ref()
 const isAddPaymentSidebarVisible = ref(false)
 const isSendPaymentSidebarVisible = ref(false)
 
 // 👉 fetchInvoice
-// invoiceListStore.fetchInvoice(Number(route.params.id)).then(response => {
-//   invoiceData.value = response.data.invoice
-//   paymentDetails.value = response.data.paymentDetails
-// }).catch(error => {
-//   console.log(error)
-// })
+invoiceListStore.fetchInvoice(Number(route.params.id)).then(response => {
+  invoiceData.value = response.data.invoice
+  //paymentDetails.value = response.data.paymentDetails
+}).catch(error => {
+  console.log(error)
+})
 
 // ℹ️ Your real data will contain this information
 const purchasedProducts = [
@@ -138,19 +145,13 @@ const printInvoice = () => {
             <div class="mt-4 ma-sm-4">
               <!-- 👉 Invoice ID -->
               <h6 class="font-weight-medium text-xl mb-6">
-                Invoice #{{ invoiceData.id }}
+                Facture #{{ invoiceData.id }}
               </h6>
 
               <!-- 👉 Issue Date -->
               <p class="mb-2">
                 <span>Date Issued: </span>
-                <span class="font-weight-semibold">{{ invoiceData.issuedDate }}</span>
-              </p>
-
-              <!-- 👉 Due Date -->
-              <p class="mb-2">
-                <span>Due Date: </span>
-                <span class="font-weight-semibold">{{ invoiceData.dueDate }}</span>
+                <span class="font-weight-semibold">{{ invoiceData.date }}</span>
               </p>
             </div>
           </VCardText>
@@ -161,73 +162,64 @@ const printInvoice = () => {
           <!-- 👉 Payment Details -->
           <VCardText class="d-flex justify-space-between flex-wrap flex-column flex-sm-row print-row">
             <div class="ma-sm-4">
-              <h6 class="text-sm font-weight-semibold mb-3">
-                Invoice To:
+              <h6 class="text-sm-h6 font-weight-semibold mb-3">
+                Invoice:
               </h6>
+
               <p class="mb-1">
-                {{ invoiceData.client.name }}
-              </p>
-              <p class="mb-1">
-                {{ invoiceData.client.company }}
+                Invoice: #FAJ/2023/{{ invoiceData.id }}
               </p>
               <p class="mb-1">
-                {{ invoiceData.client.address }}, {{ invoiceData.client.country }}
+                Payment Method : {{ invoiceData.payment_type }}
               </p>
               <p class="mb-1">
-                {{ invoiceData.client.contact }}
+                amount : {{ invoiceData.amount }}
               </p>
-              <p class="mb-0">
-                {{ invoiceData.client.companyEmail }}
+              <p class="mb-1">
+                date : {{ invoiceData.date }}
               </p>
+
             </div>
 
-            <div class="mt-4 ma-sm-4">
-              <h6 class="text-sm font-weight-semibold mb-3">
-                Bill To:
+            <div class="ma-sm-4">
+              <h6 class="text-sm-button font-weight-semibold">
+                Information:
               </h6>
-              <table>
-                <tr>
-                  <td class="pe-6">
-                    Total Due:
-                  </td>
-                  <td>
-                    {{ paymentDetails.totalDue }}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="pe-6">
-                    Bank Name:
-                  </td>
-                  <td>
-                    {{ paymentDetails.bankName }}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="pe-6">
-                    Country:
-                  </td>
-                  <td>
-                    {{ paymentDetails.country }}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="pe-6">
-                    IBAN:
-                  </td>
-                  <td>
-                    {{ paymentDetails.iban }}
-                  </td>
-                </tr>
-                <tr>
-                  <td class="pe-6">
-                    SWIFT Code:
-                  </td>
-                  <td>
-                    {{ paymentDetails.swiftCode }}
-                  </td>
-                </tr>
-              </table>
+
+              <p class="mb-1 ">
+                Client: {{ invoiceData.client.name }}
+              </p>
+              <p class="mb-1">
+                Address : {{ invoiceData.client.address }}
+              </p>
+              <p class="mb-1">
+                phone : {{ invoiceData.client.phone }}
+              </p>
+              <p class="mb-1">
+                email : {{ invoiceData.client.email }}
+              </p>
+
             </div>
+            <div class="ma-sm-4">
+              <h6 class="text-sm-button font-weight-semibold ">
+               Identifiers:
+              </h6>
+              <p class="mb-1">
+                N°RC:  {{ invoiceData.client.NRC }}
+              </p>
+              <p class="mb-1">
+                N°IF: {{invoiceData.client.NIF }}
+              </p>
+              <p class="mb-1">
+                N°IS:  {{ invoiceData.client.NIS }}
+              </p>
+              <p class="mb-1">
+                N°ART:{{ invoiceData.client.NART }}
+              </p>
+
+            </div>
+
+
           </VCardText>
 
           <!-- 👉 Table -->
@@ -237,16 +229,22 @@ const printInvoice = () => {
             <thead>
               <tr>
                 <th scope="col">
-                  ITEM
+                  ID
                 </th>
                 <th scope="col">
-                  DESCRIPTION
+                  SKU
+                </th>
+                <th scope="col">
+                  name
+                </th>
+                <th scope="col">
+                  Description
                 </th>
                 <th
                   scope="col"
                   class="text-center"
                 >
-                  HOURS
+                  Price
                 </th>
                 <th
                   scope="col"
@@ -265,23 +263,31 @@ const printInvoice = () => {
 
             <tbody>
               <tr
-                v-for="item in purchasedProducts"
+                v-for="(item,index) in invoiceData.certify_invoice_products"
                 :key="item.name"
               >
                 <td class="text-no-wrap">
-                  {{ item.name }}
+                  {{ index+1 }}
                 </td>
                 <td class="text-no-wrap">
-                  {{ item.description }}
+                  {{ item.product.SKU }}
+                </td>
+                <td class="text-no-wrap">
+                  <p class="text-sm-caption mb-0">{{item.product.brand}}</p>
+                  {{ item.product.name }}
+
+                </td>
+                <td class="text-no-wrap">
+                  {{ item.product.description }}
                 </td>
                 <td class="text-center">
-                  {{ item.hours }}
+                  {{ item.price.toFixed(2) }} DZD
                 </td>
                 <td class="text-center">
-                  {{ item.qty }}
+                  {{ item.quantity }}
                 </td>
                 <td class="text-center">
-                  ${{ item.price }}
+                  {{ item.total.toFixed(2) }} DZD
                 </td>
               </tr>
             </tbody>
@@ -292,13 +298,8 @@ const printInvoice = () => {
           <!-- Total -->
           <VCardText class="d-flex justify-space-between flex-column flex-sm-row print-row">
             <div class="my-2 mx-sm-4">
-              <div class="d-flex align-center mb-1">
-                <h6 class="text-sm font-weight-semibold me-1">
-                  Salesperson:
-                </h6>
-                <span>Jenny Parker</span>
-              </div>
-              <p>Thanks for your business</p>
+
+              <h5>Invoice's Final Amount : {{ invoiceData.amount_letter }}</h5>
             </div>
 
             <div class="my-2 mx-sm-4">
@@ -307,32 +308,26 @@ const printInvoice = () => {
                   <td class="text-end">
                     <div class="me-5">
                       <p class="mb-2">
-                        Subtotal:
+                        Montant HT:
                       </p>
                       <p class="mb-2">
-                        Discount:
+                        TVA 19%:
                       </p>
                       <p class="mb-2">
-                        Tax:
-                      </p>
-                      <p class="mb-2">
-                        Total:
+                        Montant TTC:
                       </p>
                     </div>
                   </td>
 
                   <td class="font-weight-semibold">
                     <p class="mb-2">
-                      $154.25
+                      {{ (invoiceData.amount).toFixed(2) }} DZD
                     </p>
                     <p class="mb-2">
-                      $00.00
+                      {{ (invoiceData.amount*0.19).toFixed(2) }} DZD
                     </p>
                     <p class="mb-2">
-                      $50.00
-                    </p>
-                    <p class="mb-2">
-                      $204.25
+                      {{ (invoiceData.amount*1.19).toFixed(2) }} DZD
                     </p>
                   </td>
                 </tr>
@@ -369,16 +364,6 @@ const printInvoice = () => {
             >
               Send Invoice
             </VBtn>
-
-            <VBtn
-              block
-              variant="tonal"
-              color="secondary"
-              class="mb-2"
-            >
-              Download
-            </VBtn>
-
             <VBtn
               block
               variant="tonal"
@@ -394,18 +379,9 @@ const printInvoice = () => {
               color="secondary"
               variant="tonal"
               class="mb-2"
-              :to="{ name: 'apps-invoice-edit-id', params: { id: route.params.id } }"
+              :to="{ name: 'apps-certifyInvoice-edit-id', params: { id: route.params.id } }"
             >
               Edit Invoice
-            </VBtn>
-
-            <!-- 👉  Add Payment trigger button  -->
-            <VBtn
-              block
-              prepend-icon="tabler-currency-dollar"
-              @click="isAddPaymentSidebarVisible = true"
-            >
-              Add Payment
             </VBtn>
           </VCardText>
         </VCard>

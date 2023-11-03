@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Helpers\NumberToLetter;
 use App\Models\CertifyInvoiceProducts;
 use App\Models\CertifyInvoices;
 use App\Models\Client;
@@ -42,6 +43,20 @@ class CertifyInvoiceController extends Controller
         $totalPage = ceil($totalInvoices / $perPage); // Calculate total pages
 
         return response()->json(["invoices" => $invoices, "totalPage" => $totalPage, "totalInvoices"=>$totalInvoices]);
+    }
+
+    public function getInvoice($id): JsonResponse
+    {
+        $invoice = CertifyInvoices::find($id);
+        $invoice->amount_letter = $this->convertAmoutToLetter(($invoice->amount*1.19));
+
+        $clients = Client::all();
+        $products = Product::all();
+        $selectedProductIds = $invoice->certifyInvoiceProducts->pluck('product_id')->toArray();
+
+        $unSelectedProducts = Product::whereNotIn('id',$selectedProductIds)->get();
+
+        return response()->json(["invoice" => $invoice, "clients"=>$clients, "products"=>$products, "unSelectedProducts"=>$unSelectedProducts]);
     }
 
     /**
@@ -98,7 +113,7 @@ class CertifyInvoiceController extends Controller
         $invoice = $invoiceData['invoice'];
         $client = $invoice['client'];
 
-        $fac_id = 1;
+        $fac_id = $invoice['id'];
 
          $invoice = CertifyInvoices::create([
             'fac_id' => $fac_id,
@@ -121,7 +136,7 @@ class CertifyInvoiceController extends Controller
             ]);
         }
 
-        return response()->json(['message' => 'Product created successfully']);
+        return response()->json(['message' => 'Product created successfully', "id"=>$invoice->id]);
 
     }
 
@@ -144,7 +159,56 @@ class CertifyInvoiceController extends Controller
     public function getData(Request $request): JsonResponse {
         $clients = Client::all();
         $products = Product::all();
+        $date = date('Y-m-d');
+        $id = $this->getLastIDPerYear(date('Y-m-d'));
 
-        return response()->json(["clients" => $clients, "products" => $products]);
+        return response()->json(["clients" => $clients, "products" => $products, "id"=>$id, "date"=>$date]);
     }
+
+    public function getLastID(Request $request){
+        $date = $request->input('date');
+
+        $last_id = $this->getLastIDPerYear($date);
+
+        return response()->json(["id" => $last_id]);
+    }
+
+    public function getLastIDPerYear($date){
+
+        $year = date("Y",strtotime($date));
+
+        $last_id = CertifyInvoices::whereYear('date',$year)->orderBy('fac_id')->get()->last();
+
+        if($last_id == null)
+            $last_id = 1;
+        else
+            $last_id = $last_id->fac_id+1;
+
+        return $last_id;
+    }
+
+    public function convertAmoutToLetter($amount){
+        $lettre = new NumberToLetter();
+        $amountLetter = "";
+        if($this->isDecimal($amount)){
+            list($int, $float) = explode('.',  $amount);
+            $amountLetter =  $lettre->Conversion($int)." Dinar(s)";
+            $centime = "";
+            if($float>0){
+                $centime =  $lettre->Conversion($float)." Centimes";
+            }
+            $amountLetter = $amountLetter.' et '.$centime;
+        }else{
+            $amountLetter =  $lettre->Conversion($amount)."Dinar(s)";
+
+        }
+
+        return $amountLetter;
+    }
+
+    function isDecimal( $val )
+    {
+        return is_numeric( $val ) && floor( $val ) != $val;
+    }
+
 }

@@ -114,7 +114,13 @@ export default [
     title: 'Product', to: 'apps-product-list', icon: { icon: 'tabler-box' },
   },
   {
-    title: 'Certify Invoices', to: 'apps-certifyInvoice-list', icon: { icon: 'tabler-archive' },
+    title: 'Certify Invoices',
+    children: [
+      { title: 'List', to: 'apps-certifyInvoice-list' },
+      { title: 'Preview', to: { name: 'apps-certifyInvoice-preview-id', params: { id: '5036' } } },
+      { title: 'Add', to: 'apps-certifyInvoice-add' },
+    ],
+    icon: { icon: 'tabler-archive' },
   },
 
   {

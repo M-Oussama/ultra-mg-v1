@@ -1,5 +1,5 @@
 <script setup>
-import InvoiceProductEdit from './InvoiceProductEdit.vue'
+import InvoiceProductEdit from '@/views/apps/certifyInvoice/InvoiceProductEdit.vue'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
 import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
@@ -28,7 +28,7 @@ let availableproducts = ref([])
 let placeholder_value = ref('Search for a Product')
 const added_products = ref([])
 let totalInvoice = ref(0)
-let previous_date = ref(props.data.invoice.date)
+let previous_date = ref(props.data.date)
 const product = ref({
   id: -1,
   name: '',
@@ -44,6 +44,7 @@ const product = ref({
   }
 })
 const client = ref([])
+const clients = ref([])
 const companyProfile = ref({
   name:'EURL SETIFIS DETERGENTS',
   address: 'LOT N, 6 GROUPE 51, ZONE INDUSTRIELLE, 34 SECTION, Ksar El Abtal 19220',
@@ -82,21 +83,17 @@ const defaultSelect = ref({
 })
 
 watch(props.data , ()=> {
-
-  console.log("previous : "+previous_date.value)
-  console.log("date: "+props.data.invoice.date )
-
-  if(previous_date.value !== props.data.invoice.date ) {
-    previous_date.value = props.data.invoice.date;
+  if(previous_date.value !== props.data.date ) {
+    previous_date.value = props.data.date;
 
     props.loading.isActive = true;
     // 👉 get The Last ID
-    console.log(props.data.invoice)
+    console.log(props.data)
     certifyInvoiceListStore.getLastID({
-      date: props.data.invoice.date,
+      date: props.data.date,
   }
     ).then(response => {
-      props.data.invoice.id = response.data.id
+      props.data.id = response.data.id
       props.loading.isActive = false;
     }).catch(err => {
       props.loading.isActive = false;
@@ -108,17 +105,6 @@ watch(props.data , ()=> {
      availableproducts.value = Array.from(props.data.products);
 
 })
-
-
-// 👉 fetchClients
-// certifyInvoiceListStore.fetchData().then(response => {
-//   products.value = response.data.products
-//   //companyProfile.value = response.data.companyProfile
-//
-//   //availableproducts.value = Array.from(props.data.products);
-// }).catch(err => {
-//   console.log(err)
-// })
 
 function findIndexById(selectedProducts, selectedItemId) {
   for (let i = 0; i < selectedProducts.value.length; i++) {
@@ -151,7 +137,7 @@ function computeTotal() {
   console.log(totalPrices2)
 // Calculate the overall total by summing up the total prices using reduce
   totalInvoice.value = totalPrices2.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-  props.data.invoice.total = totalPrices2.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+  props.data.total = totalPrices2.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
 }
 
 // 👉 Add item function
@@ -252,7 +238,7 @@ const productfullName = item => {
 
           <span>
             <VTextField
-              v-model="props.data.invoice.id"
+              v-model="props.data.id"
               disabled
               prefix="#"
               density="compact"
@@ -267,7 +253,7 @@ const productfullName = item => {
 
           <span>
             <AppDateTimePicker
-              v-model="props.data.invoice.date"
+              v-model="props.data.date"
               density="compact"
               placeholder="YYYY-MM-DD"
               style="width: 8.9rem;"
@@ -296,7 +282,7 @@ const productfullName = item => {
             </h6>
             <model-list-select
               :list="props.data.clients"
-              v-model="props.data.invoice.client"
+              v-model="props.data.client"
               option-value="id"
               :custom-text="fullName"
               placeholder="Select Client">
@@ -307,8 +293,8 @@ const productfullName = item => {
               City:
             </h6>
             <model-list-select
-              :list="props.data.clients"
-              v-model="props.data.invoice.client"
+              :list="clients"
+              v-model="props.data.client"
               option-value="id"
               :custom-text="fullName"
               placeholder="Select Client">
@@ -331,7 +317,7 @@ const productfullName = item => {
                   Invoice:
                 </td>
                 <td class="font-weight-semibold">
-                  FAJ/2023/{{ props.data.invoice.id }}
+                  FAJ/2023/{{ props.data.id }}
                 </td>
               </tr>
               <tr>
@@ -345,14 +331,14 @@ const productfullName = item => {
                   Client:
                 </td>
                 <td class="font-weight-semibold">
-                  {{ props.data.invoice.client.name }} {{props.data.invoice.client.surname}}
+                  {{ props.data.client.name }} {{props.data.client.surname}}
                 </td>
               </tr>
               <tr>
                 <td class="pe-6">
                   Address:
                 </td>
-                <td>{{ props.data.invoice.client.address }}</td>
+                <td>{{ props.data.client.address }}</td>
               </tr>
 
 
@@ -360,25 +346,25 @@ const productfullName = item => {
                 <td class="pe-6">
                   N°RC:
                 </td>
-                <td>{{ props.data.invoice.client.NRC }}</td>
+                <td>{{ props.data.client.NRC }}</td>
               </tr>
               <tr>
                 <td class="pe-6">
                   N°IF:
                 </td>
-                <td>{{ props.data.invoice.client.NIF }}</td>
+                <td>{{ props.data.client.NIF }}</td>
               </tr>
               <tr>
                 <td class="pe-6">
                   N°IS:
                 </td>
-                <td>{{ props.data.invoice.client.NIS }}</td>
+                <td>{{ props.data.client.NIS }}</td>
               </tr>
               <tr>
                 <td class="pe-6">
                   N°ART:
                 </td>
-                <td>{{ props.data.invoice.client.NART }}</td>
+                <td>{{ props.data.client.NART }}</td>
               </tr>
               </tbody>
             </table>
@@ -401,7 +387,7 @@ const productfullName = item => {
             md="12"
           >
             <model-list-select
-              :list="availableproducts"
+              :list="props.data.unSelectedProducts"
               v-model="selectedItem"
               option-value="name"
               :custom-text="productfullName"
@@ -423,12 +409,10 @@ const productfullName = item => {
 
       </div>
       <div
-        v-for="(_product, index) in props.data.purchasedProducts"
+        v-for="(_product, index) in props.data.certify_invoice_products"
         :key="index"
         class="ma-sm-4"
       >
-
-
         <InvoiceProductEdit
           :id="_product.id"
           :data="_product"
@@ -436,8 +420,6 @@ const productfullName = item => {
           @total-amount="totalAmount"
         />
       </div>
-
-
     </VCardText>
 
     <VDivider />

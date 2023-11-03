@@ -7,6 +7,8 @@ export const useCertifyInvoiceListStore = defineStore('CertifyInvoiceListStore',
   actions: {
     // 👉 Fetch products data
     fetchCertifyInvoices(params) { return axios.get('/api/certifyInvoices/list', { params }) },
+    // 👉 Fetch products data
+    getLastID(params) { return axios.get('/api/certifyInvoices/getLastID', { params }) },
 
     // 👉 Fetch products data
     fetchData(params) { return axios.get('/api/certifyInvoices/getData', { params }) },
@@ -51,11 +53,11 @@ export const useCertifyInvoiceListStore = defineStore('CertifyInvoiceListStore',
     },
 
 
-    fetchProduct(id) {
-      return new Promise((resolve, reject) => {
-        axios.get(`/apps/certifyInvoices/${id}`).then(response => resolve(response)).catch(error => reject(error))
-      })
+    fetchInvoice(id) {
+      return axios.get(`/api/certifyInvoices/${id}`)
+
     },
+
     // 👉 fetch single product
     deleteProduct(productData) {
       console.log(productData)
