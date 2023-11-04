@@ -79,6 +79,9 @@ const paymentMethods = [
   'PayPal',
   'UPI Transfer',
 ]
+const saveInvoice = () => {
+  console.log(invoiceData)
+}
 </script>
 
 <template>
@@ -129,6 +132,7 @@ const paymentMethods = [
                 color="secondary"
                 variant="tonal"
                 class="mb-2"
+                @click="saveInvoice"
               >
                 Save
               </VBtn>

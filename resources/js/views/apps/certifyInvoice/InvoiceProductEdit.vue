@@ -44,7 +44,7 @@ const totalAmount = () => {
 }
 
 watch(totalPrice, () => {
-  //totalAmount()
+  totalAmount()
 }, { immediate: true })
 
 
@@ -133,6 +133,7 @@ watch(totalPrice, () => {
             v-model="props.data.quantity"
             type="number"
             label="Quantity"
+
           />
         </VCol>
         <VCol

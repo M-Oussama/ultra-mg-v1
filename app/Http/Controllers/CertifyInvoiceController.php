@@ -55,8 +55,19 @@ class CertifyInvoiceController extends Controller
         $selectedProductIds = $invoice->certifyInvoiceProducts->pluck('product_id')->toArray();
 
         $unSelectedProducts = Product::whereNotIn('id',$selectedProductIds)->get();
+        $unSelectProducts = [];
 
-        return response()->json(["invoice" => $invoice, "clients"=>$clients, "products"=>$products, "unSelectedProducts"=>$unSelectedProducts]);
+        foreach ($unSelectedProducts as $product) {
+            $_product = new CertifyInvoiceProducts();
+            $_product->quantity = 0;
+            $_product->price = 0;
+            $_product->total = 0;
+            $_product->product = $product;
+
+            array_push($unSelectProducts,$_product);
+        }
+
+        return response()->json(["invoice" => $invoice, "clients"=>$clients, "products"=>$products, "unSelectedProducts"=>$unSelectProducts]);
     }
 
     /**

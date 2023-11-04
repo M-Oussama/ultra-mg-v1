@@ -16,7 +16,7 @@
     "@vueform/multiselect": "^2.6.6",
     "@vueuse/core": "^9.5.0",
     "@vueuse/math": "^9.5.0",
-    "ant-design-vue": "^4.0.0-rc.6",
+    "ant-design-vue": "^4.0.6",
     "apexcharts-clevision": "^3.28.5",
     "axios": "1.1.2",
     "axios-mock-adapter": "^1.21.2",

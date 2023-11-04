@@ -8,6 +8,7 @@ import { ModelListSelect } from 'vue-search-select'
 import { requiredValidator } from '@validators'
 import {loading} from "@/views/demos/forms/form-elements/file-input/demoCodeFileInput";
 
+
 const props = defineProps({
   data: {
     type: null,
@@ -53,18 +54,23 @@ const companyProfile = ref({
   phone2:'+213 0668 15 41 45',
 
 })
-const selectedItem = ref({
-  id: -1,
-  name: '',
-  brand: '',
-  description: '',
-  product_code: '',
-  SKU: '',
-  price: 0,
-  stockable: false,
-  tax_rate: 0,
-  product_stock: {
-    quantity : 0,
+let selectedItem = ref({
+  quantity:0,
+  price:0,
+  total:0,
+  product:{
+    id: -1,
+    name: 'Select a product',
+    brand: '',
+    description: '',
+    product_code: '',
+    SKU: '',
+    price: 0,
+    stockable: false,
+    tax_rate: 0,
+    product_stock: {
+      quantity : 0,
+    }
   }
 })
 const defaultSelect = ref({
@@ -82,13 +88,20 @@ const defaultSelect = ref({
   }
 })
 
+const filterOption = (input, option) => {
+
+  return option.value.toLowerCase().indexOf(input.toLowerCase()) >= 0
+}
+
+const value = ref(undefined)
+
+
 watch(props.data , ()=> {
   if(previous_date.value !== props.data.date ) {
     previous_date.value = props.data.date;
 
     props.loading.isActive = true;
     // 👉 get The Last ID
-    console.log(props.data)
     certifyInvoiceListStore.getLastID({
       date: props.data.date,
   }
@@ -116,75 +129,34 @@ function findIndexById(selectedProducts, selectedItemId) {
 }
 
 const totalAmount = data => {
-  updateValueInsideArray(data)
   computeTotal()
 }
 
-function updateValueInsideArray(data) {
-  const index = findIndexById(added_products, data._value.id);
-  const index2 = props.data.purchasedProducts.findIndex(p => p._value.id === data._value.id)
-
-  if(index !== -1) {
-    added_products._value[index]._value.price = data._value.price
-    props.data.purchasedProducts[index]._value.price = data._value.price
-  }
-}
-
 function computeTotal() {
-// Calculate total price for each product (price * quantity)
-  let totalPrices = added_products._value.map(product => product._value.price * product._value.product_stock.quantity);
-  let totalPrices2 = props.data.purchasedProducts.map(product => product._value.price * product._value.product_stock.quantity);
-  console.log(totalPrices2)
-// Calculate the overall total by summing up the total prices using reduce
-  totalInvoice.value = totalPrices2.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-  props.data.total = totalPrices2.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+  let totalPrices = props.data.certify_invoice_products.map(item => item.price * item.quantity);
+  totalInvoice.value = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+  props.data.total = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
 }
 
 // 👉 Add item function
 const addItem = () => {
+ const index = props.data.certify_invoice_products.findIndex(p => p.product.id === selectedItem.value.product.id);
 
-  const index_new_selected = findIndexById(selectedProducts, selectedItem.value.id);
-  const index_available_selected = availableproducts.value.findIndex(p => p.id === selectedItem.value.id)
-
-  if(props.data.products.length >= added_products.value.length && selectedItem.value.id !== -1 && index_new_selected ===-1) {
-    added_products.value.push({...selectedItem});
-    props.data.purchasedProducts.push({...selectedItem});
-    selectedProducts.value.push({...selectedItem});
-    if(index_available_selected !== -1){
-      availableproducts._value.splice(index_available_selected,1);
-      placeholder_value.value = "Search for a Product";
-    }
-    computeTotal()
+  if(index ===-1) {
+    props.data.certify_invoice_products.push({...selectedItem.value})
   }
+  computeTotal()
 }
 
 watch(selectedItem , ()=> {
-  placeholder_value.value =  selectedItem.value.name;
-  addItem();
+
+
 })
 
 const removeProduct = Item => {
-  const index_available_selected = availableproducts.value.findIndex(p => p.id === Item._rawValue.id);
-  const index_selected_selected = findIndexById(selectedProducts, Item._rawValue.id);
-  const index_added_product = findIndexById(added_products, Item._rawValue.id);
-  const index2 = props.data.purchasedProducts.findIndex(p => p._value.id === Item._rawValue.id)
-
-
-  if(index_available_selected === -1) {
-    availableproducts.value.push({...Item._rawValue});
-
-  }
-  if(index_selected_selected !== -1) {
-    selectedProducts.value.splice(index_selected_selected,1);
-
-  }
-  if(index_added_product !== -1) {
-    added_products.value.splice(index_added_product,1);
-    props.data.purchasedProducts.splice(index2,1);
-
-    computeTotal()
-  }
-
+  const index = props.data.certify_invoice_products.findIndex(p => p.product.id === Item.product.id);
+  props.data.certify_invoice_products.splice(index,1);
+  computeTotal()
 }
 
 const fullName = item => {
@@ -192,7 +164,16 @@ const fullName = item => {
 }
 
 const productfullName = item => {
-  return `${item.name}`
+
+  return `${item.product.name}`
+}
+
+const handleProductChange = (value) => {
+
+  const index  = props.data.unSelectedProducts.findIndex(p => p.product.id === value);
+  selectedItem.value = props.data.unSelectedProducts[index];
+
+  addItem()
 }
 
 </script>
@@ -285,6 +266,7 @@ const productfullName = item => {
               v-model="props.data.client"
               option-value="id"
               :custom-text="fullName"
+              :hideSelectedOptions="true"
               placeholder="Select Client">
             </model-list-select>
           </div>
@@ -386,13 +368,32 @@ const productfullName = item => {
             cols="12"
             md="12"
           >
-            <model-list-select
-              :list="props.data.unSelectedProducts"
+
+            <span class="text-sm-caption mb-2">Products</span>
+            <a-select
+              show-search
+              :showArrow =false
+              :placeholder="selectedItem.name"
+              :allowClear = true
+              style="width: 100%"
+              size="large"
+              :filter-option="filterOption"
               v-model="selectedItem"
-              option-value="name"
-              :custom-text="productfullName"
-              :placeholder="placeholder_value">
-            </model-list-select>
+              @change="handleProductChange"
+
+            >
+
+              <a-select-option :value="invoice.product.id" v-for="invoice in props.data.unSelectedProducts" >
+                {{invoice.product.name}}
+              </a-select-option>
+            </a-select>
+<!--            <model-list-select-->
+<!--              :list="props.data.unSelectedProducts"-->
+<!--              v-model="selectedItem"-->
+<!--              option-value="quantity"-->
+<!--              :custom-text="productfullName"-->
+<!--              :placeholder="placeholder_value">-->
+<!--            </model-list-select>-->
           </VCol>
           <VCol
             cols="12"
@@ -503,5 +504,10 @@ select option:first-child {
 }
 .ui.search.selection.dropdown>input.search {
   font-size: large;
+}
+.ant-select-clear{
+  top: 40% !important;
+  font-size:larger
+
 }
 </style>
