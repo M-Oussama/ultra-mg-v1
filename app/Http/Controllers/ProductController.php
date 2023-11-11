@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductStock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -76,7 +77,6 @@ class ProductController extends Controller
                     new OA\Property(property: "price", type: "number", format: "float", example: "99.99"),
                     new OA\Property(property: "is_available", type: "boolean", example: true),
                     new OA\Property(property: "tax_rate", type: "number", format: "float", example: "0.08"),
-                    new OA\Property(property: "type_id", type: "integer", example: "1"),
                 ]
             )
         ]
@@ -104,10 +104,16 @@ class ProductController extends Controller
             'price' => 'numeric',
             'stockable' => 'boolean',
             'tax_rate' => 'numeric',
-            'type_id' => 'integer',
         ]);
 
+
+
         $product = Product::create($validatedData);
+        ProductStock::create(
+            [
+                'product_id' => $product->id,
+            ]
+        );
 
         return response()->json(['message' => 'Product created successfully', 'product' => $product]);
     }

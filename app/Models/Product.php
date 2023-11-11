@@ -44,6 +44,27 @@ class Product extends Model
         'price',
         'is_available',
         'tax_rate',
-        'type_id'
+        'type_id',
+        'stockable'
     ];
+
+    protected $with = [
+        'productStock'
+    ];
+
+    public function productStock() {
+        return $this->hasOne(ProductStock::class);
+    }
+
+    public static function getAllProductsFormatted()
+    {
+        return static::all()->map(function ($product) {
+            return [
+                'quantity' => $product->productStock->quantity, // You can set the quantity to 0 or any default value you want
+                'price' => $product->price,    // You can set the price to 0 or any default value you want
+                'product' => $product,
+                'id' => $product->id,
+            ];
+        });
+    }
 }

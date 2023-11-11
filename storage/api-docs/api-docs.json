@@ -63,6 +63,30 @@
                                     "payment_type": {
                                         "type": "integer",
                                         "example": "1"
+                                    },
+                                    "products": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "product_id": {
+                                                    "type": "integer",
+                                                    "example": "1"
+                                                },
+                                                "quantity": {
+                                                    "type": "number",
+                                                    "example": "2"
+                                                },
+                                                "price": {
+                                                    "type": "number",
+                                                    "example": "2"
+                                                },
+                                                "total": {
+                                                    "type": "number",
+                                                    "example": "2"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
                                     }
                                 },
                                 "type": "object"
@@ -77,6 +101,28 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/ICertifyInvoice"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/certifyInvoices/getData": {
+            "get": {
+                "tags": [
+                    "certifyInvoice"
+                ],
+                "summary": "get List Of Clients and Products",
+                "description": "Returns the list of clients and products",
+                "operationId": "getData",
+                "responses": {
+                    "200": {
+                        "description": "Success",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
                                 }
                             }
                         }
@@ -400,10 +446,6 @@
                                         "type": "number",
                                         "format": "float",
                                         "example": "0.08"
-                                    },
-                                    "type_id": {
-                                        "type": "integer",
-                                        "example": "1"
                                     }
                                 },
                                 "type": "object"

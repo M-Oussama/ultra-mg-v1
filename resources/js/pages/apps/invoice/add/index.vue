@@ -12,12 +12,16 @@ const invoiceData = ref({
     balance: '',
     dueDate: '',
     client: {
-      address: '',
-      company: '',
-      companyEmail: '',
-      contact: '',
-      country: '',
+      id: '',
       name: '',
+      surname: '',
+      address: '',
+      email: '',
+      phone: '',
+      NRC: '',
+      NIF: '',
+      NART: '',
+      NIS: '',
     },
   },
   paymentDetails: {
@@ -49,6 +53,11 @@ const paymentMethods = [
   'PayPal',
   'UPI Transfer',
 ]
+
+const saveInvoice = () => {
+
+  console.log('save')
+}
 </script>
 
 <template>
@@ -89,13 +98,15 @@ const paymentMethods = [
           </VBtn>
 
           <!-- 👉 Save -->
-          <VBtn
+          <v-btn
             block
             color="default"
             variant="tonal"
+            @click="saveInvoice"
           >
             Save
-          </VBtn>
+          </v-btn>
+
         </VCardText>
       </VCard>
 

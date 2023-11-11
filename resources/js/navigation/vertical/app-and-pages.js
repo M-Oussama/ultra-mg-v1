@@ -114,7 +114,20 @@ export default [
     title: 'Product', to: 'apps-product-list', icon: { icon: 'tabler-box' },
   },
   {
-    title: 'Certify Invoices', to: 'apps-certifyInvoice-list', icon: { icon: 'tabler-archive' },
+    title: 'Certify Invoices',
+    children: [
+      { title: 'List', to: 'apps-certifyInvoice-list' },
+      { title: 'Add', to: 'apps-certifyInvoice-add' },
+    ],
+    icon: { icon: 'tabler-archive' },
   },
-
+  { heading: 'POS' },
+  {
+    title: 'Invoice',
+    children: [
+      { title: 'List', to: 'apps-POS-invoice-list' },
+      { title: 'Add', to: 'apps-POS-invoice-add' },
+    ],
+    icon: { icon: 'tabler-archive' },
+  },
 ]

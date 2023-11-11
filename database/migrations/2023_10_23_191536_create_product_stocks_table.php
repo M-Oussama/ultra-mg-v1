@@ -13,13 +13,10 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('certify_invoice_products', function (Blueprint $table) {
+        Schema::create('product_stocks', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('certify_invoice_id');
-            $table->unsignedBigInteger('product_id');
-            $table->unsignedBigInteger('price');
-            $table->unsignedBigInteger('quantity');
-            $table->unsignedBigInteger('total');
+            $table->unsignedBigInteger('product_id')->references('id')->on('products')->onDelete('cascade');
+            $table->double('quantity')->default(0);
             $table->timestamps();
             $table->softDeletes();
         });
@@ -32,6 +29,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('certify_invoice_products');
+        Schema::dropIfExists('product_stocks');
     }
 };

@@ -145,6 +145,7 @@ const openUpdateDrawer = (user) => {
   selectedUser = user;
 
 }
+
 const openConfirmationDialog = (user) => {
   isDialogVisible.value = true;
   selectedUser = user;

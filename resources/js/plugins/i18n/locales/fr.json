@@ -56,6 +56,7 @@
   "Email": "Email",
   "Chat": "Bavarder",
   "Invoice": "Facture d'achat",
+  "Certify Invoices": "Facture de vents",
   "Preview": "Aperçu",
   "Add": "Ajouter",
   "User": "Utilisateur",
@@ -136,6 +137,12 @@
       "ariaLabel": {
         "item": "Objet"
       }
+    }
+  },
+  "requests": {
+    "product": {
+      "success": "تمت اضافة المنتوج بنجاح",
+      "error": "حصل خطأ، لم يتم اضافة المنتوج"
     }
   }
 }

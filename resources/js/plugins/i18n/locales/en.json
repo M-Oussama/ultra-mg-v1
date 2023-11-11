@@ -55,6 +55,7 @@
   "Email": "Email",
   "Chat": "Chat",
   "Invoice": "Invoice",
+  "Certify Invoices": "Certify Invoices",
   "Preview": "Preview",
   "Add": "Add",
   "User": "User",
@@ -135,6 +136,12 @@
       "ariaLabel": {
         "item": "item"
       }
+    }
+  },
+  "requests": {
+    "product": {
+      "success": "The Product created successfully.",
+      "error": "An error occurred, failed to create product."
     }
   }
 }

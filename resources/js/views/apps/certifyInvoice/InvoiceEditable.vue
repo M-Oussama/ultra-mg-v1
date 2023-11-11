@@ -1,10 +1,14 @@
 <script setup>
-import InvoiceProductEdit from './InvoiceProductEdit.vue'
+import InvoiceProductEdit from '@/views/apps/certifyInvoice/InvoiceProductEdit.vue'
 import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
 import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
 import "vue-search-select/dist/VueSearchSelect.css"
 import { ModelListSelect } from 'vue-search-select'
+import { requiredValidator } from '@validators'
+import {loading} from "@/views/demos/forms/form-elements/file-input/demoCodeFileInput";
+
+
 const props = defineProps({
   data: {
     type: null,
@@ -17,10 +21,10 @@ const props = defineProps({
 
 })
 
-
 const certifyInvoiceListStore = useCertifyInvoiceListStore()
 
 // 👉 Clients
+
 let totalInvoice = ref(0)
 let previous_date = ref(props.data.date)
 const product = ref({
@@ -37,10 +41,8 @@ const product = ref({
     quantity : 0,
   }
 })
-
-
+const client = ref([])
 const clients = ref([])
-
 const companyProfile = ref({
   name:'EURL SETIFIS DETERGENTS',
   address: 'LOT N, 6 GROUPE 51, ZONE INDUSTRIELLE, 34 SECTION, Ksar El Abtal 19220',
@@ -54,7 +56,6 @@ let selectedItem = ref({
   quantity:0,
   price:0,
   total:0,
-
   product:{
     id: -1,
     name: 'Select a product',
@@ -70,7 +71,7 @@ let selectedItem = ref({
     }
   }
 })
-let defaultSelectedItem = ref({
+const defaultSelectedItem = ref({
   quantity:0,
   price:0,
   total:0,
@@ -90,15 +91,13 @@ let defaultSelectedItem = ref({
   }
 })
 
-watch(props.data , ()=> {
-  console.log(props.data)
 
+watch(props.data , ()=> {
   if(previous_date.value !== props.data.date ) {
     previous_date.value = props.data.date;
 
     props.loading.isActive = true;
     // 👉 get The Last ID
-    console.log(props.data)
     certifyInvoiceListStore.getLastID({
       date: props.data.date,
   }
@@ -110,41 +109,16 @@ watch(props.data , ()=> {
       console.log(err)
     })
   }
-
 })
 
-watch(selectedItem , ()=> {
-   handleProductChange()
-})
-
-const fullName = item => {
-
-  return `${item.name}  ${item.surname}`
+const totalAmount = data => {
+  computeTotal()
 }
 
 const productFullName = item => {
+  console.log("item :")
+  console.log(item)
   return `${item.product.name}`
-}
-const handleProductChange = (value) => {
-   addItem()
-   selectedItem.value = {...defaultSelectedItem.value}
-}
-// 👉 Add item function
-const addItem = () => {
-  if(selectedItem.value !== undefined){
-    const index = props.data.certify_invoice_products.findIndex(p => p.product.id === selectedItem.value.product.id);
-
-    if(index ===-1 && selectedItem.value.product.id !== -1) {
-      props.data.certify_invoice_products.push({...selectedItem.value})
-    }
-    computeTotal()
-  }
-}
-
-const removeProduct = Item => {
-  const index = props.data.certify_invoice_products.findIndex(p => p.product.id === Item.product.id);
-  props.data.certify_invoice_products.splice(index,1);
-  computeTotal()
 }
 
 function computeTotal() {
@@ -154,8 +128,42 @@ function computeTotal() {
   props.data.amount = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
 }
 
-const totalAmount = data => {
+// 👉 Add item function
+const addItem = () => {
+  if(selectedItem.value !== undefined){
+    console.log(selectedItem.value.product.id)
+    const index = props.data.certify_invoice_products.findIndex(p =>
+      p.product.id ===
+      selectedItem.value.product.id);
+
+    if(index ===-1 && selectedItem.value.product.id !== -1) {
+      props.data.certify_invoice_products.push({...selectedItem.value})
+    }
+
+    computeTotal()
+  }
+
+
+}
+
+watch(selectedItem , ()=> {
+
+  handleProductChange()
+})
+
+const removeProduct = Item => {
+  const index = props.data.certify_invoice_products.findIndex(p => p.product.id === Item.product.id);
+  props.data.certify_invoice_products.splice(index,1);
   computeTotal()
+}
+
+const fullName = item => {
+  return `${item.name}  ${item.surname}`
+}
+
+const handleProductChange = (value) => {
+  addItem()
+  selectedItem.value = {...defaultSelectedItem.value}
 }
 
 </script>
@@ -243,18 +251,20 @@ const totalAmount = data => {
             <h6 class="text-sm font-weight-medium mb-3">
               Invoice To:
             </h6>
-              <model-list-select
-                :list="props.data.clients"
-                v-model="props.data.client"
-                option-value="id"
-                :custom-text="fullName"
-                placeholder="Select Client">
-              </model-list-select>
+            <model-list-select
+              :list="props.data.clients"
+              v-model="props.data.client"
+              option-value="id"
+              :custom-text="fullName"
+              :hideSelectedOptions="true"
+              placeholder="Select Client">
+            </model-list-select>
           </div>
           <div class="align-center mb-6">
             <h6 class="text-sm font-weight-medium mb-3">
               City:
             </h6>
+
           </div>
         </VCol>
         <VCol
@@ -342,16 +352,17 @@ const totalAmount = data => {
             cols="12"
             md="12"
           >
+
+            <span class="text-sm-caption mb-2">Products</span>
             <model-list-select
               :list="props.data.products"
               v-model="selectedItem"
               option-value="id"
               :custom-text="productFullName"
               placeholder="Select Product"
-              >
+            >
 
             </model-list-select>
-
 
 
           </VCol>
@@ -359,7 +370,9 @@ const totalAmount = data => {
             cols="12"
             md="2"
           >
-
+<!--            <VBtn @click="addItem">-->
+<!--              Add Item-->
+<!--            </VBtn>-->
           </VCol>
 
         </VRow>
@@ -372,8 +385,6 @@ const totalAmount = data => {
         :key="index"
         class="ma-sm-4"
       >
-
-
         <InvoiceProductEdit
           :id="_product.id"
           :data="_product"
@@ -381,8 +392,6 @@ const totalAmount = data => {
           @total-amount="totalAmount"
         />
       </div>
-
-
     </VCardText>
 
     <VDivider />
@@ -466,6 +475,10 @@ select option:first-child {
 }
 .ui.search.selection.dropdown>input.search {
   font-size: large;
+}
+.ant-select-clear{
+  top: 40% !important;
+  font-size:larger !important;
 }
 .selection{
   border-radius: 20px !important;

@@ -4,6 +4,7 @@ import EditProductDrawer from '@/views/apps/product/list/EditProductDrawer.vue';
 import ConfirmationDialog from '@/views/apps/product/list/ConfirmationDialog.vue';
 import { useProductListStore } from '@/views/apps/product/useProductListStore'
 
+
 const productListStore = useProductListStore()
 const searchQuery = ref('')
 const loading = ref(false)
@@ -17,8 +18,10 @@ const totalPage = ref(1)
 const totalProducts = ref(0)
 let products = ref([])
 
+
 // 👉 Fetching products
 const fetchProducts = () => {
+  console.log(app.config)
   productListStore.fetchProducts({
      searchValue: searchQuery.value,
      perPage: rowPerPage.value,
@@ -27,8 +30,7 @@ const fetchProducts = () => {
      products.value = response.data.products.data
      totalPage.value = response.data.totalPage
      totalProducts.value = response.data.totalProducts
-    loading.value = false;
-
+     loading.value = false;
   }).catch(error => {
     console.error(error)
 
