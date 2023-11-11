@@ -15,6 +15,7 @@ import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 import { useI18n } from 'vue-i18n';
 import Antd from 'ant-design-vue';
+import VueSingleSelect from "vue-single-select";
 
 loadFonts()
 
@@ -37,6 +38,7 @@ app.use(abilitiesPlugin, ability, {
 })
 
 
+app.component('vue-single-select', VueSingleSelect);
 // Mount vue app
 app.mount('#app')
 

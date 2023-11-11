@@ -48,26 +48,14 @@ class CertifyInvoiceController extends Controller
     public function getInvoice($id): JsonResponse
     {
         $invoice = CertifyInvoices::find($id);
+
         $invoice->amount_letter = $this->convertAmoutToLetter(($invoice->amount*1.19));
 
         $clients = Client::all();
-        $products = Product::all();
-        $selectedProductIds = $invoice->certifyInvoiceProducts->pluck('product_id')->toArray();
 
-        $unSelectedProducts = Product::whereNotIn('id',$selectedProductIds)->get();
-        $unSelectProducts = [];
+        $products = Product::getAllProductsFormatted();
 
-        foreach ($unSelectedProducts as $product) {
-            $_product = new CertifyInvoiceProducts();
-            $_product->quantity = 0;
-            $_product->price = 0;
-            $_product->total = 0;
-            $_product->product = $product;
-
-            array_push($unSelectProducts,$_product);
-        }
-
-        return response()->json(["invoice" => $invoice, "clients"=>$clients, "products"=>$products, "unSelectedProducts"=>$unSelectProducts]);
+        return response()->json(["invoice" => $invoice, "clients"=>$clients, "products"=>$products, "unSelectedProducts"=>$products]);
     }
 
     /**
@@ -120,29 +108,29 @@ class CertifyInvoiceController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $invoiceData = $request->input('invoiceData');
-        $invoice = $invoiceData['invoice'];
-        $client = $invoice['client'];
 
-        $fac_id = $invoice['id'];
+        $invoiceData = $request->input('invoiceData');
+        $client = $invoiceData['client'];
+
+        $fac_id = $invoiceData['fac_id'];
 
          $invoice = CertifyInvoices::create([
             'fac_id' => $fac_id,
-            'date' => $invoice['date'],
+            'date' => $invoiceData['date'],
             'client_id' => $client['id'],
-            'amount' => $invoice['total'],
-            'payment_type' => $invoiceData['selectedPaymentMethod'],
+            'amount' => $invoiceData['amount'],
+            'payment_type' => $invoiceData['payment_type'],
         ]);
 
-        $products = $invoiceData['purchasedProducts'];
+        $products = $invoiceData['certify_invoice_products'];
 
         foreach ($products as $product) {
 
             CertifyInvoiceProducts::create([
-               'product_id' => $product['_value']['id'],
-               'price' => $product['_value']['price'],
-               'quantity' => $product['_value']['product_stock']['quantity'],
-               'total' => $product['_value']['product_stock']['quantity'] * $product['_value']['price'],
+               'product_id' => $product['product']['id'],
+               'price' => $product['price'],
+               'quantity' => $product['quantity'],
+               'total' => $product['quantity'] * $product['price'],
                'certify_invoice_id' => $invoice->id,
             ]);
         }
@@ -159,17 +147,17 @@ class CertifyInvoiceController extends Controller
      */
 
     #[OA\Get(
-        path: "/api/certifyInvoices/getData",
-        operationId: "getData",
+        path: "/api/certifyInvoices/getInvoiceData",
+        operationId: "getInvoiceData",
         description: "Returns the list of clients and products",
         tags: ["certifyInvoice"],
     )]
     #[OA\Response(response:200, description: "Success", content: [new OA\JsonContent(
         type: 'object'
     )])]
-    public function getData(Request $request): JsonResponse {
+    public function getInvoiceData(): JsonResponse {
         $clients = Client::all();
-        $products = Product::all();
+        $products = Product::getAllProductsFormatted();
         $date = date('Y-m-d');
         $id = $this->getLastIDPerYear(date('Y-m-d'));
 
@@ -201,18 +189,23 @@ class CertifyInvoiceController extends Controller
     public function convertAmoutToLetter($amount){
         $lettre = new NumberToLetter();
         $amountLetter = "";
-        if($this->isDecimal($amount)){
-            list($int, $float) = explode('.',  $amount);
-            $amountLetter =  $lettre->Conversion($int)." Dinar(s)";
-            $centime = "";
-            if($float>0){
-                $centime =  $lettre->Conversion($float)." Centimes";
-            }
-            $amountLetter = $amountLetter.' et '.$centime;
+        if($amount == 0 ){
+            $amountLetter = "Zero Dinar (s)";
         }else{
-            $amountLetter =  $lettre->Conversion($amount)."Dinar(s)";
+            if($this->isDecimal($amount)){
+                list($int, $float) = explode('.',  $amount);
+                $amountLetter =  $lettre->Conversion($int)." Dinar(s)";
+                $centime = "";
+                if($float>0){
+                    $centime =  $lettre->Conversion($float)." Centimes";
+                }
+                $amountLetter = $amountLetter.' et '.$centime;
+            }else{
+                $amountLetter =  $lettre->Conversion($amount)."Dinar(s)";
 
+            }
         }
+
 
         return $amountLetter;
     }
@@ -220,6 +213,46 @@ class CertifyInvoiceController extends Controller
     function isDecimal( $val )
     {
         return is_numeric( $val ) && floor( $val ) != $val;
+    }
+
+
+    public function update(Request $request): JsonResponse
+    {
+        $invoiceData = $request->input('invoiceData');
+
+        $client = $invoiceData['client'];
+
+       $fac_id = $invoiceData['fac_id'];
+
+       $invoice = CertifyInvoices::find($invoiceData['id']);
+
+         $invoice->update([
+             'date' => $invoiceData['date'],
+             'client_id' => $client['id'],
+             'amount' => $invoiceData['total'],
+             'payment_type' => $invoiceData['payment_type'],
+         ]);
+
+
+        foreach ($invoice->certifyInvoiceProducts as $product) {
+            $product->delete();
+        }
+
+        $products = $invoiceData['certify_invoice_products'];
+
+         foreach ($products as $product) {
+
+             CertifyInvoiceProducts::create([
+                 'product_id' => $product['product']['id'],
+                 'price' => $product['price'],
+                 'quantity' => $product['quantity'],
+                 'total' => $product['price'] * $product['quantity'],
+                 'certify_invoice_id' => $invoiceData['id'],
+             ]);
+         }
+
+        return response()->json(["message"=>"Invoice Updated Successfully"]);
+
     }
 
 }

@@ -117,21 +117,17 @@ export default [
     title: 'Certify Invoices',
     children: [
       { title: 'List', to: 'apps-certifyInvoice-list' },
-      { title: 'Preview', to: { name: 'apps-certifyInvoice-preview-id', params: { id: '5036' } } },
       { title: 'Add', to: 'apps-certifyInvoice-add' },
     ],
     icon: { icon: 'tabler-archive' },
   },
-
+  { heading: 'POS' },
   {
     title: 'Invoice',
-    icon: { icon: 'tabler-file' },
     children: [
-      { title: 'List', to: 'apps-invoice-list' },
-      { title: 'Preview', to: { name: 'apps-invoice-preview-id', params: { id: '5036' } } },
-      { title: 'Edit', to: { name: 'apps-invoice-edit-id', params: { id: '5036' } } },
-      { title: 'Add', to: 'apps-invoice-add' },
+      { title: 'List', to: 'apps-POS-invoice-list' },
+      { title: 'Add', to: 'apps-POS-invoice-add' },
     ],
+    icon: { icon: 'tabler-archive' },
   },
-
 ]

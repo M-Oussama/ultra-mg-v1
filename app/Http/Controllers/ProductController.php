@@ -106,6 +106,8 @@ class ProductController extends Controller
             'tax_rate' => 'numeric',
         ]);
 
+
+
         $product = Product::create($validatedData);
         ProductStock::create(
             [

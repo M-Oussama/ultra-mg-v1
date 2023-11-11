@@ -8,6 +8,7 @@
     "build:icons": "node resources/js/@iconify/build-icons.js"
   },
   "dependencies": {
+    "@alfsnd/vue-bootstrap-select": "^0.4.4",
     "@casl/ability": "^6.2.0",
     "@casl/vue": "^2.2.0",
     "@floating-ui/dom": "1.0.4",
@@ -38,6 +39,8 @@
     "vue-prism-component": "^2.0.0",
     "vue-router": "^4.1.5",
     "vue-search-select": "^3.2.0",
+    "vue-select": "^3.20.2",
+    "vue-single-select": "^1.1.0",
     "vue3-apexcharts": "^1.4.1",
     "vue3-perfect-scrollbar": "^1.6.0",
     "vue3-select2-component": "^0.1.7",

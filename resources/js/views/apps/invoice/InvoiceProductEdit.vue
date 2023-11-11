@@ -33,7 +33,7 @@ const emit = defineEmits([
   'totalAmount',
 ])
 
-const totalPrice = computed(() => Number(props.data._value.price) * Number(props.data._value.product_stock.quantity))
+const totalPrice = computed(() => Number(props.data.price) * Number(props.data.quantity))
 
 
 const removeProduct = () => {
@@ -108,13 +108,13 @@ watch(totalPrice, () => {
             sm="4"
           >
             <VTextField
-              v-model="props.data._value.name"
+              v-model="props.data.product.name"
               type="string"
               label="Product"
               disabled
             />
 
-            <span>{{props.data}}</span>
+
 
 
         </VCol>
@@ -124,7 +124,7 @@ watch(totalPrice, () => {
           sm="4"
         >
           <VTextField
-            v-model="props.data._value.price"
+            v-model="props.data.price"
             type="number"
             label="Price"
           />
@@ -137,7 +137,7 @@ watch(totalPrice, () => {
           sm="4"
         >
           <VTextField
-            v-model="props.data._value.product_stock.quantity"
+            v-model="props.data.quantity"
             type="number"
             label="Quantity"
           />

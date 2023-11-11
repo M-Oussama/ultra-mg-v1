@@ -5,9 +5,6 @@ import { themeConfig } from '@themeConfig'
 import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
 import "vue-search-select/dist/VueSearchSelect.css"
 import { ModelListSelect } from 'vue-search-select'
-import { requiredValidator } from '@validators'
-import {loading} from "@/views/demos/forms/form-elements/file-input/demoCodeFileInput";
-
 const props = defineProps({
   data: {
     type: null,
@@ -20,15 +17,12 @@ const props = defineProps({
 
 })
 
+
 const certifyInvoiceListStore = useCertifyInvoiceListStore()
 
 // 👉 Clients
-const selectedProducts = ref([])
-let availableproducts = ref([])
-let placeholder_value = ref('Search for a Product')
-const added_products = ref([])
 let totalInvoice = ref(0)
-let previous_date = ref(props.data.invoice.date)
+let previous_date = ref(props.data.date)
 const product = ref({
   id: -1,
   name: '',
@@ -43,7 +37,10 @@ const product = ref({
     quantity : 0,
   }
 })
-const client = ref([])
+
+
+const clients = ref([])
+
 const companyProfile = ref({
   name:'EURL SETIFIS DETERGENTS',
   address: 'LOT N, 6 GROUPE 51, ZONE INDUSTRIELLE, 34 SECTION, Ksar El Abtal 19220',
@@ -52,51 +49,61 @@ const companyProfile = ref({
   phone2:'+213 0668 15 41 45',
 
 })
-const selectedItem = ref({
-  id: -1,
-  name: '',
-  brand: '',
-  description: '',
-  product_code: '',
-  SKU: '',
-  price: 0,
-  stockable: false,
-  tax_rate: 0,
-  product_stock: {
-    quantity : 0,
+
+let selectedItem = ref({
+  quantity:0,
+  price:0,
+  total:0,
+
+  product:{
+    id: -1,
+    name: 'Select a product',
+    brand: '',
+    description: '',
+    product_code: '',
+    SKU: '',
+    price: 0,
+    stockable: false,
+    tax_rate: 0,
+    product_stock: {
+      quantity : 0,
+    }
   }
 })
-const defaultSelect = ref({
-  id: -1,
-  name: '',
-  brand: '',
-  description: '',
-  product_code: '',
-  SKU: '',
-  price: 0,
-  stockable: false,
-  tax_rate: 0,
-  product_stock: {
-    quantity : 0,
+let defaultSelectedItem = ref({
+  quantity:0,
+  price:0,
+  total:0,
+  product:{
+    id: -1,
+    name: 'Select a product',
+    brand: '',
+    description: '',
+    product_code: '',
+    SKU: '',
+    price: 0,
+    stockable: false,
+    tax_rate: 0,
+    product_stock: {
+      quantity : 0,
+    }
   }
 })
 
 watch(props.data , ()=> {
+  console.log(props.data)
 
-  console.log("previous : "+previous_date.value)
-  console.log("date: "+props.data.invoice.date )
-
-  if(previous_date.value !== props.data.invoice.date ) {
-    previous_date.value = props.data.invoice.date;
+  if(previous_date.value !== props.data.date ) {
+    previous_date.value = props.data.date;
 
     props.loading.isActive = true;
     // 👉 get The Last ID
-    console.log(props.data.invoice)
+    console.log(props.data)
     certifyInvoiceListStore.getLastID({
-      date: props.data.invoice.date,
+      date: props.data.date,
   }
     ).then(response => {
-      props.data.invoice.id = response.data.id
+      props.data.id = response.data.id
       props.loading.isActive = false;
     }).catch(err => {
       props.loading.isActive = false;
@@ -104,109 +111,51 @@ watch(props.data , ()=> {
     })
   }
 
-  if(availableproducts.value.length ===0)
-     availableproducts.value = Array.from(props.data.products);
-
 })
-
-
-// 👉 fetchClients
-// certifyInvoiceListStore.fetchData().then(response => {
-//   products.value = response.data.products
-//   //companyProfile.value = response.data.companyProfile
-//
-//   //availableproducts.value = Array.from(props.data.products);
-// }).catch(err => {
-//   console.log(err)
-// })
-
-function findIndexById(selectedProducts, selectedItemId) {
-  for (let i = 0; i < selectedProducts.value.length; i++) {
-    if (selectedProducts.value[i].value ? selectedProducts.value[i].value.id : selectedProducts.value[i]._rawValue.id=== selectedItemId) {
-      return i; // Return the index if the item is found
-    }
-  }
-  return -1; // Return -1 if the item is not found
-}
-
-const totalAmount = data => {
-  updateValueInsideArray(data)
-  computeTotal()
-}
-
-function updateValueInsideArray(data) {
-  const index = findIndexById(added_products, data._value.id);
-  const index2 = props.data.purchasedProducts.findIndex(p => p._value.id === data._value.id)
-
-  if(index !== -1) {
-    added_products._value[index]._value.price = data._value.price
-    props.data.purchasedProducts[index]._value.price = data._value.price
-  }
-}
-
-function computeTotal() {
-// Calculate total price for each product (price * quantity)
-  let totalPrices = added_products._value.map(product => product._value.price * product._value.product_stock.quantity);
-  let totalPrices2 = props.data.purchasedProducts.map(product => product._value.price * product._value.product_stock.quantity);
-  console.log(totalPrices2)
-// Calculate the overall total by summing up the total prices using reduce
-  totalInvoice.value = totalPrices2.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-  props.data.invoice.total = totalPrices2.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
-}
-
-// 👉 Add item function
-const addItem = () => {
-
-  const index_new_selected = findIndexById(selectedProducts, selectedItem.value.id);
-  const index_available_selected = availableproducts.value.findIndex(p => p.id === selectedItem.value.id)
-
-  if(props.data.products.length >= added_products.value.length && selectedItem.value.id !== -1 && index_new_selected ===-1) {
-    added_products.value.push({...selectedItem});
-    props.data.purchasedProducts.push({...selectedItem});
-    selectedProducts.value.push({...selectedItem});
-    if(index_available_selected !== -1){
-      availableproducts._value.splice(index_available_selected,1);
-      placeholder_value.value = "Search for a Product";
-    }
-    computeTotal()
-  }
-}
 
 watch(selectedItem , ()=> {
-  placeholder_value.value =  selectedItem.value.name;
-  addItem();
+   handleProductChange()
 })
 
-const removeProduct = Item => {
-  const index_available_selected = availableproducts.value.findIndex(p => p.id === Item._rawValue.id);
-  const index_selected_selected = findIndexById(selectedProducts, Item._rawValue.id);
-  const index_added_product = findIndexById(added_products, Item._rawValue.id);
-  const index2 = props.data.purchasedProducts.findIndex(p => p._value.id === Item._rawValue.id)
-
-
-  if(index_available_selected === -1) {
-    availableproducts.value.push({...Item._rawValue});
-
-  }
-  if(index_selected_selected !== -1) {
-    selectedProducts.value.splice(index_selected_selected,1);
-
-  }
-  if(index_added_product !== -1) {
-    added_products.value.splice(index_added_product,1);
-    props.data.purchasedProducts.splice(index2,1);
-
-    computeTotal()
-  }
-
-}
-
 const fullName = item => {
+
   return `${item.name}  ${item.surname}`
 }
 
-const productfullName = item => {
-  return `${item.name}`
+const productFullName = item => {
+  return `${item.product.name}`
+}
+const handleProductChange = (value) => {
+   addItem()
+   selectedItem.value = {...defaultSelectedItem.value}
+}
+// 👉 Add item function
+const addItem = () => {
+  if(selectedItem.value !== undefined){
+    const index = props.data.certify_invoice_products.findIndex(p => p.product.id === selectedItem.value.product.id);
+
+    if(index ===-1 && selectedItem.value.product.id !== -1) {
+      props.data.certify_invoice_products.push({...selectedItem.value})
+    }
+    computeTotal()
+  }
+}
+
+const removeProduct = Item => {
+  const index = props.data.certify_invoice_products.findIndex(p => p.product.id === Item.product.id);
+  props.data.certify_invoice_products.splice(index,1);
+  computeTotal()
+}
+
+function computeTotal() {
+  let totalPrices = props.data.certify_invoice_products.map(item => item.price * item.quantity);
+  totalInvoice.value = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+  props.data.total = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+  props.data.amount = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+}
+
+const totalAmount = data => {
+  computeTotal()
 }
 
 </script>
@@ -252,7 +201,7 @@ const productfullName = item => {
 
           <span>
             <VTextField
-              v-model="props.data.invoice.id"
+              v-model="props.data.id"
               disabled
               prefix="#"
               density="compact"
@@ -267,7 +216,7 @@ const productfullName = item => {
 
           <span>
             <AppDateTimePicker
-              v-model="props.data.invoice.date"
+              v-model="props.data.date"
               density="compact"
               placeholder="YYYY-MM-DD"
               style="width: 8.9rem;"
@@ -294,25 +243,18 @@ const productfullName = item => {
             <h6 class="text-sm font-weight-medium mb-3">
               Invoice To:
             </h6>
-            <model-list-select
-              :list="props.data.clients"
-              v-model="props.data.invoice.client"
-              option-value="id"
-              :custom-text="fullName"
-              placeholder="Select Client">
-            </model-list-select>
+              <model-list-select
+                :list="props.data.clients"
+                v-model="props.data.client"
+                option-value="id"
+                :custom-text="fullName"
+                placeholder="Select Client">
+              </model-list-select>
           </div>
           <div class="align-center mb-6">
             <h6 class="text-sm font-weight-medium mb-3">
               City:
             </h6>
-            <model-list-select
-              :list="props.data.clients"
-              v-model="props.data.invoice.client"
-              option-value="id"
-              :custom-text="fullName"
-              placeholder="Select Client">
-            </model-list-select>
           </div>
         </VCol>
         <VCol
@@ -331,28 +273,28 @@ const productfullName = item => {
                   Invoice:
                 </td>
                 <td class="font-weight-semibold">
-                  FAJ/2023/{{ props.data.invoice.id }}
+                  FAJ/2023/{{ props.data.id }}
                 </td>
               </tr>
               <tr>
                 <td class="pe-6">
                   Payment Method:
                 </td>
-                <td class="font-weight-semibold">{{ props.data.selectedPaymentMethod }}</td>
+                <td class="font-weight-semibold">{{ props.data.payment_type }}</td>
               </tr>
               <tr>
                 <td class="pe-6">
                   Client:
                 </td>
                 <td class="font-weight-semibold">
-                  {{ props.data.invoice.client.name }} {{props.data.invoice.client.surname}}
+                  {{ props.data.client.name }} {{props.data.client.surname}}
                 </td>
               </tr>
               <tr>
                 <td class="pe-6">
                   Address:
                 </td>
-                <td>{{ props.data.invoice.client.address }}</td>
+                <td>{{ props.data.client.address }}</td>
               </tr>
 
 
@@ -360,25 +302,25 @@ const productfullName = item => {
                 <td class="pe-6">
                   N°RC:
                 </td>
-                <td>{{ props.data.invoice.client.NRC }}</td>
+                <td>{{ props.data.client.NRC }}</td>
               </tr>
               <tr>
                 <td class="pe-6">
                   N°IF:
                 </td>
-                <td>{{ props.data.invoice.client.NIF }}</td>
+                <td>{{ props.data.client.NIF }}</td>
               </tr>
               <tr>
                 <td class="pe-6">
                   N°IS:
                 </td>
-                <td>{{ props.data.invoice.client.NIS }}</td>
+                <td>{{ props.data.client.NIS }}</td>
               </tr>
               <tr>
                 <td class="pe-6">
                   N°ART:
                 </td>
-                <td>{{ props.data.invoice.client.NART }}</td>
+                <td>{{ props.data.client.NART }}</td>
               </tr>
               </tbody>
             </table>
@@ -401,20 +343,23 @@ const productfullName = item => {
             md="12"
           >
             <model-list-select
-              :list="availableproducts"
+              :list="props.data.products"
               v-model="selectedItem"
-              option-value="name"
-              :custom-text="productfullName"
-              :placeholder="placeholder_value">
+              option-value="id"
+              :custom-text="productFullName"
+              placeholder="Select Product"
+              >
+
             </model-list-select>
+
+
+
           </VCol>
           <VCol
             cols="12"
             md="2"
           >
-<!--            <VBtn @click="addItem">-->
-<!--              Add Item-->
-<!--            </VBtn>-->
+
           </VCol>
 
         </VRow>
@@ -423,7 +368,7 @@ const productfullName = item => {
 
       </div>
       <div
-        v-for="(_product, index) in props.data.purchasedProducts"
+        v-for="(_product, index) in props.data.certify_invoice_products"
         :key="index"
         class="ma-sm-4"
       >
@@ -521,5 +466,9 @@ select option:first-child {
 }
 .ui.search.selection.dropdown>input.search {
   font-size: large;
+}
+.selection{
+  border-radius: 20px !important;
+
 }
 </style>

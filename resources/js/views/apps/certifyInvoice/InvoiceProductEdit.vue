@@ -2,6 +2,8 @@
 <script setup>
 import "vue-search-select/dist/VueSearchSelect.css"
 import { ModelListSelect } from 'vue-search-select'
+import {successMiddleware} from "@/middlewares/successMiddleware";
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 
 const props = defineProps({
   id: {
@@ -19,6 +21,7 @@ const props = defineProps({
       product_code: '',
       SKU: '',
       price: 15,
+
       stockable: false,
       tax_rate: 0.5,
       product_stock:{
@@ -27,6 +30,9 @@ const props = defineProps({
     }),
   },
 })
+
+const oldQuantity = props.data.quantity;
+props.data.oldQuantity = oldQuantity;
 
 const emit = defineEmits([
   'removeProduct',
@@ -47,8 +53,13 @@ watch(totalPrice, () => {
   totalAmount()
 }, { immediate: true })
 
-
-
+const quantityChanged = () =>{
+  if((props.data.product.product_stock.quantity+oldQuantity)
+    < props.data.quantity){
+    props.data.quantity = oldQuantity
+    errorsMiddleware('Insufficient quantity only '+props.data.product.product_stock.quantity+' left')
+  }
+}
 </script>
 
 <template>
@@ -133,6 +144,7 @@ watch(totalPrice, () => {
             v-model="props.data.quantity"
             type="number"
             label="Quantity"
+
 
           />
         </VCol>

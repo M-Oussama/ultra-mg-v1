@@ -24,10 +24,7 @@ const props = defineProps({
 const certifyInvoiceListStore = useCertifyInvoiceListStore()
 
 // 👉 Clients
-const selectedProducts = ref([])
-let availableproducts = ref([])
-let placeholder_value = ref('Search for a Product')
-const added_products = ref([])
+
 let totalInvoice = ref(0)
 let previous_date = ref(props.data.date)
 const product = ref({
@@ -54,6 +51,7 @@ const companyProfile = ref({
   phone2:'+213 0668 15 41 45',
 
 })
+
 let selectedItem = ref({
   quantity:0,
   price:0,
@@ -73,27 +71,25 @@ let selectedItem = ref({
     }
   }
 })
-const defaultSelect = ref({
-  id: -1,
-  name: '',
-  brand: '',
-  description: '',
-  product_code: '',
-  SKU: '',
-  price: 0,
-  stockable: false,
-  tax_rate: 0,
-  product_stock: {
-    quantity : 0,
+const defaultSelectedItem = ref({
+  quantity:0,
+  price:0,
+  total:0,
+  product:{
+    id: -1,
+    name: 'Select a product',
+    brand: '',
+    description: '',
+    product_code: '',
+    SKU: '',
+    price: 0,
+    stockable: false,
+    tax_rate: 0,
+    product_stock: {
+      quantity : 0,
+    }
   }
 })
-
-const filterOption = (input, option) => {
-
-  return option.value.toLowerCase().indexOf(input.toLowerCase()) >= 0
-}
-
-const value = ref(undefined)
 
 
 watch(props.data , ()=> {
@@ -113,44 +109,46 @@ watch(props.data , ()=> {
       console.log(err)
     })
   }
-
-  if(availableproducts.value.length ===0)
-     availableproducts.value = Array.from(props.data.products);
-
 })
-
-function findIndexById(selectedProducts, selectedItemId) {
-  for (let i = 0; i < selectedProducts.value.length; i++) {
-    if (selectedProducts.value[i].value ? selectedProducts.value[i].value.id : selectedProducts.value[i]._rawValue.id=== selectedItemId) {
-      return i; // Return the index if the item is found
-    }
-  }
-  return -1; // Return -1 if the item is not found
-}
 
 const totalAmount = data => {
   computeTotal()
+}
+
+const productFullName = item => {
+  console.log("item :")
+  console.log(item)
+  return `${item.product.name}`
 }
 
 function computeTotal() {
   let totalPrices = props.data.certify_invoice_products.map(item => item.price * item.quantity);
   totalInvoice.value = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
   props.data.total = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+  props.data.amount = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
 }
 
 // 👉 Add item function
 const addItem = () => {
- const index = props.data.certify_invoice_products.findIndex(p => p.product.id === selectedItem.value.product.id);
+  if(selectedItem.value !== undefined){
+    console.log(selectedItem.value.product.id)
+    const index = props.data.certify_invoice_products.findIndex(p =>
+      p.product.id ===
+      selectedItem.value.product.id);
 
-  if(index ===-1) {
-    props.data.certify_invoice_products.push({...selectedItem.value})
+    if(index ===-1 && selectedItem.value.product.id !== -1) {
+      props.data.certify_invoice_products.push({...selectedItem.value})
+    }
+
+    computeTotal()
   }
-  computeTotal()
+
+
 }
 
 watch(selectedItem , ()=> {
 
-
+  handleProductChange()
 })
 
 const removeProduct = Item => {
@@ -163,17 +161,9 @@ const fullName = item => {
   return `${item.name}  ${item.surname}`
 }
 
-const productfullName = item => {
-
-  return `${item.product.name}`
-}
-
 const handleProductChange = (value) => {
-
-  const index  = props.data.unSelectedProducts.findIndex(p => p.product.id === value);
-  selectedItem.value = props.data.unSelectedProducts[index];
-
   addItem()
+  selectedItem.value = {...defaultSelectedItem.value}
 }
 
 </script>
@@ -274,13 +264,7 @@ const handleProductChange = (value) => {
             <h6 class="text-sm font-weight-medium mb-3">
               City:
             </h6>
-            <model-list-select
-              :list="clients"
-              v-model="props.data.client"
-              option-value="id"
-              :custom-text="fullName"
-              placeholder="Select Client">
-            </model-list-select>
+
           </div>
         </VCol>
         <VCol
@@ -306,7 +290,7 @@ const handleProductChange = (value) => {
                 <td class="pe-6">
                   Payment Method:
                 </td>
-                <td class="font-weight-semibold">{{ props.data.selectedPaymentMethod }}</td>
+                <td class="font-weight-semibold">{{ props.data.payment_type }}</td>
               </tr>
               <tr>
                 <td class="pe-6">
@@ -370,30 +354,17 @@ const handleProductChange = (value) => {
           >
 
             <span class="text-sm-caption mb-2">Products</span>
-            <a-select
-              show-search
-              :showArrow =false
-              :placeholder="selectedItem.name"
-              :allowClear = true
-              style="width: 100%"
-              size="large"
-              :filter-option="filterOption"
+            <model-list-select
+              :list="props.data.products"
               v-model="selectedItem"
-              @change="handleProductChange"
-
+              option-value="id"
+              :custom-text="productFullName"
+              placeholder="Select Product"
             >
 
-              <a-select-option :value="invoice.product.id" v-for="invoice in props.data.unSelectedProducts" >
-                {{invoice.product.name}}
-              </a-select-option>
-            </a-select>
-<!--            <model-list-select-->
-<!--              :list="props.data.unSelectedProducts"-->
-<!--              v-model="selectedItem"-->
-<!--              option-value="quantity"-->
-<!--              :custom-text="productfullName"-->
-<!--              :placeholder="placeholder_value">-->
-<!--            </model-list-select>-->
+            </model-list-select>
+
+
           </VCol>
           <VCol
             cols="12"
@@ -507,7 +478,10 @@ select option:first-child {
 }
 .ant-select-clear{
   top: 40% !important;
-  font-size:larger
+  font-size:larger !important;
+}
+.selection{
+  border-radius: 20px !important;
 
 }
 </style>
