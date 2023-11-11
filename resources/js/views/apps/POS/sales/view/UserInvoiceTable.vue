@@ -1,10 +1,9 @@
 <script setup>
-import { avatarText } from '@core/utils/formatters'
-import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
+import { useInvoiceStore } from '@/views/apps/invoice/useInvoiceStore'
 
-const invoiceListStore = useCertifyInvoiceListStore()
+const invoiceListStore = useInvoiceStore()
 const searchQuery = ref('')
-const selectedStatus = ref()
+const selectedStatus = ref('')
 const rowPerPage = ref(10)
 const currentPage = ref(1)
 const totalPage = ref(1)
@@ -14,13 +13,13 @@ const selectedRows = ref([])
 
 // 👉 Fetch Invoices
 watchEffect(() => {
-  invoiceListStore.fetchCertifyInvoices({
-    searchValue: searchQuery.value,
+  invoiceListStore.fetchInvoices({
+    q: searchQuery.value,
     status: selectedStatus.value,
     perPage: rowPerPage.value,
     currentPage: currentPage.value,
   }).then(response => {
-    invoices.value = response.data.invoices.data
+    invoices.value = response.data.invoices
     totalPage.value = response.data.totalPage
     totalInvoices.value = response.data.totalInvoices
   }).catch(error => {
@@ -41,25 +40,6 @@ const paginationData = computed(() => {
   
   return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalInvoices.value } entries`
 })
-
-// 👉 Invoice balance variant resolver
-const resolveInvoiceBalanceVariant = (balance, total) => {
-  if (balance === total)
-    return {
-      status: 'Unpaid',
-      chip: { color: 'error' },
-    }
-  if (balance === 0)
-    return {
-      status: 'Paid',
-      chip: { color: 'success' },
-    }
-  
-  return {
-    status: balance,
-    chip: { variant: 'text' },
-  }
-}
 
 const resolveInvoiceStatusVariantAndIcon = status => {
   if (status === 'Partial Payment')
@@ -90,7 +70,7 @@ const resolveInvoiceStatusVariantAndIcon = status => {
   if (status === 'Past Due')
     return {
       variant: 'error',
-      icon: 'tabler-alert-circle',
+      icon: 'tabler-info-circle',
     }
   
   return {
@@ -105,95 +85,71 @@ const resolveInvoiceStatusVariantAndIcon = status => {
     v-if="invoices"
     id="invoice-list"
   >
-    <VCardText class="d-flex align-center flex-wrap gap-4">
+    <template #prepend>
       <!-- 👉 Rows per page -->
       <div
         class="d-flex align-center"
-        style="width: 135px;"
+        style="width: 131px;"
       >
         <span class="text-no-wrap me-3">Show:</span>
+
         <VSelect
           v-model="rowPerPage"
-          density="compact"
-          :items="[10, 20, 30, 50, 100]"
+          variant="outlined"
+          :items="[10, 20, 30, 50]"
         />
       </div>
+    </template>
 
-      <div class="me-3">
-        <!-- 👉 Create invoice -->
-        <VBtn
-          prepend-icon="tabler-plus"
-          :to="{ name: 'apps-certifyInvoice-add' }"
-        >
-          Create invoice
-        </VBtn>
-      </div>
-
-      <VSpacer />
-
-      <div class="d-flex align-center flex-wrap gap-4">
-        <!-- 👉 Search  -->
-        <div class="invoice-list-filter">
-          <VTextField
-            v-model="searchQuery"
-            placeholder="Search Invoice"
-            density="compact"
-          />
-        </div>
-
-        <!-- 👉 Select status -->
-        <div class="invoice-list-filter">
-          <VSelect
-            v-model="selectedStatus"
-            label="Select Status"
-            clearable
-            clear-icon="tabler-x"
-            single-line
-            :items="['Downloaded', 'Draft', 'Sent', 'Paid', 'Partial Payment', 'Past Due']"
-          />
-        </div>
-      </div>
-    </VCardText>
+    <template #append>
+      <VBtn
+        color="default"
+        variant="tonal"
+        prepend-icon="tabler-screen-share"
+        append-icon="tabler-chevron-down"
+      >
+        Export
+        <VMenu activator="parent">
+          <VList density="compact">
+            <VListItem
+              v-for="(item, index) in ['PDF', 'XLSX', 'CSV']"
+              :key="index"
+              :value="index"
+            >
+              <VListItemTitle>{{ item }}</VListItemTitle>
+            </VListItem>
+          </VList>
+        </VMenu>
+      </VBtn>
+    </template>
 
     <VDivider />
 
     <!-- SECTION Table -->
     <VTable class="text-no-wrap invoice-list-table">
       <!-- 👉 Table head -->
-      <thead class="text-uppercase">
+      <thead>
         <tr>
           <th scope="col">
             #ID
           </th>
           <th scope="col">
-            #FAC
-          </th>
-          <th
-            scope="col"
-            class="text-center"
-          >
             <VIcon icon="tabler-trending-up" />
           </th>
-
-          <th scope="col">
-            CLIENT
-          </th>
-
           <th
             scope="col"
             class="text-center"
           >
             TOTAL
           </th>
-
-          <th scope="col">
-            Issued Date
+          <th
+            scope="col"
+            class="text-center"
+          >
+            ISSUED DATE
           </th>
-
-
-
           <th scope="col">
-            ACTIONS
+            <span class="ms-2">ACTIONS</span>
           </th>
         </tr>
       </thead>
@@ -203,23 +159,16 @@ const resolveInvoiceStatusVariantAndIcon = status => {
         <tr
           v-for="invoice in invoices"
           :key="invoice.id"
-          style="height: 3.75rem;"
         >
           <!-- 👉 Id -->
           <td>
-            <RouterLink :to="{ name: 'apps-certifyInvoice-preview-id', params: { id: invoice.id } }">
+            <RouterLink :to="{ name: 'apps-invoice-preview-id', params: { id: invoice.id } }">
               #{{ invoice.id }}
             </RouterLink>
           </td>
 
-          <td>
-
-              FAJ/{{ new Date(invoice.date).getFullYear() }}/{{ invoice.id }}
-
-          </td>
-
           <!-- 👉 Trending -->
-          <td class="text-center">
+          <td>
             <VTooltip>
               <template #activator="{ props }">
                 <VAvatar
@@ -234,7 +183,6 @@ const resolveInvoiceStatusVariantAndIcon = status => {
                   />
                 </VAvatar>
               </template>
-
               <p class="mb-0">
                 {{ invoice.invoiceStatus }}
               </p>
@@ -247,43 +195,18 @@ const resolveInvoiceStatusVariantAndIcon = status => {
             </VTooltip>
           </td>
 
-          <!-- 👉 Client Avatar and Email -->
-          <td>
-            <div class="d-flex align-center">
-              <VAvatar
-                size="34"
-                :color="resolveInvoiceStatusVariantAndIcon(invoice.invoiceStatus).variant"
-                variant="tonal"
-                class="me-3"
-              >
-                <VImg
-                  v-if="invoice.avatar"
-                  :src="invoice.avatar"
-                />
-                <span v-else>{{ avatarText(invoice.client.name) }}</span>
-              </VAvatar>
-
-              <div class="d-flex flex-column">
-                <h6 class="text-base font-weight-medium mb-0">
-                  {{ invoice.client.name }}
-                </h6>
-                <span class="text-disabled text-sm">{{ invoice.client.email }}</span>
-              </div>
-            </div>
-          </td>
-
           <!-- 👉 total -->
           <td class="text-center">
-           {{ invoice.amount.toFixed(2) }}  DZD
+            ${{ invoice.total }}
           </td>
 
           <!-- 👉 Date -->
-          <td>{{ invoice.date }}</td>
-
-
+          <td class="text-center">
+            {{ invoice.issuedDate }}
+          </td>
 
           <!-- 👉 Actions -->
-          <td style="width: 8rem;">
+          <td style="width: 7.5rem;">
             <VBtn
               icon
               variant="text"
@@ -301,7 +224,7 @@ const resolveInvoiceStatusVariantAndIcon = status => {
               variant="text"
               color="default"
               size="x-small"
-              :to="{ name: 'apps-certifyInvoice-preview-id', params: { id: invoice.id } }"
+              :to="{ name: 'apps-invoice-preview-id', params: { id: invoice.id } }"
             >
               <VIcon
                 :size="22"
@@ -319,13 +242,12 @@ const resolveInvoiceStatusVariantAndIcon = status => {
                 :size="22"
                 icon="tabler-dots-vertical"
               />
-
               <VMenu activator="parent">
-                <VList>
-                  <VListItem value="download">
+                <VList density="compact">
+                  <VListItem value="Download">
                     <template #prepend>
                       <VIcon
-                        size="24"
+                        size="22"
                         class="me-3"
                         icon="tabler-download"
                       />
@@ -334,10 +256,10 @@ const resolveInvoiceStatusVariantAndIcon = status => {
                     <VListItemTitle>Download</VListItemTitle>
                   </VListItem>
 
-                  <VListItem :to="{ name: 'apps-certifyInvoice-edit-id', params: { id: invoice.id } }">
+                  <VListItem :to="{ name: 'apps-invoice-edit-id', params: { id: invoice.id } }">
                     <template #prepend>
                       <VIcon
-                        size="24"
+                        size="22"
                         class="me-3"
                         icon="tabler-pencil"
                       />
@@ -345,10 +267,10 @@ const resolveInvoiceStatusVariantAndIcon = status => {
 
                     <VListItemTitle>Edit</VListItemTitle>
                   </VListItem>
-                  <VListItem value="duplicate">
+                  <VListItem value="Duplicate">
                     <template #prepend>
                       <VIcon
-                        size="24"
+                        size="22"
                         class="me-3"
                         icon="tabler-stack"
                       />
@@ -380,13 +302,9 @@ const resolveInvoiceStatusVariantAndIcon = status => {
     <VDivider />
 
     <!-- SECTION Pagination -->
-    <VCardText class="d-flex align-center flex-wrap gap-4 py-3">
+    <VCardText class="d-flex align-center flex-wrap justify-space-between gap-4 py-3">
       <!-- 👉 Pagination meta -->
-      <span class="text-sm text-disabled">
-        {{ paginationData }}
-      </span>
-
-      <VSpacer />
+      <span class="text-sm text-disabled">{{ paginationData }}</span>
 
       <!-- 👉 Pagination -->
       <VPagination
@@ -398,17 +316,17 @@ const resolveInvoiceStatusVariantAndIcon = status => {
         @prev="selectedRows = []"
       />
     </VCardText>
-    <!-- !SECTION -->
+  <!-- !SECTION -->
   </VCard>
 </template>
 
 <style lang="scss">
 #invoice-list {
-  .invoice-list-actions {
-    inline-size: 8rem;
+  .invoice-list-status {
+    inline-size: 15rem;
   }
 
-  .invoice-list-filter {
+  .invoice-list-search {
     inline-size: 12rem;
   }
 }

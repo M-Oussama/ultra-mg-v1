@@ -1,16 +1,22 @@
 <script setup>
-import InvoiceEditable from '@/views/apps/invoice/InvoiceEditable.vue'
-import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
+import InvoiceEditable from '@/views/apps/POS/sales/InvoiceEditable.vue'
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 import {successMiddleware} from "@/middlewares/successMiddleware";
-
-const invoiceData2 = ref({
-  amount:0,
-  fac_id: 3,
-  date: "2023-11-03",
+import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
+import "vue-search-select/dist/VueSearchSelect.css"
+import { ModelListSelect } from 'vue-search-select'
+const sale = ref({
+  id:1,
+  balance: 0,
+  total_amount: 0,
+  sale_date: null,
   client_id: 1,
-  payment_type: "Espece",
+  sale_status:{
+    id:-1,
+    name: ""
+  },
   amount_letter: "",
+  notes: "",
   client:{
     id: -1,
     name: "",
@@ -23,10 +29,10 @@ const invoiceData2 = ref({
     NART: "",
     NIS: "",
   },
-  certify_invoice_products:[],
+  sale_items:[],
   clients: [],
   products: [],
-  unSelectedProducts: [],
+  sale_statues:[],
 })
 const router = useRouter()
 const paymentTerms = ref(true)
@@ -44,50 +50,52 @@ const paymentMethods = [
   'Versement Bancaire',
 ]
 
-const certifyInvoiceListStore = useCertifyInvoiceListStore()
+const saleStore = useSaleStore()
 
 // 👉 fetchData
-certifyInvoiceListStore.fetchData().then(response => {
-
-  invoiceData2.value.clients = response.data.clients
-  invoiceData2.value.products = response.data.products
-  invoiceData2.value.id = response.data.id
+saleStore.fetchData().then(response => {
+  sale.value.id = response.data.last_id
+  sale.value.clients = response.data.clients
+  sale.value.products = response.data.products
+  sale.value.sale_statues = response.data.sale_statues
   //companyProfile.value = response.data.companyProfile
 }).catch(err => {
   console.log(err)
 })
-
+const statusName = item => {
+  return `${item.name}`
+}
 
 const saveInvoice = () => {
 
 
   if(
-    invoiceData2.value.client.id === -1 ||
-    invoiceData2.value.date === null ||
-    invoiceData2.value.certify_invoice_products.length === 0 ||
-    invoiceData2.value.payment_type === ""
+    sale.value.client.id === -1 ||
+    sale.value.sale_date === null ||
+    sale.value.sale_items.length === 0 ||
+    sale.value.sale_status.id === -1
   ) {
-    if(invoiceData2.value.client.id === -1) {
+    if(sale.value.client.id === -1) {
       errorsMiddleware(
         "Client Not Selected",
         "Oops! Looks like you forgot to select a client for this invoice. Kindly pick at least one client to proceed"
       )
     }
-    if( invoiceData2.value.date  === null) {
+    if( sale.value.sale_date  === null) {
       errorsMiddleware(
         "The date field is empty",
         "Date field remains empty, and no client has been chosen for the invoice."
       )
     }
 
-    if( invoiceData2.value.certify_invoice_products.length === 0) {
+    if( sale.value.sale_items.length === 0) {
       errorsMiddleware(
         "Select a least one product.",
         "Kindly ensure you've selected at least one product before proceeding."
       )
     }
 
-    if(invoiceData2.value.payment_type === "") {
+    if(sale.value.sale_status.id === -1) {
       errorsMiddleware(
         "Choose a payment method.",
         "Please select a payment method to complete your invoice."
@@ -97,12 +105,12 @@ const saveInvoice = () => {
 
     if(!loading.isActive) {
        loading.isActive = true;
-      certifyInvoiceListStore.addCertifyInvoice(invoiceData2.value).then( response => {
+        saleStore.storeSale(sale.value).then( response => {
         loading.isActive = false;
         saved.value = true;
         invoice_id.value = response.data.id
-        successMiddleware('Invoice created Successfully')
-        router.push('/apps/certifyinvoice/preview/'+invoice_id.value)
+        successMiddleware('Sale created Successfully')
+        router.push('/apps/pos/sale/preview/'+invoice_id.value)
 
       }).catch(err => {
         loading.isActive = false;
@@ -140,7 +148,7 @@ const saveInvoice = () => {
             cols="12"
             md="9"
           >
-            <InvoiceEditable :data="invoiceData2" :loading="loading" />
+            <InvoiceEditable :data="sale" :loading="loading" />
           </VCol>
 
           <!-- 👉 Right Column: Invoice Action -->
@@ -183,12 +191,13 @@ const saveInvoice = () => {
             </VCard>
 
             <!-- 👉 Select payment method -->
-            <VSelect
-              v-model="invoiceData2.payment_type"
-              :items="paymentMethods"
-              label="Accept Payment Via"
-              class="mb-6"
-            />
+            <model-list-select
+              :list="sale.sale_statues"
+              v-model="sale.sale_status"
+              option-value="id"
+              :custom-text="statusName"
+              placeholder="Select Payment Type">
+            </model-list-select>
 
             <!-- 👉 Payment Terms -->
             <div class="d-flex align-center justify-space-between">

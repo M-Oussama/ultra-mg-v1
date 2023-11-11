@@ -125,8 +125,8 @@ export default [
   {
     title: 'Invoice',
     children: [
-      { title: 'List', to: 'apps-POS-invoice-list' },
-      { title: 'Add', to: 'apps-POS-invoice-add' },
+      { title: 'List', to: 'apps-POS-sale-list' },
+      { title: 'Add', to: 'apps-POS-sale-add' },
     ],
     icon: { icon: 'tabler-archive' },
   },
