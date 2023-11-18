@@ -11,8 +11,11 @@ class SaleStatus extends Model
     use HasFactory, SoftDeletes;
 
     const PAID = 'PAID';
+    const PAID_ID = 1;
     const NOT_PAID = 'NOT PAID';
+    const NOT_PAID_ID = 2;
     const PARTIALLY_PAID = 'PARTIALLY PAID';
+    const PARTIALLY_PAID_ID = 3;
 
     protected $fillable = [
         'name'

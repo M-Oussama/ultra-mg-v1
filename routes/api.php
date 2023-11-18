@@ -50,6 +50,9 @@ Route::get('/certifyInvoices/getLastID', [CertifyInvoiceController::class, 'getL
 Route::get('/pos/sales/list', [POSController::class, 'getSales'])->name('getSales');
 Route::get('/pos/sales/getData', [POSController::class, 'getData'])->name('getData');
 Route::post('/pos/sales/store', [POSController::class, 'store'])->name('store');
+Route::get('/pos/sale/getSale/{id}', [POSController::class, 'getSale'])->name('getSale');
+Route::get('/pos/sale/getSaleData/{id}', [POSController::class, 'getSaleData'])->name('getSale');
+Route::post('/pos/sales/update/{id}', [POSController::class, 'update'])->name('update');
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

@@ -19,7 +19,7 @@ class Sale extends Model
         'balance'
     ];
 
-    protected $with = ['client'];
+    protected $with = ['client','saleStatus','saleItems'];
 
     public function client()
     {
@@ -27,9 +27,11 @@ class Sale extends Model
     }
 
 
+
+
     public function saleStatus()
     {
-        return $this->belongsTo(SaleStatus::class);
+        return $this->belongsTo(SaleStatus::class,'sale_statuses_id');
     }
 
     public function saleItems()

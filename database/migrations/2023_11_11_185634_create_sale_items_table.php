@@ -18,7 +18,7 @@ return new class extends Migration
             $table->unsignedBigInteger('sale_id');
             $table->unsignedBigInteger('product_id');
             $table->double('quantity');
-            $table->decimal('unit_price', 10, 2);
+            $table->decimal('price', 10, 2)->nullable();
             $table->decimal('total_price', 10, 2);
             $table->timestamps();
             $table->softDeletes();

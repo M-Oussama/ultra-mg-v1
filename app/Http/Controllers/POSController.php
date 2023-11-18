@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
@@ -48,29 +49,139 @@ class POSController extends Controller
 
         $data = $request->input('data');
         $client = $data['client'];
-        $sale_status = $data['sale_status'];
+        $payment = $data['payment'];
+        $balance =  $data['total_amount'] - $data['paymentAmount'];
+
+        if($payment) {
+            if($balance >= 0) {
+                $sale_status = SaleStatus::PAID_ID;
+            }else {
+                $sale_status = SaleStatus::PARTIALLY_PAID_ID;
+            }
+        }else {
+            $sale_status = SaleStatus::NOT_PAID_ID;
+        }
 
         $sale = Sale::create([
             'sale_date' => $data['sale_date'],
             'client_id' => $client['id'],
             'total_amount' => $data['total_amount'],
-            'sale_statuses_id' => $sale_status['id'],
-            'balance' => $data['total_amount'],
+            'sale_statuses_id' => $sale_status,
+            'balance' => $balance,
         ]);
 
         $products = $data['sale_items'];
 
         foreach ($products as $product) {
 
-            SaleItem::create([
+
+          $object=  SaleItem::create([
                 'product_id' => $product['product']['id'],
-                'unit_price' => $product['price'],
                 'quantity' => $product['quantity'],
                 'total_price' => $product['quantity'] * $product['price'],
                 'sale_id' => $sale->id,
             ]);
+            $object->price = floatval($product['price']);
+            $object->save();
+        }
+        if($sale->sale_statuses_id != SaleStatus::NOT_PAID_ID ) {
+            $payment = new Payment();
+            $payment->sale_id = $sale->id;
+            $payment->amount_paid = $data['paymentAmount'];
+            $payment->payment_date = $data['sale_date'];
+            $payment->save();
+
         }
 
+
+        return response()->json(['message' => 'Product created successfully', "id"=>$sale->id]);
+
+    }
+
+    public function getSale($saleId) {
+
+        $sale = Sale::find($saleId);
+        $payment_total =  Payment::where('sale_id', $saleId)
+            ->sum('amount_paid');
+        $sale->payment_total = $payment_total;
+        $sale->amount_letter = $this->convertAmoutToLetter(($sale->total_amount*1.19));
+
+        return response()->json(["sale" => $sale]);
+    }
+
+    public function getSaleData($saleId) {
+
+        $sale = Sale::find($saleId);
+
+        $sale->amount_letter = $this->convertAmoutToLetter(($sale->total_amount*1.19));
+
+        $payment_total =  Payment::where('sale_id', $saleId)
+            ->sum('amount_paid');
+        $sale->payment_total = $payment_total;
+        $sale->paymentAmount = $payment_total;
+        $sale->payment = false;
+
+        $clients = Client::all();
+        $products = Product::getAllProductsFormatted();
+        $sale_statues = SaleStatus::all();
+
+        return response()->json(["sale" => $sale, "clients"=>$clients, "products"=> $products, "sale_statues"=>$sale_statues]);
+    }
+
+    public function update(Request $request): JsonResponse
+    {
+
+        $data = $request->input('data');
+        $client = $data['client'];
+        $payment = $data['payment'];
+        $balance =  $data['total_amount'] - $data['paymentAmount'];
+
+        if($balance >= 0) {
+            $sale_status = SaleStatus::PAID_ID;
+        }else {
+             $sale_status = SaleStatus::NOT_PAID_ID;
+        }
+
+
+        $sale = Sale::find($data['id']);
+        $sale->update([
+            'sale_date' => $data['sale_date'],
+            'client_id' => $client['id'],
+            'total_amount' => $data['total_amount'],
+            'sale_statuses_id' => $sale_status,
+            'balance' => $balance,
+        ]);
+
+        $saleItems = SaleItem::where('sale_id',$sale->id)->get();
+
+        foreach ($saleItems as $item) {
+            $item->delete();
+        }
+
+        $products = $data['sale_items'];
+
+        foreach ($products as $product) {
+            $object=  SaleItem::create([
+                'product_id' => $product['product']['id'],
+                'quantity' => $product['quantity'],
+                'total_price' => $product['quantity'] * $product['price'],
+                'sale_id' => $sale->id,
+            ]);
+            $object->price = floatval($product['price']);
+            $object->save();
+        }
+
+        if($sale_status != SaleStatus::NOT_PAID_ID  && $payment) {
+            $payments = Payment::where('sale_id',$sale->id)->get();
+            foreach ($payments as $payment) {
+                $payment->delete();
+            }
+            $Newpayment = new Payment();
+            $Newpayment->sale_id = $sale->id;
+            $Newpayment->amount_paid = $data['paymentAmount'];
+            $Newpayment->payment_date = $data['sale_date'];
+            $Newpayment->save();
+        }
         return response()->json(['message' => 'Product created successfully', "id"=>$sale->id]);
 
     }

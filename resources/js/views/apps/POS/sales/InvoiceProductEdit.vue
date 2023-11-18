@@ -21,7 +21,6 @@ const props = defineProps({
       product_code: '',
       SKU: '',
       price: 15,
-
       stockable: false,
       tax_rate: 0.5,
       product_stock:{
@@ -158,8 +157,8 @@ const quantityChanged = () =>{
           sm="4"
         >
           <p class="text-sm-center my-2">
-            <span class="d-inline d-md-none">Price: </span>
-            <span class="text-body-1">{{ totalPrice.toFixed(2) }} DZD</span>
+            <span class="d-inline d-md-none text-sm">Price: </span>
+            <span class="text-body-1 text-sm">{{ totalPrice.toFixed(2) }} DZD</span>
           </p>
         </VCol>
       </VRow>

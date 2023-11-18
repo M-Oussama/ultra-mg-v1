@@ -84,7 +84,6 @@ const defaultSelectedItem = ref({
   }
 })
 
-
 const totalAmount = data => {
   computeTotal()
 }
@@ -98,6 +97,7 @@ function computeTotal() {
   totalInvoice.value = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
   props.data.total = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
   props.data.total_amount = totalPrices.reduce((accumulator, currentValue) => accumulator + currentValue, 0);
+  paymentActive()
 }
 
 // 👉 Add item function
@@ -127,6 +127,7 @@ const removeProduct = Item => {
   const index = props.data.sale_items.findIndex(p => p.product.id === Item.product.id);
   props.data.sale_items.splice(index,1);
   computeTotal()
+
 }
 
 const fullName = item => {
@@ -136,14 +137,14 @@ const fullName = item => {
 const handleProductChange = (value) => {
   addItem()
   selectedItem.value = {...defaultSelectedItem.value}
+
 }
 
 const paymentActive = () => {
-  console.log(props.data.payment)
   if(props.data.payment) {
     props.data.paymentAmount = totalInvoice.value
   } else {
-    props.data.paymentAmount = props.data.payment_total
+    props.data.paymentAmount = 0
   }
 
 }
@@ -277,75 +278,75 @@ const paymentActive = () => {
 
 
         </VCol>
-<!--        <VCol-->
-<!--          cols="12"-->
-<!--          md="5"-->
-<!--        >-->
-<!--          <div class="mt-4 ma-sm-4" >-->
-<!--            <h6 class="text-sm font-weight-medium mb-3">-->
-<!--              Bill To:-->
-<!--            </h6>-->
+        <!--        <VCol-->
+        <!--          cols="12"-->
+        <!--          md="5"-->
+        <!--        >-->
+        <!--          <div class="mt-4 ma-sm-4" >-->
+        <!--            <h6 class="text-sm font-weight-medium mb-3">-->
+        <!--              Bill To:-->
+        <!--            </h6>-->
 
-<!--            <table>-->
-<!--              <tbody>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Invoice:-->
-<!--                </td>-->
-<!--                <td class="font-weight-semibold">-->
-<!--                  #{{ props.data.id }}-->
-<!--                </td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Payment Method:-->
-<!--                </td>-->
-<!--                <td class="font-weight-semibold">{{ props.data.sale_status.name }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Client:-->
-<!--                </td>-->
-<!--                <td class="font-weight-semibold">-->
-<!--                  {{ props.data.client.name }} {{props.data.client.surname}}-->
-<!--                </td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Address:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.address }}</td>-->
-<!--              </tr>-->
+        <!--            <table>-->
+        <!--              <tbody>-->
+        <!--              <tr>-->
+        <!--                <td class="pe-6">-->
+        <!--                  Invoice:-->
+        <!--                </td>-->
+        <!--                <td class="font-weight-semibold">-->
+        <!--                  #{{ props.data.id }}-->
+        <!--                </td>-->
+        <!--              </tr>-->
+        <!--              <tr>-->
+        <!--                <td class="pe-6">-->
+        <!--                  Payment Method:-->
+        <!--                </td>-->
+        <!--                <td class="font-weight-semibold">{{ props.data.sale_status.name }}</td>-->
+        <!--              </tr>-->
+        <!--              <tr>-->
+        <!--                <td class="pe-6">-->
+        <!--                  Client:-->
+        <!--                </td>-->
+        <!--                <td class="font-weight-semibold">-->
+        <!--                  {{ props.data.client.name }} {{props.data.client.surname}}-->
+        <!--                </td>-->
+        <!--              </tr>-->
+        <!--              <tr>-->
+        <!--                <td class="pe-6">-->
+        <!--                  Address:-->
+        <!--                </td>-->
+        <!--                <td>{{ props.data.client.address }}</td>-->
+        <!--              </tr>-->
 
 
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°RC:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NRC }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°IF:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NIF }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°IS:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NIS }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°ART:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NART }}</td>-->
-<!--              </tr>-->
-<!--              </tbody>-->
-<!--            </table>-->
-<!--          </div>-->
-<!--        </VCol>-->
+        <!--              <tr>-->
+        <!--                <td class="pe-6">-->
+        <!--                  N°RC:-->
+        <!--                </td>-->
+        <!--                <td>{{ props.data.client.NRC }}</td>-->
+        <!--              </tr>-->
+        <!--              <tr>-->
+        <!--                <td class="pe-6">-->
+        <!--                  N°IF:-->
+        <!--                </td>-->
+        <!--                <td>{{ props.data.client.NIF }}</td>-->
+        <!--              </tr>-->
+        <!--              <tr>-->
+        <!--                <td class="pe-6">-->
+        <!--                  N°IS:-->
+        <!--                </td>-->
+        <!--                <td>{{ props.data.client.NIS }}</td>-->
+        <!--              </tr>-->
+        <!--              <tr>-->
+        <!--                <td class="pe-6">-->
+        <!--                  N°ART:-->
+        <!--                </td>-->
+        <!--                <td>{{ props.data.client.NART }}</td>-->
+        <!--              </tr>-->
+        <!--              </tbody>-->
+        <!--            </table>-->
+        <!--          </div>-->
+        <!--        </VCol>-->
       </VRow>
 
 
@@ -380,9 +381,9 @@ const paymentActive = () => {
             cols="12"
             md="2"
           >
-<!--            <VBtn @click="addItem">-->
-<!--              Add Item-->
-<!--            </VBtn>-->
+            <!--            <VBtn @click="addItem">-->
+            <!--              Add Item-->
+            <!--            </VBtn>-->
           </VCol>
 
         </VRow>
@@ -410,16 +411,14 @@ const paymentActive = () => {
     <VCardText class="d-flex justify-space-between flex-wrap flex-column flex-sm-row">
 
       <VRow>
+        <VCol cols="12"
+              md="5">
 
-        <VCol
-          cols="12"
-          md="3"
-        >
-          <div class="mx-sm-4 my-2">
+          <div  class="mx-sm-4 my-2">
             <div class="align-center mb-4">
               <div class="d-flex">
                   <span class="text-sm font-weight-semibold me-2 mb-2 pt-2">
-                    Erase Payments :
+                    Payments:
 
                   </span>
                 <VSwitch
@@ -430,26 +429,9 @@ const paymentActive = () => {
                 />
               </div>
 
-
-            </div>
-          </div>
-
-        </VCol>
-        <VCol cols="12"
-              md="5">
-
-          <div v-if="props.data.payment" class="mx-sm-4 my-2">
-            <div class="align-center mb-4">
-              <div class="d-flex">
-                  <span class="text-sm font-weight-semibold me-2 mb-2 pt-2">
-                    Payments:
-
-                  </span>
-
-              </div>
-
               <VTextField
 
+                v-if="props.data.payment"
                 v-model="props.data.paymentAmount"
                 type="number"
 
@@ -457,6 +439,14 @@ const paymentActive = () => {
             </div>
           </div>
         </VCol>
+        <VCol
+          cols="12"
+          md="3"
+        >
+
+
+        </VCol>
+
         <VCol cols="12"
               md="4">
 
@@ -470,7 +460,7 @@ const paymentActive = () => {
                       Total Invoice
                     </p>
                     <p class="mb-2 text-sm">
-                     Payment:
+                      Payment:
                     </p>
                     <p class="mb-2 text-sm">
                       Rest:

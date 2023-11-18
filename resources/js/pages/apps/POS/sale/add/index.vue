@@ -1,5 +1,5 @@
 <script setup>
-import InvoiceEditable from '@/views/apps/POS/sales/InvoiceEditable.vue'
+import InvoiceEditable from '@/views/apps/POS/sales/add/InvoiceEditable.vue'
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 import {successMiddleware} from "@/middlewares/successMiddleware";
 import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
@@ -33,6 +33,8 @@ const sale = ref({
   clients: [],
   products: [],
   sale_statues:[],
+  payment: false,
+  paymentAmount: 0,
 })
 const router = useRouter()
 const paymentTerms = ref(true)
@@ -72,8 +74,7 @@ const saveInvoice = () => {
   if(
     sale.value.client.id === -1 ||
     sale.value.sale_date === null ||
-    sale.value.sale_items.length === 0 ||
-    sale.value.sale_status.id === -1
+    sale.value.sale_items.length === 0
   ) {
     if(sale.value.client.id === -1) {
       errorsMiddleware(
@@ -95,12 +96,7 @@ const saveInvoice = () => {
       )
     }
 
-    if(sale.value.sale_status.id === -1) {
-      errorsMiddleware(
-        "Choose a payment method.",
-        "Please select a payment method to complete your invoice."
-      )
-    }
+
   } else {
 
     if(!loading.isActive) {
@@ -172,7 +168,7 @@ const saveInvoice = () => {
                   color="default"
                   variant="tonal"
                   class="mb-2"
-                  :to="{ name: 'apps-certifyInvoice-preview-id', params: { id: invoice_id } }">
+                  :to="{ name: 'apps-POS-sale-preview-id', params: { id: invoice_id } }">
                   Preview
                 </VBtn>
 
@@ -190,14 +186,14 @@ const saveInvoice = () => {
               </VCardText>
             </VCard>
 
-            <!-- 👉 Select payment method -->
-            <model-list-select
-              :list="sale.sale_statues"
-              v-model="sale.sale_status"
-              option-value="id"
-              :custom-text="statusName"
-              placeholder="Select Payment Type">
-            </model-list-select>
+<!--            &lt;!&ndash; 👉 Select payment method &ndash;&gt;-->
+<!--            <model-list-select-->
+<!--              :list="sale.sale_statues"-->
+<!--              v-model="sale.sale_status"-->
+<!--              option-value="id"-->
+<!--              :custom-text="statusName"-->
+<!--              placeholder="Select Payment Type">-->
+<!--            </model-list-select>-->
 
             <!-- 👉 Payment Terms -->
             <div class="d-flex align-center justify-space-between">

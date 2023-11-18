@@ -7,17 +7,22 @@ import InvoiceAddPaymentDrawer from '@/views/apps/invoice/InvoiceAddPaymentDrawe
 import InvoiceSendInvoiceDrawer from '@/views/apps/invoice/InvoiceSendInvoiceDrawer.vue'
 
 // Store
-import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
+import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
 
-const invoiceListStore = useCertifyInvoiceListStore()
+const saleStore = useSaleStore()
 const route = useRoute()
-const invoiceData = ref({
-  amount:0,
-  fac_id: 3,
-  date: "2023-11-03",
+const sale = ref({
+  id:1,
+  balance: 0,
+  total_amount: 0,
+  sale_date: null,
   client_id: 1,
-  payment_type: "Espece",
+  sale_status:{
+    id:-1,
+    name: ""
+  },
   amount_letter: "",
+  notes: "",
   client:{
     id: -1,
     name: "",
@@ -30,29 +35,7 @@ const invoiceData = ref({
     NART: "",
     NIS: "",
   },
-  certify_invoice_products:[{
-    price: 1,
-    quantity: 20,
-    total: 20,
-    id: 1,
-    product : {
-      name: "Sample Product",
-      brand: "Sample Brand",
-      description: "Product Description",
-      product_code: "PROD123",
-      category_id: 1,
-      SKU: "SKU123",
-      min_stock_level: 10,
-      price: "1.00",
-      stockable: 0,
-      tax_rate: "0.08",
-      product_stock: {
-        id: 1,
-        product_id: 1,
-        quantity: 20,
-      }
-    }
-  }]
+  sale_items:[],
 })
 const active = ref(false)
 const paymentDetails = ref()
@@ -60,8 +43,10 @@ const isAddPaymentSidebarVisible = ref(false)
 const isSendPaymentSidebarVisible = ref(false)
 
 // 👉 fetchInvoice
-invoiceListStore.fetchInvoice(Number(route.params.id)).then(response => {
-  invoiceData.value = response.data.invoice
+saleStore.fetchSale(Number(route.params.id)).then(response => {
+  console.log(response)
+
+  sale.value = response.data.sale
   active.value = true
  
   //paymentDetails.value = response.data.paymentDetails
@@ -117,13 +102,13 @@ const printInvoice = () => {
             <div class="mt-4 ma-sm-4">
               <!-- 👉 Invoice ID -->
               <h6 class="font-weight-medium text-xl mb-6">
-                Facture #{{ invoiceData.id }}
+                Facture #{{ sale.id }}
               </h6>
 
               <!-- 👉 Issue Date -->
               <p class="mb-2">
                 <span>Date Issued: </span>
-                <span class="font-weight-semibold">{{ invoiceData.date }}</span>
+                <span class="font-weight-semibold">{{ sale.sale_date }}</span>
               </p>
             </div>
           </VCardText>
@@ -142,7 +127,7 @@ const printInvoice = () => {
               <!-- 👉 Issue Date -->
               <p class="mb-2">
 
-                <span class="font-weight-semibold">#FAJ/2023/{{ invoiceData.id }}</span>
+                <span class="font-weight-semibold">#{{ sale.id }}</span>
               </p>
             </div>
             <div class="mt-4 ma-sm-4 text-center">
@@ -154,7 +139,7 @@ const printInvoice = () => {
               <!-- 👉 Issue Date -->
               <p class="mb-2 ">
 
-                <span class="font-weight-semibold">{{ invoiceData.payment_type }}</span>
+                <span class="font-weight-semibold">{{ sale.sale_status.name }}</span>
               </p>
             </div>
             <!-- 👉 Right Content -->
@@ -167,7 +152,7 @@ const printInvoice = () => {
               <!-- 👉 Issue Date -->
               <p class="mb-2">
 
-                <span class="font-weight-semibold">{{ invoiceData.date }}</span>
+                <span class="font-weight-semibold">{{ sale.sale_date }}</span>
               </p>
             </div>
           </VCardText>
@@ -190,7 +175,7 @@ const printInvoice = () => {
                   Client
                 </div>
                 <div    class=" v-col-md-7 custom-white-border ">
-                  {{ invoiceData.client.name }} {{invoiceData.client.surname}}
+                  {{ sale.client.name }} {{sale.client.surname}}
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
@@ -198,7 +183,7 @@ const printInvoice = () => {
                   Address
                 </div>
                 <div    class=" v-col-md-7 custom-white-border">
-                  {{ invoiceData.client.address }}
+                  {{ sale.client.address }}
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
@@ -206,7 +191,7 @@ const printInvoice = () => {
                   Phone
                 </div>
                 <div    class=" v-col-md-7 custom-white-border">
-                  {{ invoiceData.client.phone }}
+                  {{ sale.client.phone }}
                 </div>
               </div>
 
@@ -215,7 +200,7 @@ const printInvoice = () => {
                   Email
                 </div>
                 <div    class=" v-col-md-7 custom-white-border ">
-                  {{ invoiceData.client.email }}
+                  {{ sale.client.email }}
                 </div>
               </div>
             </div>
@@ -232,7 +217,7 @@ const printInvoice = () => {
                   N°RC
                 </div>
                 <div    class=" v-col-md-7 custom-white-border">
-                  {{ invoiceData.client.NRC }}
+                  {{ sale.client.NRC }}
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
@@ -240,7 +225,7 @@ const printInvoice = () => {
                   N°IF
                 </div>
                 <div    class=" v-col-md-7 custom-white-border">
-                  {{ invoiceData.client.NIF }}
+                  {{ sale.client.NIF }}
                 </div>
               </div>
 
@@ -249,7 +234,7 @@ const printInvoice = () => {
                   N°IS
                 </div>
                 <div    class=" v-col-md-7 custom-white-border">
-                  {{ invoiceData.client.NIS }}
+                  {{ sale.client.NIS }}
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
@@ -257,7 +242,7 @@ const printInvoice = () => {
                   N°ART
                 </div>
                 <div    class=" v-col-md-7 custom-white-border">
-                  {{ invoiceData.client.NART }}
+                  {{ sale.client.NART }}
                 </div>
               </div>
 
@@ -308,7 +293,7 @@ const printInvoice = () => {
 
             <tbody>
               <tr
-                v-for="(item,index) in invoiceData.certify_invoice_products"
+                v-for="(item,index) in sale.sale_items"
                 :key="item.name"
               >
                 <td class="text-no-wrap">
@@ -326,13 +311,13 @@ const printInvoice = () => {
                   {{ item.product.description }}
                 </td>
                 <td class="text-center">
-                  {{ item.price.toFixed(2) }} DZD
+                  {{ item.unit_price }} DZD
                 </td>
                 <td class="text-center">
                   {{ item.quantity }}
                 </td>
                 <td class="text-center">
-                  {{ item.total.toFixed(2) }} DZD
+                  {{ item.total_price }} DZD
                 </td>
               </tr>
             </tbody>
@@ -344,36 +329,37 @@ const printInvoice = () => {
           <VCardText class="d-flex justify-space-between flex-column flex-sm-row print-row">
             <div class="my-2 mx-sm-4 v-col-md-6">
 
-              <h5>Invoice's Final Amount : {{ invoiceData.amount_letter }}</h5>
+              <h5>Invoice's Final Amount : {{ sale.amount_letter }}</h5>
             </div>
 
-            <div class="my-2 mx-sm-4 v-col-md-5">
+            <div class="my-2 mx-sm-4 v-col-md-4">
               <table>
                 <tr>
                   <td class="text-end">
                     <div class="me-5">
                       <p class="mb-2">
-                        Montant HT:
+                        Invoice TOTAL:
                       </p>
                       <p class="mb-2">
-                        TVA 19%:
+                        payment:
                       </p>
                       <p class="mb-2">
-                        Montant TTC:
+                        New Balance :
                       </p>
                     </div>
                   </td>
 
                   <td class="font-weight-semibold">
                     <p class="mb-2">
-                      {{ (invoiceData.amount).toFixed(2) }} DZD
+                      {{ (sale.total_amount) }} DZD
                     </p>
                     <p class="mb-2">
-                      {{ (invoiceData.amount*0.19).toFixed(2) }} DZD
+                      {{ (sale.payment_total) }} DZD
                     </p>
                     <p class="mb-2">
-                      {{ (invoiceData.amount*1.19).toFixed(2) }} DZD
+                      {{ (sale.balance) }} DZD
                     </p>
+
                   </td>
                 </tr>
               </table>
@@ -424,7 +410,7 @@ const printInvoice = () => {
               color="secondary"
               variant="tonal"
               class="mb-2"
-              :to="{ name: 'apps-certifyInvoice-edit-id', params: { id: route.params.id } }"
+              :to="{ name: 'apps-POS-sale-edit-id', params: { id: route.params.id } }"
             >
               Edit Invoice
             </VBtn>

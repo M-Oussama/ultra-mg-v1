@@ -31,6 +31,23 @@ export const useSaleStore = defineStore('SaleStore', {
       })
     },
 
+    updateSale(data) {
+      const { id} = data;
+      return new Promise((resolve, reject) => {
+        axios.post('/api/pos/sales/update/'+id, {
+            data,
+        }).then(response => {
+
+          resolve(response)
+        })
+          .catch(error => {
+
+            reject(error)
+
+          })
+      })
+    },
+
     // 👉 Update Product
     updateCertifyInvoice(invoiceData) {
       const { id } = invoiceData;
@@ -42,9 +59,11 @@ export const useSaleStore = defineStore('SaleStore', {
     },
 
 
-    fetchInvoice(id) {
-
-      return axios.get(`/api/certifyInvoices/getInvoice/${id}`)
+    fetchSale(id) {
+      return axios.get(`/api/pos/sale/getSale/${id}`)
+    },
+    getSaleData(id) {
+      return axios.get(`/api/pos/sale/getSaleData/${id}`)
     },
 
     // 👉 fetch single product
