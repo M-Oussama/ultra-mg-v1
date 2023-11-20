@@ -1,40 +1,80 @@
 <script setup>
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-
+import { onMounted } from 'vue';
+import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
+import {successMiddleware} from "@/middlewares/successMiddleware";
 const props = defineProps({
   isDrawerOpen: {
     type: Boolean,
     required: true,
   },
+  data:{
+    type: null,
+    required:true
+  },
+  loading:{
+    type:null,
+    required: true
+  }
 })
+watch(props.isDrawerOpen, ()=>{
 
+})
 const emit = defineEmits([
   'update:isDrawerOpen',
   'submit',
 ])
-
-const invoiceBalance = ref('')
-const paymentAmount = ref('')
-const paymentDate = ref('')
-const paymentMethod = ref()
-const paymentNote = ref('')
+const saleStore = useSaleStore()
+const payment = ref({
+  balance:props.data.balance,
+  amount:0,
+  date:'',
+  note:'',
+})
 
 const onSubmit = () => {
-  emit('update:isDrawerOpen', false)
-  emit('submit', {
-    invoiceBalance: invoiceBalance.value,
-    paymentAmount: paymentAmount.value,
-    paymentDate: paymentDate.value,
-    paymentMethod: paymentMethod.value,
-    paymentNote: paymentNote.value,
+  handleDrawerModelValueUpdate()
+  payment.value.sale = props.data;
+  props.loading.isActive = true;
+  saleStore.addPayment(payment.value, payment.value.sale.id).then(response => {
+    console.log(response);
+    props.loading.isActive = false;
+    props.data.balance = payment.value.balance;
+    payment.value.amount = 0;
+    payment.value.date = '';
+    payment.value.note = '';
+    successMiddleware('Payment added Successfully')
+  }).catch(error => {
+    console.log(error)
+    props.loading.isActive = false;
+    errorsMiddleware(
+      "Error Occured",
+      "Oops! Looks like the payment has not been submited "
+    )
   })
 }
+const balance = props.data.balance;
 
 const handleDrawerModelValueUpdate = val => {
   emit('update:isDrawerOpen', val)
 }
-</script>
 
+const initialize = () => {
+  // ...
+
+  console.log(payment.balance)
+};
+onMounted(() => initialize());
+const recalculate = () => {
+
+  var amount = parseFloat(payment.value.amount === "" ? 0: payment.value.amount);
+  payment.value.balance = parseFloat(balance) - amount;
+
+  console.log(payment.value.amount)
+}
+
+</script>
 <template>
   <VNavigationDrawer
     temporary
@@ -74,36 +114,30 @@ const handleDrawerModelValueUpdate = val => {
             <VRow>
               <VCol cols="12">
                 <VTextField
-                  v-model="invoiceBalance"
+                  disabled
+                  v-model="payment.balance"
                   label="Invoice Balance"
                 />
               </VCol>
 
               <VCol cols="12">
                 <VTextField
-                  v-model="paymentAmount"
+                  v-model="payment.amount"
                   label="Payment Amount"
+                  @keyup="recalculate"
                 />
               </VCol>
 
               <VCol cols="12">
                 <AppDateTimePicker
-                  v-model="paymentDate"
+                  v-model="payment.date"
                   label="Payment Date"
                 />
               </VCol>
 
               <VCol cols="12">
-                <VSelect
-                  v-model="paymentMethod"
-                  label="Select Payment Method"
-                  :items="['Cash', 'Bank Transfer', 'Debit', 'Credit', 'Paypal']"
-                />
-              </VCol>
-
-              <VCol cols="12">
                 <VTextarea
-                  v-model="paymentNote"
+                  v-model="payment.note"
                   label="Internal Payment Note"
                 />
               </VCol>

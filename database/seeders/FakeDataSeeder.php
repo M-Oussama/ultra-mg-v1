@@ -65,7 +65,7 @@ class FakeDataSeeder extends Seeder
         ];
         foreach ($products as $productData) {
            $product = Product::create($productData);
-           ProductStock::create(["product_id"=> $product->id]);
+           ProductStock::create(["product_id"=> $product->id,"quantity"=> 200]);
         }
     }
 

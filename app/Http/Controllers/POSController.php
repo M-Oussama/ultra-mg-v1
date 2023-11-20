@@ -185,4 +185,27 @@ class POSController extends Controller
         return response()->json(['message' => 'Product created successfully', "id"=>$sale->id]);
 
     }
+
+    public function addPayment(Request $request) {
+
+        $payment = $request->input('payment');
+
+        $date = $payment['date'];
+        $amount = $payment['amount'];
+        $note = $payment['note'];
+        $sale = $payment['sale'];
+
+        $payment = new Payment();
+        $payment->payment_date = $date;
+        $payment->amount_paid = $amount;
+        //$payment->note = $note;
+        $payment->sale_id = $sale['id'];
+        $payment->save();
+
+        $_sale = Sale::find($sale['id']);
+        $_sale->balance = $_sale->balance - $amount;
+        $_sale->save();
+
+        return response()->json('Payment Added Successfully');
+    }
 }

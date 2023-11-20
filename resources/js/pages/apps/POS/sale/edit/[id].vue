@@ -258,7 +258,7 @@ const saveInvoice = () => {
     <InvoiceSendInvoiceDrawer v-model:isDrawerOpen="isSendSidebarActive" />
 
     <!-- 👉 Invoice add payment drawer -->
-    <InvoiceAddPaymentDrawer v-model:isDrawerOpen="isAddPaymentSidebarActive" />
+<!--    <InvoiceAddPaymentDrawer v-model:isDrawerOpen="isAddPaymentSidebarActive" />-->
   </VRow>
 </template>
 

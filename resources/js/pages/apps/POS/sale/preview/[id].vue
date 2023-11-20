@@ -41,7 +41,9 @@ const active = ref(false)
 const paymentDetails = ref()
 const isAddPaymentSidebarVisible = ref(false)
 const isSendPaymentSidebarVisible = ref(false)
-
+const loading = ref({
+  isActive: false
+})
 // 👉 fetchInvoice
 saleStore.fetchSale(Number(route.params.id)).then(response => {
   console.log(response)
@@ -63,6 +65,16 @@ const printInvoice = () => {
 
 <template>
   <section v-if="active">
+    <v-overlay
+      :model-value="loading.isActive"
+      class="align-center justify-center"
+    >
+      <v-progress-circular
+        color="primary"
+        indeterminate
+        size="64"
+      ></v-progress-circular>
+    </v-overlay>
     <VRow>
       <VCol
         cols="12"
@@ -332,13 +344,13 @@ const printInvoice = () => {
               <h5>Invoice's Final Amount : {{ sale.amount_letter }}</h5>
             </div>
 
-            <div class="my-2 mx-sm-4 v-col-md-4">
+            <div class="my-2 mx-sm-4 v-col-md-5">
               <table>
                 <tr>
                   <td class="text-end">
                     <div class="me-5">
                       <p class="mb-2">
-                        Invoice TOTAL:
+                        Invoice:
                       </p>
                       <p class="mb-2">
                         payment:
@@ -350,14 +362,14 @@ const printInvoice = () => {
                   </td>
 
                   <td class="font-weight-semibold">
-                    <p class="mb-2">
+                    <p class="mb-2 text-sm-subtitle-2">
                       {{ (sale.total_amount) }} DZD
                     </p>
-                    <p class="mb-2">
+                    <p class="mb-2 text-sm-subtitle-2">
                       {{ (sale.payment_total) }} DZD
                     </p>
-                    <p class="mb-2">
-                      {{ (sale.balance) }} DZD
+                    <p class="mb-2 text-sm-subtitle-2">
+                      {{ parseFloat(sale.balance).toFixed(2) }} DZD
                     </p>
 
                   </td>
@@ -414,13 +426,22 @@ const printInvoice = () => {
             >
               Edit Invoice
             </VBtn>
+
+            <VBtn
+              block
+              prepend-icon="tabler-currency-dollar"
+              class="mb-2"
+              @click="isAddPaymentSidebarVisible = true"
+            >
+              Add Payment
+            </VBtn>
           </VCardText>
         </VCard>
       </VCol>
     </VRow>
 
     <!-- 👉 Add Payment Sidebar -->
-    <InvoiceAddPaymentDrawer v-model:isDrawerOpen="isAddPaymentSidebarVisible" />
+    <InvoiceAddPaymentDrawer :data="sale" :loading="loading" v-model:isDrawerOpen="isAddPaymentSidebarVisible" />
 
     <!-- 👉 Send Invoice Sidebar -->
     <InvoiceSendInvoiceDrawer v-model:isDrawerOpen="isSendPaymentSidebarVisible" />

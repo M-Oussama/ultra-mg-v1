@@ -53,6 +53,7 @@ Route::post('/pos/sales/store', [POSController::class, 'store'])->name('store');
 Route::get('/pos/sale/getSale/{id}', [POSController::class, 'getSale'])->name('getSale');
 Route::get('/pos/sale/getSaleData/{id}', [POSController::class, 'getSaleData'])->name('getSale');
 Route::post('/pos/sales/update/{id}', [POSController::class, 'update'])->name('update');
+Route::post('/pos/sales/payment/create/{id}', [POSController::class, 'addPayment'])->name('addPayment');
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

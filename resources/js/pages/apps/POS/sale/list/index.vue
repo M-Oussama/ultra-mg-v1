@@ -100,9 +100,10 @@ const resolveInvoiceStatusVariantAndIcon = status => {
     icon: 'tabler-x',
   }
 }
-
-const openPaymentDrawer = () => {
+const sale = ref();
+const openPaymentDrawer = (item) => {
   isAddPaymentSidebarActive.value = true;
+  sale.value = {...item};
 }
 </script>
 
@@ -343,7 +344,7 @@ const openPaymentDrawer = () => {
 
                         <VListItemTitle>Edit</VListItemTitle>
                       </VListItem>
-                      <VListItem value="payment" @click="openPaymentDrawer">
+                      <VListItem value="payment" @click="openPaymentDrawer(sale)">
                         <template #prepend>
                           <VIcon
                             size="24"
@@ -403,7 +404,7 @@ const openPaymentDrawer = () => {
         </VCard>
       </VCol>
 
-    <InvoiceAddPaymentDrawer v-model:isDrawerOpen="isAddPaymentSidebarActive" />
+    <InvoiceAddPaymentDrawer :data="sale" v-model:isDrawerOpen="isAddPaymentSidebarActive" v-if="isAddPaymentSidebarActive" />
   </VRow>
 
 </template>

@@ -62,6 +62,7 @@ export const useSaleStore = defineStore('SaleStore', {
     fetchSale(id) {
       return axios.get(`/api/pos/sale/getSale/${id}`)
     },
+
     getSaleData(id) {
       return axios.get(`/api/pos/sale/getSaleData/${id}`)
     },
@@ -72,6 +73,23 @@ export const useSaleStore = defineStore('SaleStore', {
       const { id } = productData
       return new Promise((resolve, reject) => {
         axios.delete('/api/certifyInvoices/delete/'+ id).then(response => resolve(response)).catch(error => reject(error))
+      })
+    },
+
+    addPayment(payment,saleid){
+
+      return new Promise((resolve, reject) => {
+        axios.post('/api/pos/sales/payment/create/'+saleid, {
+          payment,
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
       })
     },
   },

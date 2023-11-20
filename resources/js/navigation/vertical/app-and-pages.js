@@ -127,6 +127,7 @@ export default [
     children: [
       { title: 'List', to: 'apps-POS-sale-list' },
       { title: 'Add', to: 'apps-POS-sale-add' },
+
     ],
     icon: { icon: 'tabler-archive' },
   },

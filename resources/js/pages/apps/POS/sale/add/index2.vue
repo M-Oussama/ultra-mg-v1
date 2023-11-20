@@ -1,12 +1,10 @@
 <script setup>
-import InvoiceEditable from '@/views/apps/POS/sales/add/InvoiceEditable.vue'
+import InvoiceEditable from '@/views/apps/POS/sales/add2/InvoiceEditable.vue'
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 import {successMiddleware} from "@/middlewares/successMiddleware";
 import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
 import "vue-search-select/dist/VueSearchSelect.css"
 import { ModelListSelect } from 'vue-search-select'
-
-/** DATA **/
 
 const sale = ref({
   id:1,
@@ -49,6 +47,19 @@ const loading = ref({
 const invoice_id = ref(null)
 const saved = ref(false)
 
+const paymentMethods = [
+  'Espece',
+  'Cheque',
+  'Versement Bancaire',
+]
+const enableEditing = () => {
+  readonly.value = false;
+}
+const confirmContent = () => {
+
+  console.log('Confirmed content:', content);
+  readonly.value = true;
+}
 const saleStore = useSaleStore()
 
 // 👉 fetchData
@@ -61,9 +72,6 @@ saleStore.fetchData().then(response => {
 }).catch(err => {
   console.log(err)
 })
-
-/** METHODS **/
-
 const statusName = item => {
   return `${item.name}`
 }
@@ -117,10 +125,11 @@ const saveInvoice = () => {
     }
   }
 }
+
 </script>
 
 <template>
-  <div
+  <Div
 
     id="invoice-add"
   >
@@ -142,6 +151,9 @@ const saveInvoice = () => {
             md="9"
           >
             <InvoiceEditable :data="sale" :loading="loading" />
+
+
+
           </VCol>
 
           <!-- 👉 Right Column: Invoice Action -->
@@ -233,9 +245,10 @@ const saveInvoice = () => {
           </VCol>
         </VRow>
 
-  </div>
+  </Div>
 </template>
 
-<style lang="scss">
+<style>
+
 
 </style>

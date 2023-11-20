@@ -18,6 +18,7 @@ return new class extends Migration
             $table->unsignedBigInteger('sale_id');
             $table->decimal('amount_paid');
             $table->date('payment_date')->default(now());
+            $table->string('note')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
