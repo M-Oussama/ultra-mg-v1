@@ -1,19 +1,26 @@
 <script setup>
 import InvoiceAddPaymentDrawer from '@/views/apps/invoice/InvoiceAddPaymentDrawer.vue'
 import InvoiceSendInvoiceDrawer from '@/views/apps/invoice/InvoiceSendInvoiceDrawer.vue'
-import InvoiceEditable from '@/views/apps/certifyInvoice/InvoiceEditable.vue'
-import {useCertifyInvoiceListStore} from "@/views/apps/certifyInvoice/useCertifyInvoiceListStore";
+import InvoiceEditable from '@/views/apps/POS/sales/InvoiceEditable.vue'
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 import {successMiddleware} from "@/middlewares/successMiddleware";
+import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
+import "vue-search-select/dist/VueSearchSelect.css"
+import { ModelListSelect } from 'vue-search-select'
 const route = useRoute()
 const router = useRouter()
-const invoiceData = ref({
-  amount:0,
-  fac_id: 3,
-  date: "2023-11-03",
+const sale = ref({
+  id:1,
+  balance: 0,
+  total_amount: 0,
+  sale_date: null,
   client_id: 1,
-  payment_type: "Espece",
+  sale_status:{
+    id:-1,
+    name: ""
+  },
   amount_letter: "",
+  notes: "",
   client:{
     id: -1,
     name: "",
@@ -26,49 +33,32 @@ const invoiceData = ref({
     NART: "",
     NIS: "",
   },
-  certify_invoice_products:[{
-    price: 1,
-    quantity: 20,
-    total: 20,
-    id: 1,
-    product : {
-      name: "Sample Product",
-      brand: "Sample Brand",
-      description: "Product Description",
-      product_code: "PROD123",
-      category_id: 1,
-      SKU: "SKU123",
-      min_stock_level: 10,
-      price: "1.00",
-      stockable: 0,
-      tax_rate: "0.08",
-      product_stock: {
-        id: 1,
-        product_id: 1,
-        quantity: 20,
-      }
-    }
-  }],
+  sale_items:[],
   clients: [],
   products: [],
-
+  sale_statues:[],
+  payment: false,
+  paymentAmount: 0,
+  payment_total: 0,
+  totalPayment:0,
+  removePaymentRecords:false
 })
-const invoiceListStore = useCertifyInvoiceListStore()
+
+const saleStore = useSaleStore()
 const loading = ref({
   isActive :false
 })
-
-
+const invoice_id = ref(null)
 
 
 // 👉 fetchInvoice
-invoiceListStore.fetchInvoice(Number(route.params.id)).then(response => {
+saleStore.getSaleData(Number(route.params.id)).then(response => {
   loading.isActive = false;
-  console.log("data");
-  invoiceData.value = response.data.invoice
-  invoiceData.value.clients = response.data.clients
-  invoiceData.value.products = response.data.products
-
+  sale.value = response.data.sale
+  sale.value.clients = response.data.clients
+  sale.value.products = response.data.products
+  sale.value.sale_statues = response.data.sale_statues
+  sale.paymentAmount = response.data.sale.payment_total
 }).catch(error => {
   loading.isActive = false;
   console.log(error)
@@ -81,55 +71,49 @@ const clientNotes = ref(false)
 const paymentStub = ref(false)
 const saved = ref(false)
 
-const paymentMethods = [
-  'Espece',
-  'Cheque',
-  'Versement Bancaire',
-]
+const statusName = item => {
+  return `${item.name}`
+}
 
 const saveInvoice = () => {
 
+
   if(
-    invoiceData.value.client.id === -1 ||
-    invoiceData.value.date === null ||
-    invoiceData.value.certify_invoice_products.length === 0 ||
-    invoiceData.value.payment_type === ""
+    sale.value.client.id === -1 ||
+    sale.value.sale_date === null ||
+    sale.value.sale_items.length === 0
+
   ) {
-    if(invoiceData.client.id === -1) {
+    if(sale.value.client.id === -1) {
       errorsMiddleware(
         "Client Not Selected",
         "Oops! Looks like you forgot to select a client for this invoice. Kindly pick at least one client to proceed"
       )
     }
-    if(invoiceData.date === null) {
+    if( sale.value.sale_date  === null) {
       errorsMiddleware(
         "The date field is empty",
         "Date field remains empty, and no client has been chosen for the invoice."
       )
     }
 
-    if(invoiceData.certify_invoice_products.length === 0) {
+    if( sale.value.sale_items.length === 0) {
       errorsMiddleware(
         "Select a least one product.",
         "Kindly ensure you've selected at least one product before proceeding."
       )
     }
 
-    if(invoiceData.payment_type === "") {
-      errorsMiddleware(
-        "Choose a payment method.",
-        "Please select a payment method to complete your invoice."
-      )
-    }
   } else {
 
     if(!loading.isActive) {
       loading.isActive = true;
-      invoiceListStore.updateCertifyInvoice(invoiceData.value).then( response => {
+      saleStore.updateSale(sale.value).then( response => {
         loading.isActive = false;
         saved.value = true;
-        successMiddleware('Invoice updated Successfully')
-        router.push({ name: 'apps-certifyInvoice-preview-id', params: { id: invoiceData.value.id} })
+        invoice_id.value = response.data.id
+        successMiddleware('Sale created Successfully')
+        router.push('/apps/pos/sale/preview/'+invoice_id.value)
 
       }).catch(err => {
         loading.isActive = false;
@@ -140,6 +124,7 @@ const saveInvoice = () => {
     }
   }
 }
+
 </script>
 
 <template>
@@ -159,7 +144,7 @@ const saveInvoice = () => {
       cols="12"
       md="9"
     >
-      <InvoiceEditable :data="invoiceData" />
+      <InvoiceEditable :data="sale" :loading="loading" />
     </VCol>
 
     <!-- 👉 Right Column: Invoice Action -->
@@ -171,6 +156,7 @@ const saveInvoice = () => {
         <VCardText>
           <!-- 👉 Send Invoice Trigger button -->
           <VBtn
+
             block
             prepend-icon="tabler-send"
             class="mb-2"
@@ -188,8 +174,8 @@ const saveInvoice = () => {
                 color="secondary"
                 variant="tonal"
                 class="mb-2"
-                :to="{ name: 'apps-invoice-preview-id', params: { id: route.params.id } }"
-              >
+                :to="{ name: 'apps-POS-sale-preview-id', params: { id: invoice_id } }">
+
                 Preview
               </VBtn>
 
@@ -223,15 +209,13 @@ const saveInvoice = () => {
       </VCard>
 
       <!-- 👉 Accept payment via  -->
-      <VSelect
-        v-model="invoiceData.payment_type"
-        :items="paymentMethods"
-        label="Accept Payment Via"
-        class="mb-6"
-      />
+      <h6 class="text-sm font-weight-medium mb-3">
+        Payment Method:
+      </h6>
+
 
       <!-- 👉 Payment Terms -->
-      <div class="d-flex align-center justify-space-between">
+      <div class="mt-5 d-flex align-center justify-space-between">
         <VLabel for="payment-terms">
           Payment Terms
         </VLabel>
@@ -274,7 +258,7 @@ const saveInvoice = () => {
     <InvoiceSendInvoiceDrawer v-model:isDrawerOpen="isSendSidebarActive" />
 
     <!-- 👉 Invoice add payment drawer -->
-    <InvoiceAddPaymentDrawer v-model:isDrawerOpen="isAddPaymentSidebarActive" />
+<!--    <InvoiceAddPaymentDrawer v-model:isDrawerOpen="isAddPaymentSidebarActive" />-->
   </VRow>
 </template>
 

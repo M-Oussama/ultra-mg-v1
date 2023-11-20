@@ -4,6 +4,7 @@ use App\Http\Controllers\CertifyInvoiceController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\POSController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -45,6 +46,14 @@ Route::post('/certifyInvoices/update/{id}', [CertifyInvoiceController::class, 'u
 Route::get('/certifyInvoices/getInvoiceData', [CertifyInvoiceController::class, 'getInvoiceData'])->name('getData');
 Route::get('/certifyInvoices/getLastID', [CertifyInvoiceController::class, 'getLastID'])->name('getLastID');
 
+/** POS */
+Route::get('/pos/sales/list', [POSController::class, 'getSales'])->name('getSales');
+Route::get('/pos/sales/getData', [POSController::class, 'getData'])->name('getData');
+Route::post('/pos/sales/store', [POSController::class, 'store'])->name('store');
+Route::get('/pos/sale/getSale/{id}', [POSController::class, 'getSale'])->name('getSale');
+Route::get('/pos/sale/getSaleData/{id}', [POSController::class, 'getSaleData'])->name('getSale');
+Route::post('/pos/sales/update/{id}', [POSController::class, 'update'])->name('update');
+Route::post('/pos/sales/payment/create/{id}', [POSController::class, 'addPayment'])->name('addPayment');
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

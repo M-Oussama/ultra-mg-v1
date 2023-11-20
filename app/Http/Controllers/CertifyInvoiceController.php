@@ -6,6 +6,7 @@ use App\Http\Helpers\NumberToLetter;
 use App\Models\CertifyInvoiceProducts;
 use App\Models\CertifyInvoices;
 use App\Models\Client;
+use App\Models\Payment;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -135,6 +136,8 @@ class CertifyInvoiceController extends Controller
             ]);
         }
 
+
+
         return response()->json(['message' => 'Product created successfully', "id"=>$invoice->id]);
 
     }
@@ -186,34 +189,6 @@ class CertifyInvoiceController extends Controller
         return $last_id;
     }
 
-    public function convertAmoutToLetter($amount){
-        $lettre = new NumberToLetter();
-        $amountLetter = "";
-        if($amount == 0 ){
-            $amountLetter = "Zero Dinar (s)";
-        }else{
-            if($this->isDecimal($amount)){
-                list($int, $float) = explode('.',  $amount);
-                $amountLetter =  $lettre->Conversion($int)." Dinar(s)";
-                $centime = "";
-                if($float>0){
-                    $centime =  $lettre->Conversion($float)." Centimes";
-                }
-                $amountLetter = $amountLetter.' et '.$centime;
-            }else{
-                $amountLetter =  $lettre->Conversion($amount)."Dinar(s)";
-
-            }
-        }
-
-
-        return $amountLetter;
-    }
-
-    function isDecimal( $val )
-    {
-        return is_numeric( $val ) && floor( $val ) != $val;
-    }
 
 
     public function update(Request $request): JsonResponse
