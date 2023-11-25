@@ -20,10 +20,12 @@ watchEffect(() => {
     perPage: rowPerPage.value,
     currentPage: currentPage.value,
   }).then(response => {
+    loading.value.isActive = false;
     invoices.value = response.data.invoices.data
     totalPage.value = response.data.totalPage
     totalInvoices.value = response.data.totalInvoices
   }).catch(error => {
+    loading.value.isActive = false;
     console.log(error)
   })
 })
@@ -98,6 +100,9 @@ const resolveInvoiceStatusVariantAndIcon = status => {
     icon: 'tabler-x',
   }
 }
+const loading = ref({
+  isActive :true
+})
 </script>
 
 <template>
@@ -105,6 +110,16 @@ const resolveInvoiceStatusVariantAndIcon = status => {
     v-if="invoices"
     id="invoice-list"
   >
+    <v-overlay
+      :model-value="loading.isActive"
+      class="align-center justify-center"
+    >
+      <v-progress-circular
+        color="primary"
+        indeterminate
+        size="64"
+      ></v-progress-circular>
+    </v-overlay>
     <VCardText class="d-flex align-center flex-wrap gap-4">
       <!-- 👉 Rows per page -->
       <div

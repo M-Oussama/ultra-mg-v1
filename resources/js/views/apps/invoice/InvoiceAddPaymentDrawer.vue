@@ -41,6 +41,7 @@ const onSubmit = () => {
     console.log(response);
     props.loading.isActive = false;
     props.data.balance = payment.value.balance;
+    console.log("balance : "+props.data.balance)
     payment.value.amount = 0;
     payment.value.date = '';
     payment.value.note = '';

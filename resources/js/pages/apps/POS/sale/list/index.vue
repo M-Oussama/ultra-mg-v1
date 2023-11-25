@@ -22,10 +22,12 @@ watchEffect(() => {
     perPage: rowPerPage.value,
     currentPage: currentPage.value,
   }).then(response => {
+    loading.value.isActive = false;
     sales.value = response.data.sales.data
     totalPage.value = response.data.totalPage
     totalSales.value = response.data.totalSales
   }).catch(error => {
+    loading.value.isActive = false;
     console.log(error)
   })
 })
@@ -103,12 +105,25 @@ const resolveInvoiceStatusVariantAndIcon = status => {
 const sale = ref();
 const openPaymentDrawer = (item) => {
   isAddPaymentSidebarActive.value = true;
-  sale.value = {...item};
+  sale.value =item;
 }
+const loading = ref({
+  isActive :true
+})
 </script>
 
 <template>
   <VRow>
+    <v-overlay
+      :model-value="loading.isActive"
+      class="align-center justify-center"
+    >
+      <v-progress-circular
+        color="primary"
+        indeterminate
+        size="64"
+      ></v-progress-circular>
+    </v-overlay>
       <VCol>
         <VCard
           v-if="sales"
@@ -404,7 +419,7 @@ const openPaymentDrawer = (item) => {
         </VCard>
       </VCol>
 
-    <InvoiceAddPaymentDrawer :data="sale" v-model:isDrawerOpen="isAddPaymentSidebarActive" v-if="isAddPaymentSidebarActive" />
+    <InvoiceAddPaymentDrawer :loading="loading" :data="sale" v-model:isDrawerOpen="isAddPaymentSidebarActive" v-if="isAddPaymentSidebarActive" />
   </VRow>
 
 </template>

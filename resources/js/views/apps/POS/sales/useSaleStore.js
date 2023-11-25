@@ -63,6 +63,9 @@ export const useSaleStore = defineStore('SaleStore', {
       return axios.get(`/api/pos/sale/getSale/${id}`)
     },
 
+    fetchPayments(params){
+      return axios.get('/api/pos/sales/payments/list', { params })
+    },
     getSaleData(id) {
       return axios.get(`/api/pos/sale/getSaleData/${id}`)
     },
@@ -80,6 +83,57 @@ export const useSaleStore = defineStore('SaleStore', {
 
       return new Promise((resolve, reject) => {
         axios.post('/api/pos/sales/payment/create/'+saleid, {
+          payment,
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
+
+    storePayment(payment){
+
+      return new Promise((resolve, reject) => {
+        axios.post('/api/pos/sales/payment/create', {
+          payment,
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
+
+    updatePayment(payment){
+
+      return new Promise((resolve, reject) => {
+        axios.post('/api/pos/sales/payment/update', {
+          payment,
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
+
+    deletePayment(payment){
+
+      return new Promise((resolve, reject) => {
+        axios.post('/api/pos/sales/payment/delete', {
           payment,
         }).then(response => {
 

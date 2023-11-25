@@ -54,6 +54,11 @@ Route::get('/pos/sale/getSale/{id}', [POSController::class, 'getSale'])->name('g
 Route::get('/pos/sale/getSaleData/{id}', [POSController::class, 'getSaleData'])->name('getSale');
 Route::post('/pos/sales/update/{id}', [POSController::class, 'update'])->name('update');
 Route::post('/pos/sales/payment/create/{id}', [POSController::class, 'addPayment'])->name('addPayment');
+Route::get('/pos/sales/payments/list', [POSController::class, 'listPayment'])->name('listPayment');
+Route::post('/pos/sales/payment/create', [POSController::class, 'createPayment'])->name('createPayment');
+Route::post('/pos/sales/payment/update', [POSController::class, 'updatePayment'])->name('updatePayment');
+Route::post('/pos/sales/payment/delete', [POSController::class, 'deletePayment'])->name('deletePayment');
+
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
