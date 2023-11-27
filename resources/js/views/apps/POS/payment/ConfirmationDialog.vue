@@ -44,7 +44,6 @@ const onSubmit = () => {
     props.loading.isActive = false;
     successMiddleware('Payment Deleted Successfully')
     props.payments.splice(index,1);
-    console.log("id: "+id)
     console.log("index: "+index)
   }).catch(error => {
     console.log(error)

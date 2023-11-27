@@ -113,11 +113,6 @@ const onSubmit = () => {
       props.isDrawerOpen.open = false;
       props.loading.isActive = false;
       emit('paymentData',1)
-     /* props.payment.sale_id  = payment.value.sale_id
-      props.payment.client_id = payment.value.client_id
-      props.payment.amount_paid = payment.value.amount_paid
-      props.payment.payment_date = payment.value.payment_date
-      props.payment.note = payment.value.note*/
 
       successMiddleware('Payment updated Successfully')
 
