@@ -65,7 +65,6 @@ const onSubmit = () => {
         NIF: NIF.value,
         NART: NART.value,
       })
-      console.log(" after+++ "+NRC.value)
       emit('update:isDrawerOpen', false)
       nextTick(() => {
         refForm.value?.reset()
@@ -76,7 +75,7 @@ const onSubmit = () => {
 }
 
 const handleDrawerModelValueUpdate = val => {
-  emit('update:isDrawerOpen', val)
+  emit('update:z', val)
 }
 </script>
 

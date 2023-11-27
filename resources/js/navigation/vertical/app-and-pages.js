@@ -131,4 +131,8 @@ export default [
     ],
     icon: { icon: 'tabler-archive' },
   },
+  {
+    title: 'Payments', to: 'apps-POS-payment-list', icon: { icon: 'tabler-currency-dollar' },
+  },
+
 ]

@@ -16,7 +16,13 @@ class Payment extends Model
         'payment_date'
     ];
 
+    protected $with = [
+        'client'
+    ];
     public function sale() {
         return $this->belongsTo(Sale::class);
+    }
+    public function client() {
+        return $this->belongsTo(Client::class);
     }
 }

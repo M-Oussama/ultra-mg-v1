@@ -198,8 +198,9 @@ class POSController extends Controller
         $payment = new Payment();
         $payment->payment_date = $date;
         $payment->amount_paid = $amount;
-        //$payment->note = $note;
+        $payment->note = $note;
         $payment->sale_id = $sale['id'];
+        $payment->client_id = $sale['client']['id'];
         $payment->save();
 
         $_sale = Sale::find($sale['id']);
@@ -207,5 +208,73 @@ class POSController extends Controller
         $_sale->save();
 
         return response()->json('Payment Added Successfully');
+    }
+
+    public function createPayment(Request $request) {
+
+        $payment = $request->input('payment');
+
+        $date = $payment['date'];
+        $amount = $payment['amount'];
+        $note = $payment['note'];
+        $client_id = $payment['client']['id'];
+
+
+        $payment = new Payment();
+        $payment->payment_date = $date;
+        $payment->amount_paid = $amount;
+        $payment->note = $note;
+        $payment->client_id = $client_id;
+        $payment->save();
+
+
+        return response()->json('Payment Added Successfully');
+    }
+
+    public function updatePayment(Request $request) {
+
+        $payment = $request->input('payment');
+
+        $date = $payment['payment_date'];
+        $amount = $payment['amount_paid'];
+        $note = $payment['note'];
+        $sale_id = $payment['sale_id'];
+        $client_id = $payment['client_id'];
+        $id = $payment['id'];
+
+        $payment = Payment::find($id);
+        $payment->payment_date = $date;
+        $payment->amount_paid = $amount;
+        $payment->note = $note;
+        $payment->client_id = $client_id;
+        $payment->sale_id = $sale_id;
+        $payment->save();
+
+
+        return response()->json('Payment updated Successfully');
+    }
+    public function deletePayment(Request $request) {
+
+        $payment = $request->input('payment');
+
+        $id = $payment['id'];
+        $payment = Payment::find($id);
+        $payment->delete();
+
+        return response()->json('Payment deleted Successfully');
+    }
+
+    public function listPayment(Request $request){
+        $searchValue = $request->input('searchValue', ''); // search value
+        $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
+        $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
+
+
+        $payments = Payment::paginate($perPage, ['*'], 'page', $currentPage);
+        $totalSales = $payments->total(); // Total number of payments matching the query
+        $totalPage = ceil($totalSales / $perPage); // Calculate total pages
+        $clients = Client::all();
+        return response()->json(["payments" => $payments, "totalPage" => $totalPage, "totalPayments"=>$totalSales,"clients"=>$clients]);
+
     }
 }
