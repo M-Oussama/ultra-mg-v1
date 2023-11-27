@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CertifyInvoiceController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\POSController;
@@ -59,6 +60,9 @@ Route::post('/pos/sales/payment/create', [POSController::class, 'createPayment']
 Route::post('/pos/sales/payment/update', [POSController::class, 'updatePayment'])->name('updatePayment');
 Route::post('/pos/sales/payment/delete', [POSController::class, 'deletePayment'])->name('deletePayment');
 
+/** EMPLOYEES */
+Route::get('/employees/list', [EmployeeController::class, 'getEmployees'])->name('getEmployees');
+Route::post('/employees/store', [EmployeeController::class, 'store'])->name('store');
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
