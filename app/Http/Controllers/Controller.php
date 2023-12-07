@@ -43,4 +43,41 @@ class Controller extends BaseController
         return is_numeric( $val ) && floor( $val ) != $val;
     }
 
+    public function months(int $start){
+        $months =[];
+        for ($month = $start; $month <= 12; $month++) {
+            $monthName = date('F', mktime(0, 0, 0, $month, 1)); // Get full month name
+            $months[] = [
+                'id' => $month,
+                'name' => $monthName,
+            ];
+        }
+
+        return $months;
+    }
+
+    public function years(int $start){
+        $currentYear = date('Y');
+        $startYear = $start;
+        return range($startYear, $currentYear);
+    }
+
+    public function responseMessage(String $message){
+        return response()->json(["message"=>$message]);
+    }
+
+    public function getDatesOfMonth($year, $month) {
+        $startDate = new \DateTime("$year-$month-01");
+        $endDate = new \DateTime("last day of $year-$month");
+
+        $dates = [];
+
+        while ($startDate <= $endDate) {
+            $dates[] = $startDate->format('Y-m-d');
+            $startDate->modify('+1 day');
+        }
+
+        return $dates;
+    }
+
 }

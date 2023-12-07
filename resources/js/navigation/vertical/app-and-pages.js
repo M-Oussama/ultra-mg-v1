@@ -111,6 +111,10 @@ export default [
     title: 'Client', to: 'apps-client-list', icon: { icon: 'tabler-address-book' },
   },
   {
+    title: 'Employee', to: 'apps-employee-list', icon: { icon: 'tabler-user' },
+
+  },
+  {
     title: 'Product', to: 'apps-product-list', icon: { icon: 'tabler-box' },
   },
   {
@@ -133,6 +137,13 @@ export default [
   },
   {
     title: 'Payments', to: 'apps-POS-payment-list', icon: { icon: 'tabler-currency-dollar' },
+  },
+  {
+    title: 'Management',
+    children: [
+      { title: 'Attendance', to: 'apps-attendance-list' },
+    ],
+    icon: { icon: 'tabler-archive' },
   },
 
 ]
