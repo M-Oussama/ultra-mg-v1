@@ -138,5 +138,12 @@ export default [
   {
     title: 'Payments', to: 'apps-POS-payment-list', icon: { icon: 'tabler-currency-dollar' },
   },
+  {
+    title: 'Management',
+    children: [
+      { title: 'Attendance', to: 'apps-attendance-list' },
+    ],
+    icon: { icon: 'tabler-archive' },
+  },
 
 ]

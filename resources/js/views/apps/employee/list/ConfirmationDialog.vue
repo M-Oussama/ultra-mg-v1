@@ -4,7 +4,7 @@ const props = defineProps({
     type: Boolean,
     required: true,
   },
-  client: {
+  employee: {
     type: Object,
     required: true,
   },
@@ -14,7 +14,7 @@ const id = ref()
 
 const emit = defineEmits([
   'update:isDrawerOpen',
-  'userData',
+  'employeeData',
 ])
 // 👉 drawer close
 const closeConfirmationDialog = () => {
@@ -22,15 +22,15 @@ const closeConfirmationDialog = () => {
 
 }
 // 👉 Watch for changes in the user prop and update form fields
-watch(() => props.user, (client) => {
-  if (client) {
-    id.value = client.id || 0
+watch(() => props.user, (employee) => {
+  if (employee) {
+    id.value = employee.id || 0
   }
 });
 const onSubmit = () => {
-    emit('clientData', {
-      id: props.client.id,
-    })
+    emit('employeeData',
+       props.employee,
+    )
     emit('update:isDialogVisible', false)
 }
 
@@ -51,7 +51,7 @@ const onSubmit = () => {
     <!-- Dialog Content -->
     <VCard title="Confirmation">
       <VCardText>
-        Are you sure you want to delete this client ?
+        Are you sure you want to delete this employee ?
       </VCardText>
 
       <VCardText class="d-flex justify-end gap-3 flex-wrap">

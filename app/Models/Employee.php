@@ -23,4 +23,8 @@ class Employee extends Model
         'card_issue_date',
         'card_issue_date',
     ];
+
+    public function attendance(){
+        return $this->hasMany(EmployeeAttendance::class,'employee_id');
+    }
 }

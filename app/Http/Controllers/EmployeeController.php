@@ -35,4 +35,21 @@ class EmployeeController extends Controller
         // Optionally, you can return a response, redirect the user, or perform any other actions here
         return response()->json(['message' => 'Employee created successfully', 'employee' => $employee]);
     }
+
+    public function update(Request $request,$id) {
+
+        $employee_data = $request->input('employee');
+        $employee = Employee::find($id);
+        $employee->update($employee_data);
+
+        // Optionally, you can return a response, redirect the user, or perform any other actions here
+        return response()->json(['message' => 'Employee updated successfully', 'employee' => $employee]);
+    }
+
+    public function destroy(Request $request ,$id){
+        $employee = Employee::find($id);
+        $employee->delete();
+        return response()->json(['message' => 'Employee deleted successfully']);
+
+    }
 }

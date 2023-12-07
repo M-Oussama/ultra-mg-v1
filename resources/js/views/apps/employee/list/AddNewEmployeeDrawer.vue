@@ -67,11 +67,10 @@ const onSubmit = () => {
   refForm.value?.validate().then(({ valid }) => {
 
     if (valid) {
-
       emit('employeeData', {
         employee
       })
-     // emit('update:isDrawerOpen', false)
+      emit('update:isDrawerOpen', false)
       nextTick(() => {
         refForm.value?.reset()
         refForm.value?.resetValidation()

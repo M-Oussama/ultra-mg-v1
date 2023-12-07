@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\CertifyInvoiceController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\EmployeeController;
@@ -63,6 +64,14 @@ Route::post('/pos/sales/payment/delete', [POSController::class, 'deletePayment']
 /** EMPLOYEES */
 Route::get('/employees/list', [EmployeeController::class, 'getEmployees'])->name('getEmployees');
 Route::post('/employees/store', [EmployeeController::class, 'store'])->name('store');
+Route::post('/employees/update/{id}', [EmployeeController::class, 'update'])->name('update');
+Route::delete('/employees/delete/{id}', [EmployeeController::class, 'destroy'])->name('destroy');
+
+/** Attendances */
+Route::get('/attendances/list', [AttendanceController::class, 'getAttendances'])->name('getAttendances');
+Route::get('/attendances/getAttendanceData/{id}', [AttendanceController::class, 'getAttendanceData'])->name('getAttendanceData');
+Route::post('/attendances/store', [AttendanceController::class, 'store'])->name('store');
+
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

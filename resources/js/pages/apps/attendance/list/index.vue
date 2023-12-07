@@ -1,12 +1,12 @@
 <script setup>
-import AddNewEmployeeDrawer from '@/views/apps/employee/list/AddNewEmployeeDrawer.vue'
+import AddNewAttendanceDrawer from '@/views/apps/attendance/AddNewAttendanceDrawer.vue'
 import EditEmployeeDrawer from '@/views/apps/employee/list/EditEmployeeDrawer.vue';
 import ConfirmationDialog from '@/views/apps/employee/list/ConfirmationDialog.vue';
-import {useEmployeeStore} from "@/views/apps/employee/useEmployeeStore";
 import {successMiddleware} from "@/middlewares/successMiddleware";
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
+import {useAttendanceStore} from "@/views/apps/attendance/useAttendanceStore";
 
-const employeeStore = useEmployeeStore()
+const attendanceStore = useAttendanceStore()
 const searchQuery = ref('')
 const loading = ref(false)
 const loading2 = ref({
@@ -19,32 +19,32 @@ const selectedStatus = ref()
 const rowPerPage = ref(10)
 const currentPage = ref(1)
 const totalPage = ref(1)
-const totalEmployees = ref(0)
-let employees = ref([])
-
+const totalAttendances = ref(0)
+let attendances = ref([])
+let months = [];
+let years = [];
 // 👉 Fetching Employees
-const fetchEmployees = () => {
+const fetchAttendances = () => {
   loading2.value.isActive = true;
-  employeeStore.fetchEmployees({
+  attendanceStore.fetchAttendances({
      searchValue: searchQuery.value,
      perPage: rowPerPage.value,
      currentPage: currentPage.value,
   }).then(response => {
-
-    employees.value = response.data.employees.data
+     attendances.value = response.data.attendances.data
+     months = response.data.months
+     years = response.data.years
      totalPage.value = response.data.totalPage
-     totalEmployees.value = response.data.totalEmployees
+     totalAttendances.value = response.data.totalAttendances
      loading.value = false;
-    loading2.value.isActive = false;
+     loading2.value.isActive = false;
   }).catch(error => {
     console.error(error)
     loading2.value.isActive = false;
   })
 }
 
-
-
-watchEffect(fetchEmployees)
+watchEffect(fetchAttendances)
 
 // 👉 watching current page
 watchEffect(() => {
@@ -55,14 +55,12 @@ watchEffect(() => {
 watch(searchQuery, () => {
 
   //loading.value = true;
-  fetchEmployees();
+  fetchAttendances();
 });
-
-
-const isAddNewEmployeeDrawerVisible = ref(false)
+const isAddNewAttendanceDrawerVisible = ref(false)
 const isEditEmployeeDrawerVisible = ref(false)
 const isDialogVisible = ref(false)
-let selectedEmployee = ref()
+let selectedAttendance = ref()
 
 // 👉 watching current page
 watchEffect(() => {
@@ -72,35 +70,35 @@ watchEffect(() => {
 
 // 👉 Computing pagination data
 const paginationData = computed(() => {
-  const firstIndex = employees.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
-  const lastIndex = employees.value.length + (currentPage.value - 1) * rowPerPage.value
+  const firstIndex = attendances.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
+  const lastIndex = attendances.value.length + (currentPage.value - 1) * rowPerPage.value
   
-  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalEmployees.value } entries`
+  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalAttendances.value } entries`
 })
 
-const addNewEmployee = employeeData => {
+const addNewAttendance = attendanceData => {
   loading2.value.isActive = true;
-  employeeStore.addEmployee(employeeData).then(response =>{
+  attendanceStore.addAttendance(attendanceData).then(response =>{
     successMiddleware(response.data.message)
     loading2.value.isActive = false;
     // refetch User
-    fetchEmployees()
+    fetchAttendances()
   }).catch(error => {
-    errorsMiddleware(error.data.message)
     loading2.value.isActive = false;
+    errorsMiddleware(error.response.data.message)
   });
 
 
 }
 
-const updateEmployee = employeeData => {
+const updateAttendance = attendanceData => {
   loading2.value.isActive = true;
-  employeeStore.updateEmployee(employeeData).then(response =>{
+  attendanceStore.updateAttendance(attendanceData).then(response =>{
     successMiddleware(response.data.message)
 
     loading2.value.isActive = false;
     // refetch User
-    fetchEmployees()
+    fetchAttendances()
   }).catch(error =>{
     errorsMiddleware(error.data.message)
     loading2.value.isActive = false;
@@ -109,9 +107,9 @@ const updateEmployee = employeeData => {
 
 }
 
-const deleteEmployee = employeeData =>  {
+const deleteAttendance = attendanceData =>  {
   loading2.value.isActive = true;
-  employeeStore.deleteEmployee(employeeData).then(response =>{
+  attendanceStore.deleteAttendance(attendanceData).then(response =>{
     loading2.value.isActive = false;
     successMiddleware(response.data.message)
   }).catch(error =>{
@@ -120,17 +118,17 @@ const deleteEmployee = employeeData =>  {
   })
 
   // refetch Employee
-  fetchEmployees()
+  fetchAttendances()
 }
 
 const openUpdateDrawer = (employee) => {
   isEditEmployeeDrawerVisible.value = true;
-  selectedEmployee = employee;
+  selectedAttendance = employee;
 }
 
 const openConfirmationDialog = (employee) => {
   isDialogVisible.value = true;
-  selectedEmployee = employee;
+  selectedAttendance = employee;
 
 }
 
@@ -150,13 +148,13 @@ const openConfirmationDialog = (employee) => {
         ></v-progress-circular>
       </v-overlay>
       <VCol cols="12">
-        <VCard title="Employees">
+        <VCard title="Attendance">
           <VDivider />
 
           <VCardText class="d-flex flex-wrap py-4 gap-4">
             <div
               class="me-3"
-              style="width: 80px;"
+              style="width: 100px;"
             >
               <VSelect
                 v-model="rowPerPage"
@@ -170,7 +168,7 @@ const openConfirmationDialog = (employee) => {
 
             <div class="app-user-search-filter d-flex align-center flex-wrap gap-4">
               <!-- 👉 Search  -->
-              <div style="width: 9rem;">
+              <div style="width: 6rem;">
                 <v-progress-circular
                   v-if="loading"
                   indeterminate
@@ -198,9 +196,9 @@ const openConfirmationDialog = (employee) => {
               <!-- 👉 Add Employee button -->
               <VBtn
                 prepend-icon="tabler-plus"
-                @click="isAddNewEmployeeDrawerVisible = true"
+                @click="isAddNewAttendanceDrawerVisible = true"
               >
-                New Employee
+                New Attendance
               </VBtn>
             </div>
           </VCardText>
@@ -215,10 +213,10 @@ const openConfirmationDialog = (employee) => {
                   ID
                 </th>
                 <th scope="col">
-                  Employee
+                  Month
                 </th>
                 <th scope="col">
-                  email
+                  Year
                 </th>
 
 
@@ -230,13 +228,13 @@ const openConfirmationDialog = (employee) => {
             <!-- 👉 table body -->
             <tbody>
               <tr
-                v-for="employee in employees"
-                :key="employee.id"
+                v-for="attendance in attendances"
+                :key="attendance.id"
                 style="height: 3.75rem;"
               >
                 <!-- 👉 ID -->
                 <td>
-                  {{employee.id}}
+                  {{attendance.id}}
                 </td>
 
                 <!-- 👉 User -->
@@ -249,29 +247,29 @@ const openConfirmationDialog = (employee) => {
                       size="38"
                     >
                       <VImg
-                        v-if="employee.avatar"
-                        :src="employee.avatar"
+                        v-if="attendance.avatar"
+                        :src="attendance.avatar"
                       />
-                      <span v-else>{{ employee.name.toUpperCase().charAt(0) }} </span>
+                      <span v-else>{{ months[attendance.month-1].name.toUpperCase().charAt(0) }} </span>
                     </VAvatar>
 
                     <div class="d-flex flex-column">
                       <h6 class="text-base">
                         <RouterLink
-                          :to="{ name: 'apps-user-view-id', params: { id: employee.id } }"
+                          :to="{ name: 'apps-user-view-id', params: { id: attendance.id } }"
                           class="font-weight-medium user-list-name"
                         >
-                          {{ employee.name }}
+                          {{months[attendance.month-1].name}}
                         </RouterLink>
                       </h6>
-                      <span class="text-sm text-disabled">@{{ employee.email }}</span>
+
                     </div>
                   </div>
                 </td>
 
                 <!-- 👉 email -->
                 <td>
-                  <span class="text-capitalize text-base font-weight-semibold">{{ employee.email }}</span>
+                  <span class="text-capitalize text-base font-weight-semibold">{{ attendance.year }}</span>
                 </td>
 
 
@@ -285,8 +283,7 @@ const openConfirmationDialog = (employee) => {
                     size="x-small"
                     color="default"
                     variant="text"
-                    @click="openUpdateDrawer(employee)"
-
+                    :to="{ name: 'apps-attendance-add-id', params: { id: attendance.id } }"
                   >
                     <VIcon
                       size="22"
@@ -300,7 +297,7 @@ const openConfirmationDialog = (employee) => {
                     size="x-small"
                     color="default"
                     variant="text"
-                    @click="openConfirmationDialog(employee)"
+                    @click="openConfirmationDialog(attendance)"
 
                   >
                     <VIcon
@@ -327,7 +324,7 @@ const openConfirmationDialog = (employee) => {
             </tbody>
 
             <!-- 👉 table footer  -->
-            <tfoot v-show="!employees.length">
+            <tfoot v-show="!attendances.length">
               <tr>
                 <td
                   colspan="7"
@@ -358,22 +355,25 @@ const openConfirmationDialog = (employee) => {
     </VRow>
 
     <!-- 👉 Add New Employee -->
-    <AddNewEmployeeDrawer
-      v-model:isDrawerOpen="isAddNewEmployeeDrawerVisible"
-      @employee-data="addNewEmployee"
+    <AddNewAttendanceDrawer
+      v-model:isDrawerOpen="isAddNewAttendanceDrawerVisible"
+      v-model:attendances="attendances"
+      v-model:months="months"
+      v-model:years="years"
+      @attendance-data="addNewAttendance"
     />
 
     <!-- 👉 Edit Employee -->
-    <EditEmployeeDrawer
-      v-model:isDrawerOpen="isEditEmployeeDrawerVisible"
-      v-model:employee = "selectedEmployee"
-      @employee-data="updateEmployee"
-    />
+<!--    <EditMonthDrawer-->
+<!--      v-model:isDrawerOpen="isEditEmployeeDrawerVisible"-->
+<!--      v-model:employee = "selectedEmployee"-->
+<!--      @employee-data="updateEmployee"-->
+<!--    />-->
 
     <ConfirmationDialog
       v-model:isDialogVisible="isDialogVisible"
-      v-model:employee="selectedEmployee"
-      @employee-data="deleteEmployee"
+      v-model:attendance="selectedAttendance"
+      @employee-data="deleteAttendance"
       v-if="isDialogVisible"
       />
 

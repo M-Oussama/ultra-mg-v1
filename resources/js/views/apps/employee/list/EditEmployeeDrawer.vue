@@ -4,6 +4,7 @@ import {
   emailValidator,
   requiredValidator,
 } from '@validators'
+import {onMounted} from "vue";
 
 const props = defineProps({
   isDrawerOpen: {
@@ -11,56 +12,44 @@ const props = defineProps({
     required: true,
 
   },
-  client: {
+  employee: {
     type: Object,
     required: true,
   },
+
 })
-
-// 👉 Watch for changes in the Client prop and update form fields
-watch(() => props.client, (newClient) => {
-  console.log(newClient)
-  if (newClient) {
-    id.value = newClient.id || 0
-    name.value = newClient.name || '';
-    surname.value = newClient.surname || '';
-    email.value = newClient.email || '';
-    address.value = newClient.address || '';
-    phone.value = newClient.phone || '';
-    NRC.value = newClient.NRC || '';
-    NIF.value = newClient.NIF || '';
-    NART.value = newClient.NART || '';
-    NIS.value = newClient.NIS || '';
-  }
-});
-
 const emit = defineEmits([
   'update:isDrawerOpen',
-  'clientData',
+  'employeeData',
 ])
+
 
 const isFormValid = ref(false)
 const refForm = ref()
-const id = ref()
-const name = ref('')
-const surname = ref('')
-const email = ref('')
-const address = ref('')
-const phone = ref('')
-const NRC = ref('')
-const NIF = ref('')
-const NIS = ref('')
-const NART = ref('')
-const company = ref('')
-const country = ref('')
-const contact = ref('')
-const role = ref()
-let password = ref()
-let visible = ref(false)
-let confirm_visible = ref(false)
-let isPasswordVisible = ref(false)
-let confirm_password = ref()
-const plan = ref()
+const employee = ref({
+  name:'',
+  surname:'',
+  birthdate:'',
+  birthplace:'',
+  email:'',
+  address:'',
+  phone:'',
+  NIN:'',
+  NCN:'',
+  CNAS:'',
+  card_issue_date:'',
+  card_issue_place:'',
+})
+watch(() => props.employee, (newEmployee) => {
+    if(newEmployee){
+      employee.value = {...newEmployee};
+    }
+
+
+})
+
+
+
 const status = ref()
 
 // 👉 drawer close
@@ -75,17 +64,8 @@ const closeNavigationDrawer = () => {
 const onSubmit = () => {
   refForm.value?.validate().then(({ valid }) => {
     if (valid) {
-      emit('clientData', {
-        id: id.value,
-        name: name.value,
-        surname: surname.value,
-        email: email.value,
-        address: address.value,
-        phone: phone.value,
-        NRC: NRC.value,
-        NIS: NIS.value,
-        NIF: NIF.value,
-        NART: NART.value,
+      emit('employeeData', {
+        employee
       })
       emit('update:isDrawerOpen', false)
       nextTick(() => {
@@ -147,7 +127,7 @@ const handleDrawerModelValueUpdate = val => {
               <!-- 👉  name -->
               <VCol cols="12">
                 <VTextField
-                  v-model="name"
+                  v-model="employee.name"
                   :rules="[requiredValidator]"
                   label="Name"
                 />
@@ -155,16 +135,29 @@ const handleDrawerModelValueUpdate = val => {
               <!-- 👉 surname -->
               <VCol cols="12">
                 <VTextField
-                  v-model="surname"
+                  v-model="employee.surname"
                   :rules="[requiredValidator]"
                   label="Surname"
                 />
               </VCol>
 
+              <VCol cols="12">
+                <AppDateTimePicker
+                  v-model="employee.birthdate"
+                  label="la date de naissance"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="employee.birthplace"
+                  :rules="[requiredValidator]"
+                  label="lieu de naissance"
+                />
+              </VCol>
               <!-- 👉 Email -->
               <VCol cols="12">
                 <VTextField
-                  v-model="email"
+                  v-model="employee.email"
                   :rules="[requiredValidator, emailValidator]"
                   label="Email"
                 />
@@ -173,7 +166,7 @@ const handleDrawerModelValueUpdate = val => {
               <!-- 👉 Address -->
               <VCol cols="12">
                 <VTextField
-                  v-model="address"
+                  v-model="employee.address"
                   :rules="[requiredValidator]"
                   label="Address"
                 />
@@ -181,7 +174,7 @@ const handleDrawerModelValueUpdate = val => {
               <!-- 👉 Phone -->
               <VCol cols="12">
                 <VTextField
-                  v-model="phone"
+                  v-model="employee.phone"
                   :rules="[requiredValidator]"
                   label="Phone"
                 />
@@ -190,111 +183,41 @@ const handleDrawerModelValueUpdate = val => {
               <!-- 👉 RC -->
               <VCol cols="12">
                 <VTextField
-                  v-model="NRC"
+                  v-model="employee.NIN"
                   :rules="[requiredValidator]"
-                  label="Numéro de registre"
+                  label="Numéro d'identification nationale"
                 />
               </VCol>
               <!-- 👉 NIF -->
               <VCol cols="12">
                 <VTextField
-                  v-model="NIF"
+                  v-model="employee.NCN"
                   :rules="[requiredValidator]"
-                  label="Numéro de NIF"
+                  label="Numéro de carte nationale"
+                />
+              </VCol>
+              <VCol cols="12">
+                <AppDateTimePicker
+                  v-model="employee.card_issue_date"
+                  label="card issue date"
+                />
+              </VCol>
+
+              <VCol cols="12">
+                <VTextField
+                  v-model="employee.card_issue_place"
+                  :rules="[requiredValidator]"
+                  label="card issue place"
                 />
               </VCol>
               <!-- 👉 NIS -->
               <VCol cols="12">
                 <VTextField
-                  v-model="NIS"
+                  v-model="employee.CNAS"
                   :rules="[requiredValidator]"
-                  label="Numéro de NIS"
+                  label="Numéro de CNAS"
                 />
               </VCol>
-              <!-- 👉 NART -->
-              <VCol cols="12">
-                <VTextField
-                  v-model="NART"
-                  :rules="[requiredValidator]"
-                  label="Numéro de ARTICLE"
-                />
-              </VCol>
-
-              <!--              &lt;!&ndash; 👉 company &ndash;&gt;-->
-              <!--              <VCol cols="12">-->
-              <!--                <VTextField-->
-              <!--                  v-model="company"-->
-              <!--                  :rules="[requiredValidator]"-->
-              <!--                  label="Company"-->
-              <!--                />-->
-              <!--              </VCol>-->
-
-              <!--              &lt;!&ndash; 👉 Country &ndash;&gt;-->
-              <!--              <VCol cols="12">-->
-              <!--                <VTextField-->
-              <!--                  v-model="country"-->
-              <!--                  :rules="[requiredValidator]"-->
-              <!--                  label="Address"-->
-              <!--                />-->
-              <!--              </VCol>-->
-
-              <!--              &lt;!&ndash; 👉 Contact &ndash;&gt;-->
-              <!--              <VCol cols="12">-->
-              <!--                <VTextField-->
-              <!--                  v-model="contact"-->
-              <!--                  type="number"-->
-              <!--                  :rules="[requiredValidator]"-->
-              <!--                  label="Phone number"-->
-              <!--                />-->
-              <!--              </VCol>-->
-
-              <!--              &lt;!&ndash; 👉 Plan &ndash;&gt;-->
-              <!--              <VCol cols="12">-->
-              <!--                <VSelect-->
-              <!--                  v-model="plan"-->
-              <!--                  label="Select Plan"-->
-              <!--                  :rules="[requiredValidator]"-->
-              <!--                  :items="['Basic', 'Company']"-->
-              <!--                />-->
-              <!--              </VCol>-->
-
-              <!--              &lt;!&ndash; 👉 N°RC &ndash;&gt;-->
-              <!--              <VCol cols="12">-->
-              <!--                <VTextField-->
-              <!--                  v-model="country"-->
-              <!--                  :rules="[requiredValidator]"-->
-              <!--                  label="N°RC"-->
-              <!--                />-->
-              <!--              </VCol>-->
-
-              <!--              &lt;!&ndash; 👉 N°IS &ndash;&gt;-->
-              <!--              <VCol cols="12">-->
-              <!--                <VTextField-->
-              <!--                  v-model="country"-->
-              <!--                  :rules="[requiredValidator]"-->
-              <!--                  label="N°IS"-->
-              <!--                />-->
-              <!--              </VCol>-->
-
-              <!--              &lt;!&ndash; 👉 N°IF &ndash;&gt;-->
-              <!--              <VCol cols="12">-->
-              <!--                <VTextField-->
-              <!--                  v-model="country"-->
-              <!--                  :rules="[requiredValidator]"-->
-              <!--                  label="N°IF"-->
-              <!--                />-->
-              <!--              </VCol>-->
-
-              <!--              &lt;!&ndash; 👉 N°ART &ndash;&gt;-->
-              <!--              <VCol cols="12">-->
-              <!--                <VTextField-->
-              <!--                  v-model="country"-->
-              <!--                  :rules="[requiredValidator]"-->
-              <!--                  label="N°ART"-->
-              <!--                />-->
-              <!--              </VCol>-->
-
-
               <!-- 👉 Submit and Cancel -->
               <VCol cols="12">
                 <VBtn
