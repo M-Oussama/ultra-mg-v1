@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Models\Company;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Sale;
@@ -44,6 +45,40 @@ class POSController extends Controller
 
     }
 
+    public function getSale($saleId) {
+
+        $sale = Sale::find($saleId);
+        $payment_total =  Payment::where('sale_id', $saleId)
+            ->sum('amount_paid');
+        $sale->payment_total = $payment_total;
+        $sale->amount_letter = $this->convertAmoutToLetter(($sale->total_amount*1.19));
+
+        $companies = Company::all();
+
+        $clients = Client::all();
+
+        return response()->json(["sale" => $sale, "companies" => $companies, "clients"=>$clients]);
+    }
+
+    public function getSaleData($saleId) {
+
+        $sale = Sale::find($saleId);
+
+        $sale->amount_letter = $this->convertAmoutToLetter(($sale->total_amount*1.19));
+
+        $payment_total =  Payment::where('sale_id', $saleId)
+            ->sum('amount_paid');
+        $sale->payment_total = $payment_total;
+        $sale->paymentAmount = $payment_total;
+        $sale->payment = false;
+
+        $clients = Client::all();
+        $products = Product::getAllProductsFormatted();
+        $sale_statues = SaleStatus::all();
+
+        return response()->json(["sale" => $sale, "clients"=>$clients, "products"=> $products, "sale_statues"=>$sale_statues]);
+    }
+
     public function store(Request $request): JsonResponse
     {
 
@@ -73,8 +108,6 @@ class POSController extends Controller
         $products = $data['sale_items'];
 
         foreach ($products as $product) {
-
-
           $object=  SaleItem::create([
                 'product_id' => $product['product']['id'],
                 'quantity' => $product['quantity'],
@@ -84,48 +117,18 @@ class POSController extends Controller
             $object->price = floatval($product['price']);
             $object->save();
         }
-        if($sale->sale_statuses_id != SaleStatus::NOT_PAID_ID ) {
+        if($sale_status != SaleStatus::NOT_PAID_ID ) {
             $payment = new Payment();
             $payment->sale_id = $sale->id;
+            $payment->client_id = $client['id'];
             $payment->amount_paid = $data['paymentAmount'];
             $payment->payment_date = $data['sale_date'];
             $payment->save();
-
         }
 
 
         return response()->json(['message' => 'Product created successfully', "id"=>$sale->id]);
 
-    }
-
-    public function getSale($saleId) {
-
-        $sale = Sale::find($saleId);
-        $payment_total =  Payment::where('sale_id', $saleId)
-            ->sum('amount_paid');
-        $sale->payment_total = $payment_total;
-        $sale->amount_letter = $this->convertAmoutToLetter(($sale->total_amount*1.19));
-
-        return response()->json(["sale" => $sale]);
-    }
-
-    public function getSaleData($saleId) {
-
-        $sale = Sale::find($saleId);
-
-        $sale->amount_letter = $this->convertAmoutToLetter(($sale->total_amount*1.19));
-
-        $payment_total =  Payment::where('sale_id', $saleId)
-            ->sum('amount_paid');
-        $sale->payment_total = $payment_total;
-        $sale->paymentAmount = $payment_total;
-        $sale->payment = false;
-
-        $clients = Client::all();
-        $products = Product::getAllProductsFormatted();
-        $sale_statues = SaleStatus::all();
-
-        return response()->json(["sale" => $sale, "clients"=>$clients, "products"=> $products, "sale_statues"=>$sale_statues]);
     }
 
     public function update(Request $request): JsonResponse
@@ -180,6 +183,7 @@ class POSController extends Controller
             $Newpayment->sale_id = $sale->id;
             $Newpayment->amount_paid = $data['paymentAmount'];
             $Newpayment->payment_date = $data['sale_date'];
+            $Newpayment->client_id = $client['id'];
             $Newpayment->save();
         }
         return response()->json(['message' => 'Product created successfully', "id"=>$sale->id]);

@@ -279,6 +279,7 @@ const openConfirmationDialog = (employee) => {
                   style="width: 5rem;"
                 >
                   <VBtn
+                    v-if="!attendance.active"
                     icon
                     size="x-small"
                     color="default"
@@ -287,7 +288,36 @@ const openConfirmationDialog = (employee) => {
                   >
                     <VIcon
                       size="22"
+                      icon="tabler-circle-plus"
+
+                    />
+                  </VBtn>
+                  <VBtn
+                    v-if="attendance.active"
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
+                    :to="{ name: 'apps-attendance-edit-id', params: { id: attendance.id } }"
+                  >
+                    <VIcon
+                      size="22"
                       icon="tabler-edit"
+
+                    />
+                  </VBtn>
+
+                  <VBtn
+                    v-if="attendance.active"
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
+                    :to="{ name: 'apps-attendance-preview-id', params: { id: attendance.id } }"
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-viewfinder"
 
                     />
                   </VBtn>

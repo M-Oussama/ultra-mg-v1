@@ -71,6 +71,13 @@ Route::delete('/employees/delete/{id}', [EmployeeController::class, 'destroy'])-
 Route::get('/attendances/list', [AttendanceController::class, 'getAttendances'])->name('getAttendances');
 Route::get('/attendances/getAttendanceData/{id}', [AttendanceController::class, 'getAttendanceData'])->name('getAttendanceData');
 Route::post('/attendances/store', [AttendanceController::class, 'store'])->name('store');
+Route::post('/attendances/submit', [AttendanceController::class, 'submit'])->name('submit');
+Route::get('/attendances/{id}', [AttendanceController::class, 'getAttendance'])->name('getAttendance');
+Route::get('/attendances/getAttendanceByID/{id}', [AttendanceController::class, 'getAttendanceByID'])->name('getAttendanceByID');
+Route::get('/attendances/edit/{id}', [AttendanceController::class, 'getAttendance'])->name('getAttendance');
+Route::post('/attendances/update', [AttendanceController::class, 'update'])->name('update');
+Route::post('/attendances/AddEmployeeToAttendance', [AttendanceController::class, 'AddEmployeeToAttendance'])->name('AddEmployeeToAttendance');
+Route::post('/attendances/RemoveEmployeeFromAttendance', [AttendanceController::class, 'RemoveEmployeeFromAttendance'])->name('RemoveEmployeeFromAttendance');
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

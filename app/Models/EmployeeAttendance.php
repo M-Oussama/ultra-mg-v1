@@ -13,5 +13,16 @@ class EmployeeAttendance extends Model
         'attendance_id',
         'date',
         'present',
+        'allDays'
     ];
+
+    protected $casts = [
+        'present' => 'boolean',
+        // Add more columns as needed
+    ];
+
+
+    public function employee(){
+        return $this->belongsTo(Employee::class);
+    }
 }

@@ -56,10 +56,12 @@ watch(totalPrice, () => {
 // }, { immediate: true })
 
 const quantityChanged = () =>{
-  if((props.data.product.product_stock.quantity+oldQuantity)
-    < props.data.quantity){
-    props.data.quantity = oldQuantity
-    errorsMiddleware('Insufficient quantity only '+props.data.product.product_stock.quantity+' left')
+  if(props.data.product.stockable) {
+    if((props.data.product.product_stock.quantity+oldQuantity)
+      < props.data.quantity){
+      props.data.quantity = oldQuantity
+      errorsMiddleware('Insufficient quantity only '+props.data.product.product_stock.quantity+' left')
+    }
   }
 }
 </script>

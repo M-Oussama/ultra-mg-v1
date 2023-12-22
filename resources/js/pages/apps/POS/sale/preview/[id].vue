@@ -37,6 +37,29 @@ const sale = ref({
   },
   sale_items:[],
 })
+const show = ref({
+  sku:true,
+  invoice:false,
+  price:true,
+  paymentType:'Espece'
+})
+const defaultClient = ref();
+let clients = ref([])
+const companyVal = ref(1);
+const company = ref({
+  name:'',
+  address:'',
+  phone:'',
+  email:'',
+  NRC:'',
+  NIF:'',
+  NART:'',
+  NIS:'',
+  capitale:''
+})
+let companies = ref([
+
+])
 const active = ref(false)
 const paymentDetails = ref()
 const isAddPaymentSidebarVisible = ref(false)
@@ -46,9 +69,13 @@ const loading = ref({
 })
 // 👉 fetchInvoice
 saleStore.fetchSale(Number(route.params.id)).then(response => {
-  console.log(response)
 
   sale.value = response.data.sale
+  defaultClient.value = {...sale.value.client};
+  companies = response.data.companies
+  clients = response.data.clients
+  company.value = companies[0];
+
   active.value = true
  
   //paymentDetails.value = response.data.paymentDetails
@@ -56,11 +83,33 @@ saleStore.fetchSale(Number(route.params.id)).then(response => {
   console.log(error)
 })
 
-
 // 👉 Print Invoice
 const printInvoice = () => {
   window.print()
 }
+
+watch(companyVal, (value, oldValue, onCleanup)=>{
+  company.value = companies[value-1];
+  console.log(company)
+})
+const printClientName = value =>{
+  return value.name+' '+value.surname
+}
+const invoiceType = ref("Facture Proforma")
+const clientId = ref()
+
+watch(clientId, (value, oldValue, onCleanup)=>{
+   if(!value) {
+      sale.value.client = defaultClient
+   }
+  for (let i = 0; i <clients.length ; i++) {
+    if(clients[i].id === value){
+      sale.value.client = {...clients[i]}
+
+    }
+  }
+
+})
 </script>
 
 <template>
@@ -83,177 +132,236 @@ const printInvoice = () => {
         <VCard>
           <!-- SECTION Header -->
           <VCardText  class=" d-flex flex-wrap justify-space-between flex-column flex-sm-row print-row">
-            <!-- 👉 Left Content -->
-            <div class="ma-sm-4">
-              <div class="d-flex align-center mb-6">
-                <!-- 👉 Logo -->
-                <VNodeRenderer
-                  :nodes="themeConfig.app.logo"
-                  class="me-3"
-                />
 
-                <!-- 👉 Title -->
-                <h6 class="font-weight-bold text-xl">
-                  {{ themeConfig.app.title }}
-                </h6>
-              </div>
+            <VRow>
+              <VCol
+              cols="8"
+              >
+                <!-- 👉 Left Content -->
+                <div class="ma-sm-3">
+                  <div class="d-flex align-center mb-6">
+                    <!-- 👉 Logo -->
+                    <VNodeRenderer
+                      :nodes="themeConfig.app.logo"
+                      class="me-3"
+                    />
 
-              <!-- 👉 Address -->
-              <p class="mb-0">
-                Office 149, 450 South Brand Brooklyn
-              </p>
-              <p class="mb-0">
-                San Diego County, CA 91905, USA
-              </p>
-              <p class="mb-0">
-                +1 (123) 456 7891, +44 (876) 543 2198
-              </p>
-            </div>
+                    <!-- 👉 Title -->
+                    <h6 class="font-weight-bold text-xl">
+                      {{ company.name }}
+                    </h6>
+                  </div>
 
-            <!-- 👉 Right Content -->
-            <div class="mt-4 ma-sm-4">
-              <!-- 👉 Invoice ID -->
-              <h6 class="font-weight-medium text-xl mb-6">
-                Facture #{{ sale.id }}
-              </h6>
+                  <!-- 👉 Address -->
+                  <p class="mb-0">
+                    {{ company.address }}
+                  </p>
+                  <p class="mb-0">
+                    <!--               {{company.address2}}-->
+                    KASR EL ABTALE, 19000, SETIF
+                  </p>
+                  <p class="mb-0">
+                    {{company.email}}
+                  </p>
+                  <p class="mb-0">
+                    {{ company.phone }}
+                  </p>
+                </div>
+              </VCol>
 
-              <!-- 👉 Issue Date -->
-              <p class="mb-2">
-                <span>Date Issued: </span>
-                <span class="font-weight-semibold">{{ sale.sale_date }}</span>
-              </p>
-            </div>
+              <VCol
+              cols="4"
+              v-if="!show.invoice"
+              >
+                <!-- 👉 Right Content -->
+                <div class="mt-4 ma-sm-4">
+                  <!-- 👉 Invoice ID -->
+                  <h6 class="font-weight-medium text-xl mb-2">
+                    Bon Livraison #{{ sale.id }}
+                  </h6>
+
+                  <!-- 👉 Issue Date -->
+                  <p class="mb-2">
+                    <span>Date : </span>
+                    <span class="font-weight-semibold">{{ sale.sale_date }}</span>
+                  </p>
+                  <p class="mb-2" v-if="show.price">
+                    <span>Payment: </span>
+                    <span class="font-weight-semibold">{{ show.paymentType }}</span>
+                  </p>
+                </div>
+              </VCol>
+              <VCol
+              cols="4"
+              class="mt-5"
+              v-if="show.invoice"
+              >
+                <!-- 👉 Right Content -->
+                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row custom-white-border">
+                  <div class=" v-col-md-3 text-sm-subtitle-2 border-right">
+                    N°RC
+                  </div>
+                  <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font">
+                    {{ company.NRC }}
+                  </div>
+                </div>
+                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                  <div    class=" v-col-md-3 text-sm-subtitle-2 border-right">
+                    N°IF
+                  </div>
+                  <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font">
+                    {{ company.NIF }}
+                  </div>
+                </div>
+
+                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                  <div    class=" v-col-md-3 text-sm-subtitle-2 border-right ">
+                    N°IS
+                  </div>
+                  <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font">
+                    {{ company.NIS }}
+                  </div>
+                </div>
+                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                  <div    class=" v-col-md-3 text-sm-subtitle-2 border-right padding-right-0">
+                  <span>
+                     N°ART
+                  </span>
+
+                  </div>
+                  <div    class=" v-col-md-8 text-sm-subtitle-2 padding-8 border-left data-font">
+                    {{ company.NART }}
+                  </div>
+                </div>
+
+              </VCol>
+
+            </VRow>
+
+
+
           </VCardText>
           <!-- !SECTION -->
 
-          <VDivider />
 
-          <VCardText class=" invoiceGeneral d-flex flex-wrap justify-space-between flex-column flex-sm-row print-row ">
-            <!-- 👉 Left Content -->
-            <div class="mt-4 ma-sm-4  text-center">
-              <!-- 👉 Invoice ID -->
-              <p class="font-weight-bold mb-4 text-color-black text-center">
-                Invoice
-              </p>
 
+          <VDivider v-if="show.invoice" />
+
+
+
+          <VRow class="ma-3 text-center" v-if="show.invoice">
+            <VCol cols="4">
               <!-- 👉 Issue Date -->
-              <p class="mb-2">
-
-                <span class="font-weight-semibold">#{{ sale.id }}</span>
+              <h6 class="font-weight-medium text-sm mb-2">
+                {{ invoiceType }} #{{ sale.id }}
+              </h6>
+            </VCol>
+            <VCol cols="4">
+              <p class="mb-2 text-sm" v-if="show.price">
+                <span>Payment: </span>
+                <span class="font-weight-semibold">{{ show.paymentType }}</span>
               </p>
-            </div>
-            <div class="mt-4 ma-sm-4 text-center">
-              <!-- 👉 Invoice ID -->
-              <p class="font-weight-bold  mb-4 text-color-black">
-                Payment Method
-              </p>
+            </VCol>
 
+            <VCol cols="4">
               <!-- 👉 Issue Date -->
-              <p class="mb-2 ">
-
-                <span class="font-weight-semibold">{{ sale.sale_status.name }}</span>
-              </p>
-            </div>
-            <!-- 👉 Right Content -->
-            <div class="mt-4 ma-sm-4 text-center">
-              <!-- 👉 Invoice ID -->
-              <p class="font-weight-bold  mb-4 text-color-black">
-                Date
-              </p>
-
-              <!-- 👉 Issue Date -->
-              <p class="mb-2">
-
+              <p class="mb-2 text-sm">
+                <span>Date : </span>
                 <span class="font-weight-semibold">{{ sale.sale_date }}</span>
               </p>
-            </div>
-          </VCardText>
+            </VCol>
+
+
+          </VRow>
 
           <VDivider />
 
           <VCardText class=" invoiceGeneral d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row ">
             <!-- 👉 Left Content -->
-            <div class="v-col-md-6  ">
+            <div class="v-col-md-6">
               <!-- 👉 Invoice ID -->
               <p class="font-weight-bold   text-sm-h6 mb-4 text-color-black  text-center ">
-                Invoice To:
-              </p>
 
+              </p>
 
               <!-- 👉 Issue Date -->
 
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
-                <div    class=" v-col-md-4 custom-border text-sm-subtitle-2">
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right">
                   Client
                 </div>
-                <div    class=" v-col-md-7 custom-white-border ">
+                <div    class=" v-col-md-10  border-left padding-8 data-font">
                   {{ sale.client.name }} {{sale.client.surname}}
                 </div>
               </div>
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
-                <div    class=" v-col-md-4 custom-border">
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-2 text-sm-subtitle-2  border-right">
                   Address
                 </div>
-                <div    class=" v-col-md-7 custom-white-border">
+                <div    class=" v-col-md-10 border-left padding-8 data-font">
                   {{ sale.client.address }}
                 </div>
               </div>
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
-                <div    class=" v-col-md-4 custom-border">
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center  custom-white-border">
+                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right padding-right-0">
                   Phone
                 </div>
-                <div    class=" v-col-md-7 custom-white-border">
+                <div    class=" v-col-md-10 border-left padding-8 data-font">
                   {{ sale.client.phone }}
                 </div>
               </div>
 
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
-                <div    class=" v-col-md-4 custom-border">
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center  custom-white-border">
+                <div    class=" v-col-md-2 text-sm-subtitle-2  border-right">
                   Email
                 </div>
-                <div    class=" v-col-md-7 custom-white-border ">
+                <div    class=" v-col-md-10 border-left padding-8 data-font">
                   {{ sale.client.email }}
                 </div>
               </div>
             </div>
-            <div class="v-col-md-6 ">
+            <div class="v-col-md-2"></div>
+            <div class="v-col-md-4 " v-if="show.invoice">
               <!-- 👉 Invoice ID -->
-              <p class="font-weight-bold  text-sm-h6 mb-4 text-color-black text-center align-center">
-                Identifiers:
+              <p class="font-weight-bold text-sm-h6 mb-4 text-color-black text-center align-center">
+
               </p>
 
               <!-- 👉 Issue Date -->
 
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
-                <div    class=" v-col-md-4 custom-border">
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row custom-white-border">
+                <div class=" v-col-md-3 text-sm-subtitle-2 border-right">
                   N°RC
                 </div>
-                <div    class=" v-col-md-7 custom-white-border">
+                <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ sale.client.NRC }}
                 </div>
               </div>
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
-                <div    class=" v-col-md-4 custom-border">
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-3 text-sm-subtitle-2 border-right">
                   N°IF
                 </div>
-                <div    class=" v-col-md-7 custom-white-border">
+                <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ sale.client.NIF }}
                 </div>
               </div>
 
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
-                <div    class=" v-col-md-4 custom-border">
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-3 text-sm-subtitle-2 border-right ">
                   N°IS
                 </div>
-                <div    class=" v-col-md-7 custom-white-border">
+                <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ sale.client.NIS }}
                 </div>
               </div>
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center">
-                <div    class=" v-col-md-4 custom-border">
-                  N°ART
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-3 text-sm-subtitle-2 border-right padding-right-0">
+                  <span>
+                     N°ART
+                  </span>
+
                 </div>
-                <div    class=" v-col-md-7 custom-white-border">
+                <div    class=" v-col-md-8 text-sm-subtitle-2 padding-8 border-left data-font">
                   {{ sale.client.NART }}
                 </div>
               </div>
@@ -273,7 +381,7 @@ const printInvoice = () => {
                 <th scope="col">
                   ID
                 </th>
-                <th scope="col">
+                <th scope="col" v-if="show.sku">
                   SKU
                 </th>
                 <th scope="col">
@@ -285,6 +393,7 @@ const printInvoice = () => {
                 <th
                   scope="col"
                   class="text-center"
+                  v-if="show.price"
                 >
                   Price
                 </th>
@@ -297,6 +406,7 @@ const printInvoice = () => {
                 <th
                   scope="col"
                   class="text-center"
+                  v-if="show.price"
                 >
                   TOTAL
                 </th>
@@ -311,7 +421,7 @@ const printInvoice = () => {
                 <td class="text-no-wrap">
                   {{ index+1 }}
                 </td>
-                <td class="text-no-wrap">
+                <td class="text-no-wrap"  v-if="show.sku">
                   {{ item.product.SKU }}
                 </td>
                 <td class="text-no-wrap">
@@ -322,59 +432,61 @@ const printInvoice = () => {
                 <td class="text-no-wrap">
                   {{ item.product.description }}
                 </td>
-                <td class="text-center">
+                <td class="text-center" v-if="show.price">
                   {{ item.unit_price }} DZD
                 </td>
                 <td class="text-center">
                   {{ item.quantity }}
                 </td>
-                <td class="text-center">
+                <td class="text-center" v-if="show.price">
                   {{ item.total_price }} DZD
                 </td>
               </tr>
             </tbody>
           </VTable>
 
-          <VDivider class="my-2" />
+          <VDivider class="my-2" v-if="show.price"/>
 
           <!-- Total -->
-          <VCardText class="d-flex justify-space-between flex-column flex-sm-row print-row">
-            <div class="my-2 mx-sm-4 v-col-md-6">
+          <VCardText class="d-flex justify-space-between flex-column flex-sm-row print-row " v-if="show.price">
+            <div class="my-2 mx-sm-5 v-col-md-6">
 
               <h5>Invoice's Final Amount : {{ sale.amount_letter }}</h5>
             </div>
 
-            <div class="my-2 mx-sm-4 v-col-md-5">
-              <table>
-                <tr>
-                  <td class="text-end">
-                    <div class="me-5">
-                      <p class="mb-2">
-                        Invoice:
-                      </p>
-                      <p class="mb-2">
-                        payment:
-                      </p>
-                      <p class="mb-2">
-                        New Balance :
-                      </p>
-                    </div>
-                  </td>
+            <div class="my-2 mx-sm-4 v-col-md-4">
 
-                  <td class="font-weight-semibold">
-                    <p class="mb-2 text-sm-subtitle-2">
-                      {{ (sale.total_amount) }} DZD
-                    </p>
-                    <p class="mb-2 text-sm-subtitle-2">
-                      {{ (sale.payment_total) }} DZD
-                    </p>
-                    <p class="mb-2 text-sm-subtitle-2">
-                      {{ parseFloat(sale.balance).toFixed(2) }} DZD
-                    </p>
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
+                  Invoice
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                  {{ (sale.total_amount) }} DZD
+                </div>
+              </div>
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
+                  payment
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                  {{ (sale.payment_total) }} DZD
+                </div>
+              </div>
 
-                  </td>
-                </tr>
-              </table>
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
+                  New Balance
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                  {{ parseFloat(sale.balance).toFixed(2) }} DZD
+                </div>
+              </div>
+
+
+
+
+
+
             </div>
           </VCardText>
 
@@ -437,6 +549,99 @@ const printInvoice = () => {
             </VBtn>
           </VCardText>
         </VCard>
+        <!-- 👉 Payment Terms -->
+
+        <VCard class="mt-7">
+          <VCardText>
+            <div class="d-flex align-center justify-space-between mt-5">
+              <VLabel for="price">
+                SKU
+              </VLabel>
+              <div>
+                <VSwitch
+                  id="sku"
+                  v-model="show.sku"
+                />
+              </div>
+            </div>
+            <div class="d-flex align-center justify-space-between">
+              <VLabel for="price">
+                Facture
+              </VLabel>
+              <div>
+                <VSwitch
+                  id="sku"
+                  v-model="show.invoice"
+                />
+              </div>
+            </div>
+            <div class="d-flex align-center justify-space-between">
+              <VLabel for="price">
+                Price
+              </VLabel>
+              <div>
+                <VSwitch
+                  id="price"
+                  v-model="show.price"
+                />
+              </div>
+            </div>
+            <div >
+              <VLabel  class="mb-4 mt-1">
+                Company
+              </VLabel>
+
+              <VAutocomplete
+                v-model="companyVal"
+                :items="companies"
+                item-value="id"
+                class="text-sm-subtitle-2"
+                item-title="name"
+                label="Company"
+
+              />
+
+            </div>
+            <div >
+
+              <div>
+                <VLabel for="payment-terms" class="mb-1 mt-1">
+                  Payment
+                </VLabel>
+                <VTextField
+                  v-model="show.paymentType"
+                  placeholder="Thanks for your business"
+                />
+              </div>
+            </div>
+            <div v-if="show.invoice">
+              <VLabel for="payment-terms" class="mb-1 mt-1">
+                Invoice Type
+              </VLabel>
+              <VTextField
+                v-model="invoiceType"
+                placeholder="Put the Invoice Type"
+              />
+            </div>
+            <div>
+              <VLabel  class="mb-4 mt-1">
+                Client
+              </VLabel>
+
+              <VAutocomplete
+                clearable
+                v-model="clientId"
+                :items="clients"
+                item-value="id"
+                :item-title="printClientName"
+                label="Client"
+              />
+
+            </div>
+          </VCardText>
+        </VCard>
+
+
       </VCol>
     </VRow>
 
@@ -480,17 +685,38 @@ const printInvoice = () => {
     flex: 0 0 50% !important;
     max-width: 50% !important;
   }
-  .v-col-md-5 {
-    flex: 0 0 41.6666666667% !important;
-    max-width: 41.6666666667% !important;
+  .v-col-md-10 {
+    flex: 0 0 83.3333333333%;
+    max-width: 83.3333333333%;
+  }
+
+  .v-col-md-2 {
+    flex: 0 0 16.6666666667%;
+    max-width: 16.6666666667%;
+  }
+  .v-col-md-8 {
+    flex: 0 0 66.6666666667%;
+    max-width: 66.6666666667%;
   }
   .v-col-md-7 {
     flex: 0 0 58.3333333333% !important;
     max-width: 58.3333333333% !important;
   }
+  .v-col-md-5 {
+    flex: 0 0 41.6666666667% !important;
+    max-width: 41.6666666667% !important;
+  }
   .v-col-md-4 {
     flex: 0 0 33.3333333333%;
     max-width: 33.3333333333%;
+  }
+  .v-col-md-3 {
+    flex: 0 0 25%;
+    max-width: 25%;
+  }
+  .v-col-md-2 {
+    flex: 0 0 16.6666666667%;
+    max-width: 16.6666666667%;
   }
 
   .v-card {
@@ -527,13 +753,39 @@ const printInvoice = () => {
     margin-bottom: 6px;
   }
   .custom-white-border{
-    padding: 10px 0 10px 15px;
-
+    height: 30px;
     background-color: white;
     border-radius: 19px;
     margin-right: 12px;
     border: 1px solid #e4e4e4;
     margin-bottom: 6px;
+  }
+  .border-right{
+    font-size: 10px !important;
+    height: 28px;
+    padding: 4px 8px 8px;
+  }
+
+  .padding-8{
+    padding: 1px 8px 0;
+  }
+  .padding-right-0{
+    padding-right: 0;
+  }
+  .text-sm-subtitle-2 {
+    font-size: 0.875rem !important;
+    font-weight: 500;
+    line-height: 1.375rem;
+    letter-spacing: 0.0071428571em !important;
+    font-family: "Public Sans", sans-serif, -apple-system, blinkmacsystemfont, "Segoe UI", roboto, "Helvetica Neue", arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol" !important;
+    text-transform: none !important;
+  }
+  .data-font{
+    font-size: 12px !important;
+    font-weight: bold;
+  }
+  .border-left{
+    border-left: solid 1px #dbdbdb;
   }
 }
 .text-color-black{
@@ -558,8 +810,7 @@ const printInvoice = () => {
   margin-bottom: 6px;
 }
 .custom-white-border{
-  padding: 10px 0 10px 15px;
-
+  height: 30px;
   background-color: white;
   border-radius: 19px;
   margin-right: 12px;
@@ -567,4 +818,27 @@ const printInvoice = () => {
   margin-bottom: 6px;
 }
 
+.border-right{
+  font-size: 10px !important;
+  height: 28px;
+  padding: 4px 8px 8px;
+}
+.border-left{
+  border-left: solid 1px #dbdbdb;
+}
+
+.padding-8{
+  padding: 1px 8px 0;
+}
+.padding-right-0{
+  padding-right: 0;
+}
+
+.data-font{
+  font-size: 10px !important;
+  font-weight: bold;
+}
+.v-autocomplete__selection-text{
+  font-size: small;
+}
 </style>

@@ -125,8 +125,6 @@ const handleDrawerModelValueUpdate = val => {
                     item-title="name"
                     label="Month"
                   />
-
-
               </VCol>
               <!-- 👉  name -->
               <VCol cols="12">

@@ -17,6 +17,7 @@ return new class extends Migration
             $table->id();
             $table->integer('month');
             $table->year('year');
+            $table->boolean('active')->default(false);
             $table->timestamps();
 
             $table->unique(['month','year']);
