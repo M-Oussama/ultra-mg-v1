@@ -16,7 +16,8 @@ import { createApp } from 'vue'
 import { useI18n } from 'vue-i18n';
 import Antd from 'ant-design-vue';
 import VueSingleSelect from "vue-single-select";
-
+import VueDatePicker from '@vuepic/vue-datepicker';
+import '@vuepic/vue-datepicker/dist/main.css'
 
 loadFonts()
 
@@ -42,7 +43,7 @@ app.use(abilitiesPlugin, ability, {
 app.component('vue-single-select', VueSingleSelect);
 
 
-
+app.component('VueDatePicker', VueDatePicker);
 // Mount vue app
 app.mount('#app')
 

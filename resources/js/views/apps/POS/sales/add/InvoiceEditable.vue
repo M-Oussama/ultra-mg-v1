@@ -4,6 +4,8 @@ import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
 import "vue-search-select/dist/VueSearchSelect.css"
 import { ModelListSelect } from 'vue-search-select'
+import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 
 const props = defineProps({
   data: {
@@ -17,7 +19,9 @@ const props = defineProps({
 
 })
 // 👉 Clients
+const saleStore = useSaleStore()
 
+const isDialogVisible = ref(false)
 let totalInvoice = ref(0)
 const product = ref({
   id: -1,
@@ -64,6 +68,7 @@ let selectedItem = ref({
   }
 })
 
+
 const defaultSelectedItem = ref({
   quantity:0,
   price:0,
@@ -88,6 +93,25 @@ const totalAmount = data => {
   computeTotal()
 }
 
+const priceHistory = data => {
+  console.log(props.data.client.id)
+  if(props.data.client.id !== undefined && props.data.client.id > -1) {
+
+    saleStore.getPriceHistory(data.id,props.data.client.id).then(response => {
+      priceHistoryList.value = response.data.products
+      console.log(priceHistoryList.value)
+      isDialogVisible.value = true
+
+      console.log(response);
+    }).catch(err => {
+      console.log(err)
+    })
+  } else {
+    errorsMiddleware('Error',' You must select a client first')
+  }
+
+}
+const priceHistoryList = ref([])
 const productFullName = item => {
   return `${item.product.name}`
 }
@@ -130,7 +154,13 @@ const removeProduct = Item => {
 
 }
 
+const onChange = item => {
+  props.data.client = {...props.data.clients[item-1]}
+
+
+}
 const fullName = item => {
+
   return `${item.name}  ${item.surname}`
 }
 
@@ -156,6 +186,73 @@ const paymentActive = () => {
 
 <template>
   <VCard>
+
+    <VDialog
+      v-model="isDialogVisible"
+      persistent
+      class="v-dialog-sm"
+    >
+      <!-- Dialog Activator -->
+      <template #activator="{ props }">
+        <VBtn v-bind="props">
+          Open Dialog
+        </VBtn>
+      </template>
+
+      <!-- Dialog close btn -->
+      <DialogCloseBtn @click="isDialogVisible = !isDialogVisible" />
+
+      <!-- Dialog Content -->
+      <VCard title="Price History ">
+        <VTable class="text-no-wrap pt-5">
+          <thead>
+          <tr>
+            <th class="text-uppercase">
+              Product
+            </th>
+            <th class="text-uppercase">
+              Date
+            </th>
+            <th class="text-uppercase">
+              Quantity
+            </th>
+            <th class="text-uppercase">
+              Price
+            </th>
+
+          </tr>
+          </thead>
+
+          <tbody>
+          <tr
+            v-for="item in priceHistoryList"
+            :key="item.id"
+          >
+            <td>
+              {{ item.product.name }}
+            </td>
+            <td>
+              {{ item.sale_date }}
+            </td>
+            <td>
+              {{ item.quantity }}
+            </td>
+            <td>
+              {{ item.price }} DZD
+            </td>
+
+          </tr>
+          </tbody>
+        </VTable>
+
+        <VCardText class="d-flex justify-end gap-3 flex-wrap">
+
+          <VBtn @click="isDialogVisible = false">
+            Close
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
     <!-- SECTION Header -->
     <!--  eslint-disable vue/no-mutating-props -->
     <VCardText class="d-flex flex-wrap justify-space-between flex-column flex-sm-row">
@@ -254,6 +351,15 @@ const paymentActive = () => {
                 <h6 class="text-sm font-weight-medium mb-3">
                   City:
                 </h6>
+                <VAutocomplete
+                  clearable
+                  v-model="props.data.city"
+                  :items="props.data.cities"
+                  item-value="id"
+                  item-title="name"
+                  label="City"
+
+                />
 
               </div>
             </VCol>
@@ -264,89 +370,25 @@ const paymentActive = () => {
                 <h6 class="text-sm font-weight-medium mb-3">
                   Invoice To:
                 </h6>
-                <model-list-select
-                  :list="props.data.clients"
-                  v-model="props.data.client"
-                  option-value="id"
-                  :custom-text="fullName"
-                  :hideSelectedOptions="true"
-                  placeholder="Select Client">
-                </model-list-select>
+                <VAutocomplete
+                  clearable
+                  v-model="props.data.client_id"
+                  :items="props.data.clients"
+                  item-value="id"
+                  item-title="full_name"
+                  label="Client"
+                  @update:modelValue="onChange"
+                >
+                </VAutocomplete>
+
+
               </div>
             </VCol>
           </VRow>
 
 
         </VCol>
-        <!--        <VCol-->
-        <!--          cols="12"-->
-        <!--          md="5"-->
-        <!--        >-->
-        <!--          <div class="mt-4 ma-sm-4" >-->
-        <!--            <h6 class="text-sm font-weight-medium mb-3">-->
-        <!--              Bill To:-->
-        <!--            </h6>-->
 
-        <!--            <table>-->
-        <!--              <tbody>-->
-        <!--              <tr>-->
-        <!--                <td class="pe-6">-->
-        <!--                  Invoice:-->
-        <!--                </td>-->
-        <!--                <td class="font-weight-semibold">-->
-        <!--                  #{{ props.data.id }}-->
-        <!--                </td>-->
-        <!--              </tr>-->
-        <!--              <tr>-->
-        <!--                <td class="pe-6">-->
-        <!--                  Payment Method:-->
-        <!--                </td>-->
-        <!--                <td class="font-weight-semibold">{{ props.data.sale_status.name }}</td>-->
-        <!--              </tr>-->
-        <!--              <tr>-->
-        <!--                <td class="pe-6">-->
-        <!--                  Client:-->
-        <!--                </td>-->
-        <!--                <td class="font-weight-semibold">-->
-        <!--                  {{ props.data.client.name }} {{props.data.client.surname}}-->
-        <!--                </td>-->
-        <!--              </tr>-->
-        <!--              <tr>-->
-        <!--                <td class="pe-6">-->
-        <!--                  Address:-->
-        <!--                </td>-->
-        <!--                <td>{{ props.data.client.address }}</td>-->
-        <!--              </tr>-->
-
-
-        <!--              <tr>-->
-        <!--                <td class="pe-6">-->
-        <!--                  N°RC:-->
-        <!--                </td>-->
-        <!--                <td>{{ props.data.client.NRC }}</td>-->
-        <!--              </tr>-->
-        <!--              <tr>-->
-        <!--                <td class="pe-6">-->
-        <!--                  N°IF:-->
-        <!--                </td>-->
-        <!--                <td>{{ props.data.client.NIF }}</td>-->
-        <!--              </tr>-->
-        <!--              <tr>-->
-        <!--                <td class="pe-6">-->
-        <!--                  N°IS:-->
-        <!--                </td>-->
-        <!--                <td>{{ props.data.client.NIS }}</td>-->
-        <!--              </tr>-->
-        <!--              <tr>-->
-        <!--                <td class="pe-6">-->
-        <!--                  N°ART:-->
-        <!--                </td>-->
-        <!--                <td>{{ props.data.client.NART }}</td>-->
-        <!--              </tr>-->
-        <!--              </tbody>-->
-        <!--            </table>-->
-        <!--          </div>-->
-        <!--        </VCol>-->
       </VRow>
 
 
@@ -401,6 +443,7 @@ const paymentActive = () => {
           :data="_product"
           @remove-product="removeProduct"
           @total-amount="totalAmount"
+          @price-history="priceHistory"
         />
       </div>
     </VCardText>

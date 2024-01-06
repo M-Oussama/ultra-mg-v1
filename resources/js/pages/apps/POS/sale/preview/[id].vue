@@ -368,6 +368,52 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
             </div>
 
+            <div class="v-col-md-4 " v-if="!show.invoice">
+              <!-- 👉 Invoice ID -->
+              <p class="font-weight-bold text-sm-h6 mb-4 text-color-black text-center align-center">
+
+              </p>
+
+              <!-- 👉 Issue Date -->
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center ">
+                <div    class=" v-col-md-4 text-sm-subtitle-2 border-right padding-right-0">
+                  <span>
+
+                  </span>
+
+                </div>
+                <div    class=" v-col-md-8 text-sm-subtitle-2 padding-8 border-left data-font">
+
+                </div>
+              </div>
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row custom-white-border">
+                <div class=" v-col-md-5 text-sm-subtitle-2 border-right">
+                  Facture
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                  #{{ sale.id }}
+                </div>
+              </div>
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
+                  Payment Type
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                  {{ show.paymentType }}
+                </div>
+              </div>
+
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right ">
+                  Date
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                  {{ sale.sale_date }}
+                </div>
+              </div>
+
+
+            </div>
           </VCardText>
 
 
@@ -466,19 +512,19 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
                 <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
-                  payment
+                  Payment
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
-                  {{ (sale.payment_total) }} DZD
+                  {{ sale.payment ? parseFloat(sale.regulation).toFixed(2): 0.00 }} DZD
                 </div>
               </div>
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
                 <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
-                  New Balance
+                  Rest
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
-                  {{ parseFloat(sale.balance).toFixed(2) }} DZD
+                  {{ (parseFloat(sale.total_amount) - parseFloat(sale.regulation)).toFixed(2) }} DZD
                 </div>
               </div>
 

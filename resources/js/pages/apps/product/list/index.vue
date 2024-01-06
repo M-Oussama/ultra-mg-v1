@@ -17,11 +17,13 @@ const currentPage = ref(1)
 const totalPage = ref(1)
 const totalProducts = ref(0)
 let products = ref([])
-
+let loading2 = ref({
+  isActive: false,
+})
 
 // 👉 Fetching products
 const fetchProducts = () => {
-  console.log(app.config)
+  loading2.value.isActive = true;
   productListStore.fetchProducts({
      searchValue: searchQuery.value,
      perPage: rowPerPage.value,
@@ -31,9 +33,10 @@ const fetchProducts = () => {
      totalPage.value = response.data.totalPage
      totalProducts.value = response.data.totalProducts
      loading.value = false;
+    loading2.value.isActive = false;
   }).catch(error => {
     console.error(error)
-
+    loading2.value.isActive = false;
   })
 }
 watchEffect(fetchProducts)
@@ -124,9 +127,10 @@ const addNewProduct = productData => {
   fetchProducts()
 }
 const updateProduct = productData => {
+
   productListStore.updateProduct(productData)
 
-  // refetch product
+  // refrech products
   fetchProducts()
 }
 const deleteProduct = productData =>  {
@@ -186,6 +190,16 @@ const productListMeta = [
 <template>
   <section>
     <VRow>
+      <v-overlay
+        :model-value="loading2.isActive"
+        class="align-center justify-center"
+      >
+        <v-progress-circular
+          color="primary"
+          indeterminate
+          size="64"
+        ></v-progress-circular>
+      </v-overlay>
       <VCol cols="12">
         <VCard title="Products">
           <VDivider />

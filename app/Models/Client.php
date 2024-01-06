@@ -34,6 +34,7 @@ class Client extends Model
      *
      * @var array<int, string>
      */
+    protected $with = ['city'];
     protected $fillable = [
         'name',
         'surname',
@@ -44,5 +45,10 @@ class Client extends Model
         'NIS',
         'NART',
         'email',
+        'city_id',
     ];
+
+    public function city(){
+        return $this->belongsTo(City::class);
+    }
 }

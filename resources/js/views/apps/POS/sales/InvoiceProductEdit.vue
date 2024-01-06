@@ -36,6 +36,7 @@ props.data.oldQuantity = oldQuantity;
 const emit = defineEmits([
   'removeProduct',
   'totalAmount',
+  'priceHistory',
 ])
 
 const totalPrice = computed(() => Number(props.data.price) * Number(props.data.quantity))
@@ -48,6 +49,9 @@ const totalAmount = () => {
   emit('totalAmount', props.data)
 }
 
+const checkPriceHistory = () => {
+  emit('priceHistory', props.data)
+}
 watch(totalPrice, () => {
   totalAmount()
 }, { immediate: true })
@@ -181,7 +185,19 @@ const quantityChanged = () =>{
           icon="tabler-x"
         />
       </VBtn>
+      <VBtn
+        icon
+        size="x-small"
+        color="default"
+        variant="text"
+        @click="checkPriceHistory"
 
+      >
+        <VIcon
+          size="20"
+          icon="tabler-eye"
+        />
+      </VBtn>
     </div>
   </VCard>
 </template>

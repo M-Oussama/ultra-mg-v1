@@ -86,6 +86,7 @@ class FakeDataSeeder extends Seeder
                 'NIF' => 'NIF001',
                 'NART' => 'NART001',
                 'NIS' => 'NIS001',
+                'city_id' => '16',
             ],
             [
                 'name' => 'Jane',
@@ -97,6 +98,7 @@ class FakeDataSeeder extends Seeder
                 'NIF' => 'NIF002',
                 'NART' => 'NART002',
                 'NIS' => 'NIS002',
+                'city_id' => '16',
             ],
             [
                 'name' => 'Bob',
@@ -108,12 +110,16 @@ class FakeDataSeeder extends Seeder
                 'NIF' => 'NIF003',
                 'NART' => 'NART003',
                 'NIS' => 'NIS003',
+                'city_id' => '16',
             ],
             // Add more clients if needed
         ];
 
         foreach ($clients as $clientData) {
-            Client::create($clientData);
+            $client = Client::create($clientData);
+
+            $client->full_name = $client->surname ? $client->name.' '.$client->surname : $client->name;
+            $client->save();
         }
     }
 

@@ -300,6 +300,20 @@ const openConfirmationDialog = (employee) => {
                     size="x-small"
                     color="default"
                     variant="text"
+                    :to="{ name: 'apps-attendance-employees-id', params: { id: employee.id } }"
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-viewfinder"
+
+                    />
+                  </VBtn>
+
+                  <VBtn
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
                     @click="openConfirmationDialog(employee)"
 
                   >

@@ -19,6 +19,8 @@ return new class extends Migration
             $table->unsignedBigInteger('client_id')->nullable();
             $table->decimal('total_amount', 10, 2)->default(0.0);
             $table->unsignedBigInteger('sale_statuses_id')->nullable();
+            $table->decimal('regulation')->default(0);
+            $table->boolean('payment')->default(false);
             $table->decimal('balance')->default(0);
             $table->string('notes')->nullable();
             $table->timestamps();

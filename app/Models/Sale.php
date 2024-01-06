@@ -18,7 +18,9 @@ class Sale extends Model
         'notes',
         'balance'
     ];
-
+    protected $casts = [
+        'payment' => 'boolean'
+    ];
     protected $with = ['client','saleStatus','saleItems'];
 
     public function client()

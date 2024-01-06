@@ -102,7 +102,7 @@ const saveAttendance = () => {
     loading2.value.isActive = false;
     router.push('/apps/attendance/preview/'+route.params.id)
   }).catch(error => {
-    errorsMiddleware(error)
+    //errorsMiddleware(error)
     loading2.value.isActive = false;
   });
 

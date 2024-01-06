@@ -65,41 +65,30 @@ const resolveInvoiceBalanceVariant = (balance, total) => {
   }
 }
 
-const resolveInvoiceStatusVariantAndIcon = status => {
-  if (status === 'Partial Payment')
-    return {
-      variant: 'success',
-      icon: 'tabler-circle-half-2',
-    }
-  if (status === 'Paid')
-    return {
-      variant: 'warning',
-      icon: 'tabler-chart-pie',
-    }
-  if (status === 'Downloaded')
-    return {
-      variant: 'info',
-      icon: 'tabler-arrow-down-circle',
-    }
-  if (status === 'Draft')
-    return {
-      variant: 'primary',
-      icon: 'tabler-device-floppy',
-    }
-  if (status === 'Sent')
-    return {
-      variant: 'secondary',
-      icon: 'tabler-circle-check',
-    }
-  if (status === 'Past Due')
+const resolveInvoiceStatusVariantAndIcon = balance => {
+
+  if(balance > 0) {
     return {
       variant: 'error',
-      icon: 'tabler-alert-circle',
+      icon: 'tabler-chart-pie',
     }
-  
+  } else {
+    if(balance < 0) {
+      return {
+        variant: 'warning',
+        icon: 'tabler-alert-circle',
+      }
+    }
+    if(balance == 0) {
+      return {
+        variant: 'success',
+        icon: 'tabler-circle-check',
+      }
+    }
+  }
   return {
-    variant: 'secondary',
-    icon: 'tabler-x',
+    variant: 'error',
+    icon: 'tabler-chart-pie',
   }
 }
 const sale = ref();
@@ -241,12 +230,12 @@ const loading = ref({
                     <VAvatar
                       :size="30"
                       v-bind="props"
-                      :color="resolveInvoiceStatusVariantAndIcon(sale.invoiceStatus).variant"
+                      :color="resolveInvoiceStatusVariantAndIcon(sale.balance).variant"
                       variant="tonal"
                     >
                       <VIcon
                         :size="20"
-                        :icon="resolveInvoiceStatusVariantAndIcon(sale.invoiceStatus).icon"
+                        :icon="resolveInvoiceStatusVariantAndIcon(sale.balance).icon"
                       />
                     </VAvatar>
                   </template>
@@ -266,7 +255,7 @@ const loading = ref({
                 <div class="d-flex align-center">
                   <VAvatar
                     size="34"
-                    :color="resolveInvoiceStatusVariantAndIcon(sale.invoiceStatus).variant"
+                    :color="resolveInvoiceStatusVariantAndIcon(sale.balance).variant"
                     variant="tonal"
                     class="me-3"
                   >

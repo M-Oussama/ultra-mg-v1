@@ -50,8 +50,14 @@ export const useProductListStore = defineStore('ProductListStore', {
           tax_rate
         };
         axios.post('/api/products/update/' + id, requestData)
-            .then(response => resolve(response))
-            .catch(error => reject(error));
+            .then(response => {
+              successMiddleware('requests.product.success')
+              resolve(response)
+            })
+            .catch(error => {
+              errorsMiddleware(error);
+              reject(error)
+            });
       });
     },
 

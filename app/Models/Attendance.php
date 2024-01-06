@@ -13,4 +13,9 @@ class Attendance extends Model
         'month',
         'year'
     ];
+
+    public function employees()
+    {
+        return $this->belongsToMany(Employee::class, 'employee_attendances');
+    }
 }

@@ -15,19 +15,25 @@ const rowPerPage = ref(10)
 const currentPage = ref(1)
 const totalPage = ref(1)
 const totalClients = ref(0)
+const cities = ref([])
 let clients = ref([])
+let loading2 = ref({
+  isActive: false,
+})
 
 // 👉 Fetching Clients
 const fetchClients = () => {
+  loading2.value.isActive = true;
   clientListStore.fetchClients({
      searchValue: searchQuery.value,
      perPage: rowPerPage.value,
      currentPage: currentPage.value,
   }).then(response => {
-
+    loading2.value.isActive = false;
      clients.value = response.data.clients.data
     console.log(clients.value)
      totalPage.value = response.data.totalPage
+     cities.value = response.data.cities
      totalClients.value = response.data.totalClients
     loading.value = false;
     // Focus on the text field after loading is complete
@@ -36,7 +42,7 @@ const fetchClients = () => {
 
   }).catch(error => {
     console.error(error)
-
+    loading2.value.isActive = false;
   })
 }
 
@@ -113,6 +119,16 @@ const openConfirmationDialog = (client) => {
 <template>
   <section>
     <VRow>
+      <v-overlay
+        :model-value="loading2.isActive"
+        class="align-center justify-center"
+      >
+        <v-progress-circular
+          color="primary"
+          indeterminate
+          size="64"
+        ></v-progress-circular>
+      </v-overlay>
       <VCol cols="12">
         <VCard title="Clients">
           <VDivider />
@@ -182,7 +198,10 @@ const openConfirmationDialog = (client) => {
                   Client
                 </th>
                 <th scope="col">
-                  email
+                  City
+                </th>
+                <th scope="col">
+                  Phone
                 </th>
 
 
@@ -235,7 +254,10 @@ const openConfirmationDialog = (client) => {
 
                 <!-- 👉 email -->
                 <td>
-                  <span class="text-capitalize text-base font-weight-semibold">{{ client.email }}</span>
+                  <span class="text-capitalize text-base font-weight-semibold">{{ client.city.name }}</span>
+                </td>
+                <td>
+                  <span class="text-capitalize text-base font-weight-semibold">{{ client.phone }}</span>
                 </td>
 
 
@@ -335,6 +357,7 @@ const openConfirmationDialog = (client) => {
     <!-- 👉 Add New Client -->
     <AddNewClientDrawer
       v-model:isDrawerOpen="isAddNewClientDrawerVisible"
+      v-model:cities="cities"
       @client-data="addNewClient"
     />
 
@@ -342,6 +365,7 @@ const openConfirmationDialog = (client) => {
     <EditClientDrawer
       v-model:isDrawerOpen="isEditClientDrawerVisible"
       v-model:client = "selectedClient"
+      v-model:cities="cities"
       @client-data="updateClient"
     />
 

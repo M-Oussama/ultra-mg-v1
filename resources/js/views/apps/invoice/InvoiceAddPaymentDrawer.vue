@@ -38,10 +38,12 @@ const onSubmit = () => {
   payment.value.sale = props.data;
   props.loading.isActive = true;
   saleStore.addPayment(payment.value, payment.value.sale.id).then(response => {
-    console.log(response);
+
     props.loading.isActive = false;
     props.data.balance = payment.value.balance;
-    console.log("balance : "+props.data.balance)
+
+    props.data.payment_total = parseFloat(props.data.payment_total);
+
     payment.value.amount = 0;
     payment.value.date = '';
     payment.value.note = '';

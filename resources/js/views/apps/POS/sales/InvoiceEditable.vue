@@ -139,17 +139,24 @@ const handleProductChange = (value) => {
 }
 
 const paymentActive = () => {
-  console.log(props.data.payment)
-  if(props.data.payment) {
-    props.data.paymentAmount = totalInvoice.value
-  } else {
-    props.data.paymentAmount = props.data.payment_total
-  }
+
+  // if(props.data.payment) {
+  //   props.data.paymentAmount = totalInvoice.value
+  // } else {
+  //   props.data.paymentAmount = props.data.payment_total
+  // }
 
 }
 
+watch(props.data.payment, ()=>{
+  paymentActive();
+})
+
+const onChange = item => {
+  props.data.client = {...props.data.clients[item-1]}
 
 
+}
 
 </script>
 
@@ -246,6 +253,7 @@ const paymentActive = () => {
         >
           <VRow>
 
+
             <VCol
               cols="12"
               md="6">
@@ -253,6 +261,15 @@ const paymentActive = () => {
                 <h6 class="text-sm font-weight-medium mb-3">
                   City:
                 </h6>
+                <VAutocomplete
+                  clearable
+                  v-model="props.data.city"
+                  :items="props.data.cities"
+                  item-value="id"
+                  item-title="name"
+                  label="City"
+
+                />
 
               </div>
             </VCol>
@@ -263,89 +280,23 @@ const paymentActive = () => {
                 <h6 class="text-sm font-weight-medium mb-3">
                   Invoice To:
                 </h6>
-                <model-list-select
-                  :list="props.data.clients"
-                  v-model="props.data.client"
-                  option-value="id"
-                  :custom-text="fullName"
-                  :hideSelectedOptions="true"
-                  placeholder="Select Client">
-                </model-list-select>
+                <VAutocomplete
+                  clearable
+                  v-model="props.data.client_id"
+                  :items="props.data.clients"
+                  item-value="id"
+                  item-title="full_name"
+                  label="Client"
+                  @update:modelValue="onChange"
+                >
+                </VAutocomplete>
+
               </div>
             </VCol>
           </VRow>
 
 
         </VCol>
-<!--        <VCol-->
-<!--          cols="12"-->
-<!--          md="5"-->
-<!--        >-->
-<!--          <div class="mt-4 ma-sm-4" >-->
-<!--            <h6 class="text-sm font-weight-medium mb-3">-->
-<!--              Bill To:-->
-<!--            </h6>-->
-
-<!--            <table>-->
-<!--              <tbody>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Invoice:-->
-<!--                </td>-->
-<!--                <td class="font-weight-semibold">-->
-<!--                  #{{ props.data.id }}-->
-<!--                </td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Payment Method:-->
-<!--                </td>-->
-<!--                <td class="font-weight-semibold">{{ props.data.sale_status.name }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Client:-->
-<!--                </td>-->
-<!--                <td class="font-weight-semibold">-->
-<!--                  {{ props.data.client.name }} {{props.data.client.surname}}-->
-<!--                </td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Address:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.address }}</td>-->
-<!--              </tr>-->
-
-
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°RC:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NRC }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°IF:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NIF }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°IS:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NIS }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°ART:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NART }}</td>-->
-<!--              </tr>-->
-<!--              </tbody>-->
-<!--            </table>-->
-<!--          </div>-->
-<!--        </VCol>-->
       </VRow>
 
 
@@ -419,13 +370,13 @@ const paymentActive = () => {
             <div class="align-center mb-4">
               <div class="d-flex">
                   <span class="text-sm font-weight-semibold me-2 mb-2 pt-2">
-                    Erase Payments :
+                    Payment :
 
                   </span>
                 <VSwitch
                   v-model="props.data.payment"
-                  :true-value="1"
-                  :false-value="0"
+                  :true-value="true"
+                  :false-value="false"
                   @change="paymentActive"
                 />
               </div>
@@ -450,7 +401,7 @@ const paymentActive = () => {
 
               <VTextField
 
-                v-model="props.data.paymentAmount"
+                v-model="props.data.regulation"
                 type="number"
 
               />
@@ -470,7 +421,10 @@ const paymentActive = () => {
                       Total Invoice
                     </p>
                     <p class="mb-2 text-sm">
-                     Payment:
+                     Payment Initial:
+                    </p>
+                    <p class="mb-2 text-sm">
+                     Payments:
                     </p>
                     <p class="mb-2 text-sm">
                       Rest:
@@ -484,10 +438,16 @@ const paymentActive = () => {
                     {{totalInvoice.toFixed(2)}} DZD
                   </p>
                   <p class="mb-2 text-sm">
-                    {{props.data.paymentAmount ? props.data.paymentAmount : 0.00}} DZD
+                    {{props.data.payment ? parseFloat(props.data.regulation).toFixed(2) : 0.00}} DZD
                   </p>
                   <p class="mb-2 text-sm">
-                    {{((props.data.paymentAmount ? props.data.paymentAmount : 0) - totalInvoice).toFixed(2)}} DZD
+                    {{props.data.paymentAmount ? parseFloat(props.data.paymentAmount).toFixed(2) : 0.00}} DZD
+                  </p>
+                  <p class="mb-2 text-sm">
+                    {{(props.data.payment ?
+                    (parseFloat(totalInvoice) - parseFloat(props.data.regulation) - parseFloat(props.data.paymentAmount)):
+                    (parseFloat(totalInvoice) - parseFloat(props.data.paymentAmount))).toFixed(2)
+                    }} DZD
                   </p>
 
                 </td>

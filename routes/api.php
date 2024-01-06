@@ -50,6 +50,7 @@ Route::get('/certifyInvoices/getLastID', [CertifyInvoiceController::class, 'getL
 
 /** POS */
 Route::get('/pos/sales/list', [POSController::class, 'getSales'])->name('getSales');
+Route::get('/pos/sales/getPriceHistory/{clientId}/{productId}', [POSController::class, 'getPriceHistory'])->name('getPriceHistory');
 Route::get('/pos/sales/getData', [POSController::class, 'getData'])->name('getData');
 Route::post('/pos/sales/store', [POSController::class, 'store'])->name('store');
 Route::get('/pos/sale/getSale/{id}', [POSController::class, 'getSale'])->name('getSale');
@@ -78,6 +79,9 @@ Route::get('/attendances/edit/{id}', [AttendanceController::class, 'getAttendanc
 Route::post('/attendances/update', [AttendanceController::class, 'update'])->name('update');
 Route::post('/attendances/AddEmployeeToAttendance', [AttendanceController::class, 'AddEmployeeToAttendance'])->name('AddEmployeeToAttendance');
 Route::post('/attendances/RemoveEmployeeFromAttendance', [AttendanceController::class, 'RemoveEmployeeFromAttendance'])->name('RemoveEmployeeFromAttendance');
+Route::get('attendances/employees/list/{id}', [AttendanceController::class, 'fetchEmployeesByAttendance'])->name('fetchEmployeesByAttendance');
+Route::post('attendances/updateEndDate/{id}', [AttendanceController::class, 'updateEndDate'])->name('updateEndDate');
+Route::post('attendances/addNewEmployeeAttendanceRecord/{id}', [AttendanceController::class, 'NewEmployeeAttendanceRecord'])->name('NewEmployeeAttendanceRecord');
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

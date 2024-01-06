@@ -15,6 +15,11 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  cities: {
+    type: Array,
+    required: true,
+  },
+
 })
 
 // 👉 Watch for changes in the Client prop and update form fields
@@ -31,6 +36,7 @@ watch(() => props.client, (newClient) => {
     NIF.value = newClient.NIF || '';
     NART.value = newClient.NART || '';
     NIS.value = newClient.NIS || '';
+    city_id.value = newClient.city_id || '';
   }
 });
 
@@ -51,6 +57,7 @@ const NRC = ref('')
 const NIF = ref('')
 const NIS = ref('')
 const NART = ref('')
+const city_id = ref(null)
 const company = ref('')
 const country = ref('')
 const contact = ref('')
@@ -156,7 +163,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="surname"
-                  :rules="[requiredValidator]"
+
                   label="Surname"
                 />
               </VCol>
@@ -165,11 +172,24 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="email"
-                  :rules="[requiredValidator, emailValidator]"
+                  :rules="[emailValidator]"
                   label="Email"
                 />
               </VCol>
+              <VCol cols="12">
 
+
+                <VAutocomplete
+                  clearable
+                  v-model="city_id"
+                  :items="props.cities"
+                  item-value="id"
+                  item-title="name"
+                  label="City"
+                  :rules="[requiredValidator]"
+                />
+
+              </VCol>
               <!-- 👉 Address -->
               <VCol cols="12">
                 <VTextField
@@ -182,7 +202,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="phone"
-                  :rules="[requiredValidator]"
+
                   label="Phone"
                 />
               </VCol>
@@ -191,7 +211,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="NRC"
-                  :rules="[requiredValidator]"
+
                   label="Numéro de registre"
                 />
               </VCol>
@@ -199,7 +219,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="NIF"
-                  :rules="[requiredValidator]"
+
                   label="Numéro de NIF"
                 />
               </VCol>
@@ -207,7 +227,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="NIS"
-                  :rules="[requiredValidator]"
+
                   label="Numéro de NIS"
                 />
               </VCol>
@@ -215,7 +235,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="NART"
-                  :rules="[requiredValidator]"
+
                   label="Numéro de ARTICLE"
                 />
               </VCol>

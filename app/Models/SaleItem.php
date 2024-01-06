@@ -16,6 +16,8 @@ class SaleItem extends Model
         'quantity',
         'unit_price',
         'total_price',
+        'client_id',
+        'sale_date'
     ];
     protected $with = ['product'];
 

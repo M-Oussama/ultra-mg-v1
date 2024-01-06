@@ -8,6 +8,8 @@ use App\Models\EmployeeAttendance;
 use App\Models\EmployeeCareer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 class AttendanceController extends Controller
@@ -248,5 +250,75 @@ class AttendanceController extends Controller
         return response()->json(["employees" => $employees]);
 
 
+    }
+
+    public function fetchEmployeesByAttendance(Request $request, $Id){
+        $searchValue = $request->input('searchValue', ''); // search value
+        $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
+        $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
+
+        $employees = EmployeeCareer::where('employee_id', $Id)->orderBy('id','desc')->paginate($perPage, ['*'], 'page', $currentPage);
+        $totalEmployees = $employees->total(); // Total number of users matching the query
+        $totalPage = ($totalEmployees / $perPage); // Calculate total pages
+
+        $latestEmployee = $employees->first();
+        if ($latestEmployee) {
+            $latestEmployee->last = true;
+        }
+
+        return response()->json(['employees' => $employees, 'totalEmployees'=> count($employees), '$totalPage'=>$totalPage]);
+
+    }
+
+    public function updateEndDate(Request $request, $Id){
+
+        $employee_career = EmployeeCareer::find($Id);
+        $rules = [
+            'endDate' => 'required|date|after:startDate',
+        ];
+        $end_date = $request->input('endDate');
+
+        if($employee_career->start_date >= $end_date){
+
+            throw new BadRequestHttpException('End Date must be after the start Date');
+
+        }
+
+        $request->validate($rules);
+
+
+
+        $employee_career->update(['end_date' => $end_date]);
+
+        return response()->json(['endDate' => $end_date, 'msg' =>'End Date Updated Successfully']);
+    }
+    public function NewEmployeeAttendanceRecord(Request $request, $Id){
+        $rules = [
+            'startDate' => 'required|date',
+        ];
+        $request->validate($rules);
+        $end_date = $request->input('endDate',null);
+        $start_date = $request->input('startDate');
+
+        $record = EmployeeCareer::orderBy('created_at', 'desc')->first();
+
+        if($record){
+            if($record->end_date) {
+                if($record->end_date >= $start_date ){
+                    throw new BadRequestHttpException('Start Date must be after the latest end date of the employee');
+                }
+            }else{
+                throw new BadRequestHttpException('You can not add a new record until the previous one is ended');
+            }
+        }
+
+        EmployeeCareer::create([
+            'employee_id'=>$Id,
+            'start_date' => date("Y-m-d", strtotime($start_date)),
+            'end_date' => $end_date ? date("Y-m-d", strtotime($end_date)) : null,
+        ]);
+
+
+        return response()->json([ 'msg' =>'Record created Successfully']);
     }
 }

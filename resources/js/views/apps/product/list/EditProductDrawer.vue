@@ -144,7 +144,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="brand"
-                  :rules="[requiredValidator]"
+
                   label="Product Brand"
                 />
               </VCol>
@@ -152,21 +152,21 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="description"
-                  :rules="[requiredValidator]"
+
                   label="Product description"
                 />
               </VCol>
               <VCol cols="12">
                 <VTextField
                   v-model="product_code"
-                  :rules="[requiredValidator]"
+
                   label="Product code"
                 />
               </VCol>
               <VCol cols="12">
                 <VTextField
                   v-model="sku"
-                  :rules="[requiredValidator]"
+
                   label="Product SKU"
                 />
               </VCol>

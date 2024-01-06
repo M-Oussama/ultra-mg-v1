@@ -8,7 +8,7 @@ export const useClientListStore = defineStore('ClientListStore', {
 
     // 👉 Add User
     addClient(clientData) {
-      const { name, surname, email, address, phone, NRC, NIF, NIS, NART} = clientData;
+      const { name, surname, email, address, phone, NRC, NIF, NIS, NART, city_id} = clientData;
       return new Promise((resolve, reject) => {
         axios.post('/api/clients/store', {
           name,
@@ -19,7 +19,8 @@ export const useClientListStore = defineStore('ClientListStore', {
           NRC,
           NIF,
           NART,
-          NIS
+          NIS,
+          city_id
         }).then(response => resolve(response))
           .catch(error => reject(error))
       })
@@ -27,7 +28,7 @@ export const useClientListStore = defineStore('ClientListStore', {
 
     // 👉 Update User
     updateClient(clientData) {
-      const { id, name, surname, email, address, phone, NRC, NIF, NIS, NART} = clientData;
+      const { id, name, surname, email, address, phone, NRC, NIF, NIS, NART, city_id} = clientData;
       return new Promise((resolve, reject) => {
         let requestData = {
           name,
@@ -38,7 +39,8 @@ export const useClientListStore = defineStore('ClientListStore', {
           NRC,
           NIF,
           NART,
-          NIS
+          NIS,
+          city_id
         };
         axios.post('/api/clients/update/' + id, requestData)
             .then(response => resolve(response))

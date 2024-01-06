@@ -1,10 +1,9 @@
 <script setup>
-import AddNewAttendanceDrawer from '@/views/apps/attendance/AddNewAttendanceDrawer.vue'
-import EditEmployeeDrawer from '@/views/apps/employee/list/EditEmployeeDrawer.vue';
-import ConfirmationDialog from '@/views/apps/employee/list/ConfirmationDialog.vue';
 import {successMiddleware} from "@/middlewares/successMiddleware";
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 import {useAttendanceStore} from "@/views/apps/attendance/useAttendanceStore";
+import EditEmployeeAttendanceDrawer from "@/views/apps/attendance/EditEmployeeAttendanceDrawer.vue";
+import AddEmployeeAttendanceDrawer from "@/views/apps/attendance/AddEmployeeAttendanceDrawer.vue";
 
 const attendanceStore = useAttendanceStore()
 const searchQuery = ref('')
@@ -12,6 +11,7 @@ const loading = ref(false)
 const loading2 = ref({
   isActive:true
 })
+const route = useRoute()
 const isTyping = ref(true)
 const selectedRole = ref()
 const selectedPlan = ref()
@@ -19,32 +19,36 @@ const selectedStatus = ref()
 const rowPerPage = ref(10)
 const currentPage = ref(1)
 const totalPage = ref(1)
-const totalAttendances = ref(0)
-let attendances = ref([])
-let months = [];
-let years = [];
+const totalEmployees = ref(0)
+let employees = ref([])
+let isEditDrawerVisible = ref({
+  open : false
+})
+let isAddDrawerOpen = ref({
+  open : false
+})
+let disableEndDate = ref(false)
+let disableStartDate = ref(true)
+
 // 👉 Fetching Employees
-const fetchAttendances = () => {
+const fetchEmployees = () => {
   loading2.value.isActive = true;
-  attendanceStore.fetchAttendances({
-     searchValue: searchQuery.value,
-     perPage: rowPerPage.value,
-     currentPage: currentPage.value,
-  }).then(response => {
-     attendances.value = response.data.attendances.data
-     months = response.data.months
-     years = response.data.years
+  attendanceStore.fetchEmployeesByAttendance(Number(route.params.id)).then(response => {
+    employees.value = response.data.employees.data
      totalPage.value = response.data.totalPage
-     totalAttendances.value = response.data.totalAttendances
+     totalEmployees.value = response.data.totalEmployees
      loading.value = false;
-     loading2.value.isActive = false;
+    loading2.value.isActive = false;
+    console.log(response);
   }).catch(error => {
     console.error(error)
     loading2.value.isActive = false;
   })
 }
 
-watchEffect(fetchAttendances)
+
+
+watchEffect(fetchEmployees)
 
 // 👉 watching current page
 watchEffect(() => {
@@ -55,12 +59,12 @@ watchEffect(() => {
 watch(searchQuery, () => {
 
   //loading.value = true;
-  fetchAttendances();
+  fetchEmployees();
 });
-const isAddNewAttendanceDrawerVisible = ref(false)
-const isEditEmployeeDrawerVisible = ref(false)
+
+
 const isDialogVisible = ref(false)
-let selectedAttendance = ref()
+let selectedEmployee = ref(null)
 
 // 👉 watching current page
 watchEffect(() => {
@@ -70,35 +74,35 @@ watchEffect(() => {
 
 // 👉 Computing pagination data
 const paginationData = computed(() => {
-  const firstIndex = attendances.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
-  const lastIndex = attendances.value.length + (currentPage.value - 1) * rowPerPage.value
+  const firstIndex = employees.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
+  const lastIndex = employees.value.length + (currentPage.value - 1) * rowPerPage.value
   
-  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalAttendances.value } entries`
+  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalEmployees.value } entries`
 })
 
-const addNewAttendance = attendanceData => {
+const addNewEmployee = employeeData => {
   loading2.value.isActive = true;
-  attendanceStore.addAttendance(attendanceData).then(response =>{
+  employeeStore.addEmployee(employeeData).then(response =>{
     successMiddleware(response.data.message)
     loading2.value.isActive = false;
     // refetch User
-    fetchAttendances()
+    fetchEmployees()
   }).catch(error => {
+    errorsMiddleware(error.data.message)
     loading2.value.isActive = false;
-    errorsMiddleware(error.response.data.message)
   });
 
 
 }
 
-const updateAttendance = attendanceData => {
+const updateEmployee = employeeData => {
   loading2.value.isActive = true;
-  attendanceStore.updateAttendance(attendanceData).then(response =>{
+  employeeStore.updateEmployee(employeeData).then(response =>{
     successMiddleware(response.data.message)
 
     loading2.value.isActive = false;
     // refetch User
-    fetchAttendances()
+    fetchEmployees()
   }).catch(error =>{
     errorsMiddleware(error.data.message)
     loading2.value.isActive = false;
@@ -107,9 +111,9 @@ const updateAttendance = attendanceData => {
 
 }
 
-const deleteAttendance = attendanceData =>  {
+const deleteEmployee = employeeData =>  {
   loading2.value.isActive = true;
-  attendanceStore.deleteAttendance(attendanceData).then(response =>{
+  employeeStore.deleteEmployee(employeeData).then(response =>{
     loading2.value.isActive = false;
     successMiddleware(response.data.message)
   }).catch(error =>{
@@ -118,18 +122,16 @@ const deleteAttendance = attendanceData =>  {
   })
 
   // refetch Employee
-  fetchAttendances()
-}
-
-const openUpdateDrawer = (employee) => {
-  isEditEmployeeDrawerVisible.value = true;
-  selectedAttendance = employee;
+  fetchEmployees()
 }
 
 const openConfirmationDialog = (employee) => {
-  isDialogVisible.value = true;
-  selectedAttendance = employee;
+  selectedEmployee.value = employee;
+  isEditDrawerVisible.value.open = true;
+}
+const openAddRecord = () => {
 
+  isAddDrawerOpen.value.open = true;
 }
 
 </script>
@@ -148,13 +150,13 @@ const openConfirmationDialog = (employee) => {
         ></v-progress-circular>
       </v-overlay>
       <VCol cols="12">
-        <VCard title="Attendance">
+        <VCard title="Employees">
           <VDivider />
 
           <VCardText class="d-flex flex-wrap py-4 gap-4">
             <div
               class="me-3"
-              style="width: 100px;"
+              style="width: 80px;"
             >
               <VSelect
                 v-model="rowPerPage"
@@ -168,12 +170,15 @@ const openConfirmationDialog = (employee) => {
 
             <div class="app-user-search-filter d-flex align-center flex-wrap gap-4">
               <!-- 👉 Search  -->
-              <div style="width: 6rem;">
+
+
+              <div style="width: 9rem;">
                 <v-progress-circular
                   v-if="loading"
                   indeterminate
                   color="primary"
                 ></v-progress-circular>
+
                 <VTextField
                   v-else
                   @input="isTyping = true"
@@ -192,14 +197,15 @@ const openConfirmationDialog = (employee) => {
               >
                 Export
               </VBtn>
-
-              <!-- 👉 Add Employee button -->
               <VBtn
+
+                color="primary"
                 prepend-icon="tabler-plus"
-                @click="isAddNewAttendanceDrawerVisible = true"
+                @click="openAddRecord()"
               >
-                New Attendance
+                New Record
               </VBtn>
+              <!-- 👉 Add Employee button -->
             </div>
           </VCardText>
 
@@ -213,12 +219,11 @@ const openConfirmationDialog = (employee) => {
                   ID
                 </th>
                 <th scope="col">
-                  Month
+                  Start Date
                 </th>
                 <th scope="col">
-                  Year
+                  End Date
                 </th>
-
 
                 <th scope="col">
                   ACTIONS
@@ -228,50 +233,42 @@ const openConfirmationDialog = (employee) => {
             <!-- 👉 table body -->
             <tbody>
               <tr
-                v-for="attendance in attendances"
-                :key="attendance.id"
+                v-for="employee in employees"
+                :key="employee.id"
                 style="height: 3.75rem;"
               >
                 <!-- 👉 ID -->
                 <td>
-                  {{attendance.id}}
+                  {{employee.id}}
                 </td>
 
                 <!-- 👉 User -->
                 <td>
                   <div class="d-flex align-center">
-                    <VAvatar
-                      variant="tonal"
 
-                      class="me-3"
-                      size="38"
-                    >
-                      <VImg
-                        v-if="attendance.avatar"
-                        :src="attendance.avatar"
-                      />
-                      <span v-else>{{ months[attendance.month-1].name.toUpperCase().charAt(0) }} </span>
-                    </VAvatar>
 
                     <div class="d-flex flex-column">
                       <h6 class="text-base">
-                        <RouterLink
-                          :to="{ name: 'apps-user-view-id', params: { id: attendance.id } }"
-                          class="font-weight-medium user-list-name"
-                        >
-                          {{months[attendance.month-1].name}}
-                        </RouterLink>
+                        {{ employee.start_date }}
                       </h6>
 
                     </div>
+
+
                   </div>
                 </td>
 
-                <!-- 👉 email -->
                 <td>
-                  <span class="text-capitalize text-base font-weight-semibold">{{ attendance.year }}</span>
-                </td>
+                  <div class="d-flex align-center">
 
+
+                    <div class="d-flex flex-column">
+                      <h6 class="text-base">
+                        {{ employee.end_date }}
+                      </h6>
+                    </div>
+                  </div>
+                </td>
 
                 <!-- 👉 Actions -->
                 <td
@@ -279,26 +276,12 @@ const openConfirmationDialog = (employee) => {
                   style="width: 5rem;"
                 >
                   <VBtn
-                    v-if="!attendance.active"
+                    v-if="employee.last"
                     icon
                     size="x-small"
                     color="default"
                     variant="text"
-                    :to="{ name: 'apps-attendance-add-id', params: { id: attendance.id } }"
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-circle-plus"
-
-                    />
-                  </VBtn>
-                  <VBtn
-                    v-if="attendance.active"
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                    :to="{ name: 'apps-attendance-edit-id', params: { id: attendance.id } }"
+                    @click="openConfirmationDialog(employee)"
                   >
                     <VIcon
                       size="22"
@@ -307,48 +290,7 @@ const openConfirmationDialog = (employee) => {
                     />
                   </VBtn>
 
-                  <VBtn
-                    v-if="attendance.active"
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                    :to="{ name: 'apps-attendance-preview-id', params: { id: attendance.id } }"
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-viewfinder"
 
-                    />
-                  </VBtn>
-
-                  <VBtn
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                    @click="openConfirmationDialog(attendance)"
-
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-trash"
-                    />
-                  </VBtn>
-
-                  <VBtn
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                    :to="{ name: 'apps-attendance-employees-id', params: { id: attendance.id } }"
-
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-eye"
-                    />
-                  </VBtn>
 
                   <VBtn
                     icon
@@ -368,7 +310,7 @@ const openConfirmationDialog = (employee) => {
             </tbody>
 
             <!-- 👉 table footer  -->
-            <tfoot v-show="!attendances.length">
+            <tfoot v-show="!employees.length">
               <tr>
                 <td
                   colspan="7"
@@ -397,30 +339,22 @@ const openConfirmationDialog = (employee) => {
         </VCard>
       </VCol>
     </VRow>
+    <EditEmployeeAttendanceDrawer
+      v-model:isDrawerOpen="isEditDrawerVisible"
+      v-model:employee="selectedEmployee"
+      v-model:disable-end-date="disableEndDate"
+      v-model:loading = "loading2"
+      v-model:disable-start-date = "disableStartDate"
 
-    <!-- 👉 Add New Employee -->
-    <AddNewAttendanceDrawer
-      v-model:isDrawerOpen="isAddNewAttendanceDrawerVisible"
-      v-model:attendances="attendances"
-      v-model:months="months"
-      v-model:years="years"
-      @attendance-data="addNewAttendance"
     />
 
-    <!-- 👉 Edit Employee -->
-<!--    <EditMonthDrawer-->
-<!--      v-model:isDrawerOpen="isEditEmployeeDrawerVisible"-->
-<!--      v-model:employee = "selectedEmployee"-->
-<!--      @employee-data="updateEmployee"-->
-<!--    />-->
+    <AddEmployeeAttendanceDrawer
+      v-model:isDrawerOpen="isAddDrawerOpen"
+      v-model:employees="employees"
+      v-model:loading = "loading2"
 
-    <ConfirmationDialog
-      v-model:isDialogVisible="isDialogVisible"
-      v-model:attendance="selectedAttendance"
-      @employee-data="deleteAttendance"
-      v-if="isDialogVisible"
-      />
 
+    />
   </section>
 </template>
 

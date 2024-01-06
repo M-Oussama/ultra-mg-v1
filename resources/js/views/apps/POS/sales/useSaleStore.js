@@ -7,6 +7,8 @@ export const useSaleStore = defineStore('SaleStore', {
   actions: {
     // 👉 Fetch products data
     fetchSales(params) { return axios.get('/api/pos/sales/list', { params }) },
+
+    getPriceHistory(clientId, productId) { return axios.get('/api/pos/sales/getPriceHistory/'+clientId+'/'+productId) },
     // 👉 Fetch products data
     getLastID(params) { return axios.get('/api/certifyInvoices/getLastID', { params }) },
 
