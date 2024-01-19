@@ -3,6 +3,8 @@ import AddNewProductDrawer from '@/views/apps/product/list/AddNewProductDrawer.v
 import EditProductDrawer from '@/views/apps/product/list/EditProductDrawer.vue';
 import ConfirmationDialog from '@/views/apps/product/list/ConfirmationDialog.vue';
 import { useProductListStore } from '@/views/apps/product/useProductListStore'
+import {successMiddleware} from "@/middlewares/successMiddleware";
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 
 
 const productListStore = useProductListStore()
@@ -17,11 +19,13 @@ const currentPage = ref(1)
 const totalPage = ref(1)
 const totalProducts = ref(0)
 let products = ref([])
-
+let loading2 = ref({
+  isActive: false,
+})
 
 // 👉 Fetching products
 const fetchProducts = () => {
-  console.log(app.config)
+  loading2.value.isActive = true;
   productListStore.fetchProducts({
      searchValue: searchQuery.value,
      perPage: rowPerPage.value,
@@ -31,9 +35,10 @@ const fetchProducts = () => {
      totalPage.value = response.data.totalPage
      totalProducts.value = response.data.totalProducts
      loading.value = false;
+    loading2.value.isActive = false;
   }).catch(error => {
     console.error(error)
-
+    loading2.value.isActive = false;
   })
 }
 watchEffect(fetchProducts)
@@ -118,16 +123,34 @@ const paginationData = computed(() => {
 })
 
 const addNewProduct = productData => {
-  productListStore.addProduct(productData)
+  loading2.value.isActive = true;
+  productListStore.addProduct(productData).then(response => {
 
-  // refetch product
-  fetchProducts()
+    loading2.value.isActive = false;
+    successMiddleware('requests.product.success')
+    // refetch product
+    fetchProducts()
+  }).catch(error => {
+    errorsMiddleware(error);
+    loading2.value.isActive = false;
+  })
+
+
 }
 const updateProduct = productData => {
-  productListStore.updateProduct(productData)
+  loading2.value.isActive = true;
+  productListStore.updateProduct(productData).then(response => {
 
-  // refetch product
-  fetchProducts()
+    loading2.value.isActive = false;
+    successMiddleware('requests.product.success')
+    // refetch product
+    fetchProducts()
+  }).catch(error => {
+    errorsMiddleware(error);
+    loading2.value.isActive = false;
+  })
+
+
 }
 const deleteProduct = productData =>  {
   productListStore.deleteProduct(productData)
@@ -186,6 +209,16 @@ const productListMeta = [
 <template>
   <section>
     <VRow>
+      <v-overlay
+        :model-value="loading2.isActive"
+        class="align-center justify-center"
+      >
+        <v-progress-circular
+          color="primary"
+          indeterminate
+          size="64"
+        ></v-progress-circular>
+      </v-overlay>
       <VCol cols="12">
         <VCard title="Products">
           <VDivider />

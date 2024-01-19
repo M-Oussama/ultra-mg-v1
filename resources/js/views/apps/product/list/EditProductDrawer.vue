@@ -31,6 +31,7 @@ watch(() => props.product, (newProduct) => {
       price.value = newProduct.price|| 0;
       stockable.value = newProduct.stockable|| 0;
       tax_rate.value = newProduct.tax_rate|| 0;
+      weight.value = newProduct.weight|| 0;
   }
 });
 
@@ -48,6 +49,7 @@ const description = ref('')
 const product_code = ref('')
 const sku = ref('')
 const min_stock_level = ref(0)
+const weight = ref(0)
 let price = ref(0)
 let stockable = ref(0)
 const tax_rate = ref(0.00)
@@ -75,6 +77,7 @@ const onSubmit = () => {
         price: price.value,
         stockable: !!stockable.value,
         tax_rate: tax_rate.value,
+        weight: weight.value,
       })
       emit('update:isDrawerOpen', false)
       nextTick(() => {
@@ -144,7 +147,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="brand"
-                  :rules="[requiredValidator]"
+
                   label="Product Brand"
                 />
               </VCol>
@@ -152,21 +155,21 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="description"
-                  :rules="[requiredValidator]"
+
                   label="Product description"
                 />
               </VCol>
               <VCol cols="12">
                 <VTextField
                   v-model="product_code"
-                  :rules="[requiredValidator]"
+
                   label="Product code"
                 />
               </VCol>
               <VCol cols="12">
                 <VTextField
                   v-model="sku"
-                  :rules="[requiredValidator]"
+
                   label="Product SKU"
                 />
               </VCol>
@@ -175,6 +178,14 @@ const handleDrawerModelValueUpdate = val => {
                   v-model="min_stock_level"
                   :rules="[requiredValidator]"
                   label="min stock level"
+                  type="number"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="weight"
+                  :rules="[requiredValidator]"
+                  label="Weight"
                   type="number"
                 />
               </VCol>

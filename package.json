@@ -16,6 +16,7 @@
     "@syncfusion/ej2-vue-grids": "^23.1.44",
     "@tabler/icons": "^1.97.0",
     "@vueform/multiselect": "^2.6.6",
+    "@vuepic/vue-datepicker": "^7.4.0",
     "@vueuse/core": "^9.5.0",
     "@vueuse/math": "^9.5.0",
     "ant-design-vue": "^4.0.6",

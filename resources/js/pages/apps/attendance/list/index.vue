@@ -279,6 +279,7 @@ const openConfirmationDialog = (employee) => {
                   style="width: 5rem;"
                 >
                   <VBtn
+                    v-if="!attendance.active"
                     icon
                     size="x-small"
                     color="default"
@@ -288,6 +289,34 @@ const openConfirmationDialog = (employee) => {
                     <VIcon
                       size="22"
                       icon="tabler-edit"
+
+                    />
+                  </VBtn>
+                  <VBtn
+                    v-if="attendance.active"
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
+                    :to="{ name: 'apps-attendance-edit-id', params: { id: attendance.id } }"
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-edit"
+
+                    />
+                  </VBtn>
+
+                  <VBtn
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
+                    :to="{ name: 'apps-attendance-preview-id', params: { id: attendance.id } }"
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-viewfinder"
 
                     />
                   </VBtn>
@@ -303,6 +332,20 @@ const openConfirmationDialog = (employee) => {
                     <VIcon
                       size="22"
                       icon="tabler-trash"
+                    />
+                  </VBtn>
+
+                  <VBtn
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
+                    :to="{ name: 'apps-attendance-employees-id', params: { id: attendance.id } }"
+
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-eye"
                     />
                   </VBtn>
 

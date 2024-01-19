@@ -45,7 +45,8 @@ class Product extends Model
         'is_available',
         'tax_rate',
         'type_id',
-        'stockable'
+        'stockable',
+        'weight'
     ];
 
     protected $with = [

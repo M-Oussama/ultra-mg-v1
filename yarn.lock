@@ -311,7 +311,7 @@
     "@babel/helper-plugin-utils" "^7.20.2"
     "@babel/plugin-syntax-typescript" "^7.20.0"
 
-"@babel/runtime@^7.10.5", "@babel/runtime@^7.12.5", "@babel/runtime@^7.14.0", "@babel/runtime@^7.9.2":
+"@babel/runtime@^7.10.5", "@babel/runtime@^7.12.5", "@babel/runtime@^7.14.0", "@babel/runtime@^7.21.0", "@babel/runtime@^7.9.2":
   version "7.23.2"
   resolved "https://registry.npmjs.org/@babel/runtime/-/runtime-7.23.2.tgz"
   integrity sha512-mM8eg4yl5D6i3lu2QKPuPH4FArvJ8KhTofbE7jwMUv9KX5mBvwPAqnV3MlyBNqdp9RyRKP6Yck8TrfYrPvX3bg==
@@ -1360,6 +1360,14 @@
   resolved "https://registry.npmjs.org/@vueform/multiselect/-/multiselect-2.6.6.tgz"
   integrity sha512-JDWesVRmyGz9HmHp2Ooy1cb8XgKohiztwMDtjm8c0/Th+7wEZENZuYa0iY5CTvaJNANl3LVqh9BNnCc/YlM/Bg==
 
+"@vuepic/vue-datepicker@^7.4.0":
+  version "7.4.0"
+  resolved "https://registry.npmjs.org/@vuepic/vue-datepicker/-/vue-datepicker-7.4.0.tgz"
+  integrity sha512-dXYzbcnRet9b+Dkh+f8rhMnjj5QXgejJTQp+ZRALgwP2oeli2c8e4VvJ0NVxoc7QTU8D5x5Et8NP51C450Pkvg==
+  dependencies:
+    date-fns "^2.30.0"
+    date-fns-tz "^1.3.7"
+
 "@vuetify/loader-shared@^1.7.0":
   version "1.7.0"
   resolved "https://registry.npmjs.org/@vuetify/loader-shared/-/loader-shared-1.7.0.tgz"
@@ -2221,6 +2229,18 @@ datatables.net@>=1.13.4:
   integrity sha512-rHNcnW+yEP9me82/KmRcid5eKrqPqW3+I/p1TwqCW3c/7GRYYkDyF6aJQOQ9DNS/pw+nyr4BVpjyJ3yoZXiFPg==
   dependencies:
     jquery ">=1.7"
+
+date-fns-tz@^1.3.7:
+  version "1.3.8"
+  resolved "https://registry.npmjs.org/date-fns-tz/-/date-fns-tz-1.3.8.tgz"
+  integrity sha512-qwNXUFtMHTTU6CFSFjoJ80W8Fzzp24LntbjFFBgL/faqds4e5mo9mftoRLgr3Vi1trISsg4awSpYVsOQCRnapQ==
+
+date-fns@^2.30.0, date-fns@>=2.0.0:
+  version "2.30.0"
+  resolved "https://registry.npmjs.org/date-fns/-/date-fns-2.30.0.tgz"
+  integrity sha512-fnULvOpxnC5/Vg3NCiWelDsLiUc9bRwAPs/+LfTLNvetFCtCTN+yQz15C/fs4AwX1R9K5GLtLfn8QW+dWisaAw==
+  dependencies:
+    "@babel/runtime" "^7.21.0"
 
 dayjs@^1.10.5:
   version "1.11.10"

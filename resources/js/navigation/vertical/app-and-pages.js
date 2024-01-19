@@ -139,6 +139,9 @@ export default [
     title: 'Payments', to: 'apps-POS-payment-list', icon: { icon: 'tabler-currency-dollar' },
   },
   {
+    title: 'Benefits', to: 'apps-POS-benefit-list', icon: { icon: 'tabler-help' },
+  },
+  {
     title: 'Management',
     children: [
       { title: 'Attendance', to: 'apps-attendance-list' },

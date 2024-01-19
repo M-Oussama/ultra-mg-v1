@@ -18,7 +18,9 @@ return new class extends Migration
             $table->unsignedBigInteger('employee_id');
             $table->unsignedBigInteger('attendance_id');
             $table->date('date');
+            $table->date('end_date')->nullable();
             $table->boolean('present')->default(false);
+            $table->boolean('disable')->default(false);
             $table->timestamps();
         });
     }

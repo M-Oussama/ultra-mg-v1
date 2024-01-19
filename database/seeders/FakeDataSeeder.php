@@ -3,6 +3,9 @@
 namespace Database\Seeders;
 
 use App\Models\Client;
+use App\Models\Company;
+use App\Models\Employee;
+use App\Models\EmployeeCareer;
 use App\Models\Product;
 use App\Models\ProductStock;
 use App\Models\SaleStatus;
@@ -21,6 +24,8 @@ class FakeDataSeeder extends Seeder
         $this->createProducts();
         $this->createClients();
         $this->createSaleStatus();
+        $this->companies();
+        $this->createEmployees();
     }
 
     public function createProducts(){
@@ -81,6 +86,7 @@ class FakeDataSeeder extends Seeder
                 'NIF' => 'NIF001',
                 'NART' => 'NART001',
                 'NIS' => 'NIS001',
+                'city_id' => '16',
             ],
             [
                 'name' => 'Jane',
@@ -92,6 +98,7 @@ class FakeDataSeeder extends Seeder
                 'NIF' => 'NIF002',
                 'NART' => 'NART002',
                 'NIS' => 'NIS002',
+                'city_id' => '16',
             ],
             [
                 'name' => 'Bob',
@@ -103,18 +110,97 @@ class FakeDataSeeder extends Seeder
                 'NIF' => 'NIF003',
                 'NART' => 'NART003',
                 'NIS' => 'NIS003',
+                'city_id' => '16',
             ],
             // Add more clients if needed
         ];
 
         foreach ($clients as $clientData) {
-            Client::create($clientData);
+            $client = Client::create($clientData);
+
+            $client->full_name = $client->surname ? $client->name.' '.$client->surname : $client->name;
+            $client->save();
         }
     }
 
     public function createSaleStatus() {
         foreach (SaleStatus::STATUS as $status) {
             SaleStatus::create(['name' => $status]);
+        }
+    }
+
+    public function companies() {
+        $companies = [
+            [
+                'name' => 'EURL SETIFIS DETERGENT',
+                'description' => "PRODUCTION DES PRODUITS DENTRETIEN",
+                'address' => 'ZONE INDUSTRIELLE LOT 34 Section 6 Groupe 51 KASR EL ABTAL SETIF',
+                'email' => 'detergentsetifis@gmail.com',
+                'phone' => '0668154145',
+                'NRC' => '19/-55425995626',
+                'NIF' => '56525686639683',
+                'NART' => '565686868',
+                'NIS' => '65656356888989',
+                'capitale' => '1 000 000 00 DA',
+            ],
+            [
+                'name' => 'DISTRIBUTION ET VENTS EN GROS',
+                'description' => "DISTRIBUTION ET VENTS EN GROS DES PRODUITS DENTRETIEN",
+                'address' => 'EL-DJEBAS GUELLAL SETIF',
+                'email' => '',
+                'phone' => '054000727228/0792128220/0796625691',
+                'NRC' => '19/-55425995626',
+                'NIF' => '56525686639683',
+                'NART' => '565686868',
+                'NIS' => '65656356888989',
+                'capitale' => '',
+            ],
+        ];
+
+        foreach ($companies as $company) {
+            Company::create($company);
+        }
+    }
+
+    public function createEmployees() {
+        $employees = [
+            [
+              'name'=> 'John',
+              'surname'=> 'Doe',
+              'birthdate'=> '1999-01-01',
+              'birthplace'=> 'UK',
+              'email'=> 'john@gmail.com',
+              'address'=> 'UK',
+              'phone'=> '12345679',
+              'NIN'=> '1',
+              'NCN'=>'1',
+              'CNAS'=> '1',
+              'card_issue_date'=> '2005-02-02',
+              'card_issue_place'=> 'UK'
+            ],
+            [
+                'name'=> 'Bob',
+                'surname'=> 'smith',
+                'birthdate'=> '1999-01-01',
+                'birthplace'=> 'UK',
+                'email'=> 'john@gmail.com',
+                'address'=> 'UK',
+                'phone'=> '12345679',
+                'NIN'=> '1',
+                'NCN'=>'1',
+                'CNAS'=> '1',
+                'card_issue_date'=> '2005-02-02',
+                'card_issue_place'=> 'UK'
+            ]
+        ];
+
+        foreach ($employees as $employee) {
+           $_employee =  Employee::create($employee);
+
+            EmployeeCareer::create([
+                'employee_id'=> $_employee->id,
+                'start_date'=>'2023-01-01'
+            ]);
         }
     }
 }

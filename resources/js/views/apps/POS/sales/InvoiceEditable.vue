@@ -4,6 +4,8 @@ import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
 import "vue-search-select/dist/VueSearchSelect.css"
 import { ModelListSelect } from 'vue-search-select'
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
+import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
 
 const props = defineProps({
   data: {
@@ -35,6 +37,7 @@ const product = ref({
 })
 const client = ref([])
 const clients = ref([])
+const priceHistoryList = ref([])
 const companyProfile = ref({
   name:'EURL SETIFIS DETERGENTS',
   address: 'LOT N, 6 GROUPE 51, ZONE INDUSTRIELLE, 34 SECTION, Ksar El Abtal 19220',
@@ -43,7 +46,8 @@ const companyProfile = ref({
   phone2:'+213 0668 15 41 45',
 
 })
-
+const isDialogVisible = ref(false)
+const saleStore = useSaleStore()
 let selectedItem = ref({
   quantity:0,
   price:0,
@@ -84,6 +88,15 @@ const defaultSelectedItem = ref({
   }
 })
 
+const onCityChanged = (item) => {
+  props.data.client_id = null
+  saleStore.getClientsPerCity(props.data.client.city_id).then(response => {
+    props.data.clients = response.data.clients
+  }).catch(err => {
+    console.log(err)
+  })
+
+}
 
 const totalAmount = data => {
   computeTotal()
@@ -139,22 +152,120 @@ const handleProductChange = (value) => {
 }
 
 const paymentActive = () => {
-  console.log(props.data.payment)
-  if(props.data.payment) {
-    props.data.paymentAmount = totalInvoice.value
-  } else {
-    props.data.paymentAmount = props.data.payment_total
-  }
+
+  // if(props.data.payment) {
+  //   props.data.paymentAmount = totalInvoice.value
+  // } else {
+  //   props.data.paymentAmount = props.data.payment_total
+  // }
 
 }
 
+watch(props.data.payment, ()=>{
+  paymentActive();
+})
 
+const onChange = item => {
 
+  var client = getItemById(item)
 
+  props.data.client = {...client}
+}
+const getItemById = (id) => {
+  for (let i = 0; i <props.data.clients.length ; i++) {
+    if(props.data.clients[i].id == id)
+      return props.data.clients[i]
+  }
+  return null
+}
+const priceHistory = data => {
+
+  if(props.data.client.id !== undefined && props.data.client.id > -1) {
+
+    saleStore.getPriceHistory(data.id,props.data.client.id).then(response => {
+      priceHistoryList.value = response.data.products
+      console.log(priceHistoryList.value)
+      isDialogVisible.value = true
+
+      console.log(response);
+    }).catch(err => {
+      console.log(err)
+    })
+  } else {
+    errorsMiddleware('Error',' You must select a client first')
+  }
+
+}
 </script>
 
 <template>
   <VCard>
+    <VDialog
+      v-model="isDialogVisible"
+      persistent
+      class="v-dialog-sm"
+    >
+      <!-- Dialog Activator -->
+      <template #activator="{ props }">
+        <VBtn v-bind="props">
+          Open Dialog
+        </VBtn>
+      </template>
+
+      <!-- Dialog close btn -->
+      <DialogCloseBtn @click="isDialogVisible = !isDialogVisible" />
+
+      <!-- Dialog Content -->
+      <VCard title="Price History ">
+        <VTable class="text-no-wrap pt-5">
+          <thead>
+          <tr>
+            <th class="text-uppercase">
+              Product
+            </th>
+            <th class="text-uppercase">
+              Date
+            </th>
+            <th class="text-uppercase">
+              Quantity
+            </th>
+            <th class="text-uppercase">
+              Price
+            </th>
+
+          </tr>
+          </thead>
+
+          <tbody>
+          <tr
+            v-for="item in priceHistoryList"
+            :key="item.id"
+          >
+            <td>
+              {{ item.product.name }}
+            </td>
+            <td>
+              {{ item.sale_date }}
+            </td>
+            <td>
+              {{ item.quantity }}
+            </td>
+            <td>
+              {{ item.price }} DZD
+            </td>
+
+          </tr>
+          </tbody>
+        </VTable>
+
+        <VCardText class="d-flex justify-end gap-3 flex-wrap">
+
+          <VBtn @click="isDialogVisible = false">
+            Close
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
     <!-- SECTION Header -->
     <!--  eslint-disable vue/no-mutating-props -->
     <VCardText class="d-flex flex-wrap justify-space-between flex-column flex-sm-row">
@@ -246,6 +357,7 @@ const paymentActive = () => {
         >
           <VRow>
 
+
             <VCol
               cols="12"
               md="6">
@@ -253,6 +365,15 @@ const paymentActive = () => {
                 <h6 class="text-sm font-weight-medium mb-3">
                   City:
                 </h6>
+                <VAutocomplete
+                  clearable
+                  v-model="props.data.client.city_id"
+                  :items="props.data.cities"
+                  item-value="id"
+                  item-title="name"
+                  label="City"
+                  @update:modelValue="onCityChanged"
+                />
 
               </div>
             </VCol>
@@ -263,89 +384,23 @@ const paymentActive = () => {
                 <h6 class="text-sm font-weight-medium mb-3">
                   Invoice To:
                 </h6>
-                <model-list-select
-                  :list="props.data.clients"
-                  v-model="props.data.client"
-                  option-value="id"
-                  :custom-text="fullName"
-                  :hideSelectedOptions="true"
-                  placeholder="Select Client">
-                </model-list-select>
+                <VAutocomplete
+                  clearable
+                  v-model="props.data.client_id"
+                  :items="props.data.clients"
+                  item-value="id"
+                  item-title="full_name"
+                  label="Client"
+                  @update:modelValue="onChange"
+                >
+                </VAutocomplete>
+
               </div>
             </VCol>
           </VRow>
 
 
         </VCol>
-<!--        <VCol-->
-<!--          cols="12"-->
-<!--          md="5"-->
-<!--        >-->
-<!--          <div class="mt-4 ma-sm-4" >-->
-<!--            <h6 class="text-sm font-weight-medium mb-3">-->
-<!--              Bill To:-->
-<!--            </h6>-->
-
-<!--            <table>-->
-<!--              <tbody>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Invoice:-->
-<!--                </td>-->
-<!--                <td class="font-weight-semibold">-->
-<!--                  #{{ props.data.id }}-->
-<!--                </td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Payment Method:-->
-<!--                </td>-->
-<!--                <td class="font-weight-semibold">{{ props.data.sale_status.name }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Client:-->
-<!--                </td>-->
-<!--                <td class="font-weight-semibold">-->
-<!--                  {{ props.data.client.name }} {{props.data.client.surname}}-->
-<!--                </td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  Address:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.address }}</td>-->
-<!--              </tr>-->
-
-
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°RC:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NRC }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°IF:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NIF }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°IS:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NIS }}</td>-->
-<!--              </tr>-->
-<!--              <tr>-->
-<!--                <td class="pe-6">-->
-<!--                  N°ART:-->
-<!--                </td>-->
-<!--                <td>{{ props.data.client.NART }}</td>-->
-<!--              </tr>-->
-<!--              </tbody>-->
-<!--            </table>-->
-<!--          </div>-->
-<!--        </VCol>-->
       </VRow>
 
 
@@ -400,6 +455,7 @@ const paymentActive = () => {
           :data="_product"
           @remove-product="removeProduct"
           @total-amount="totalAmount"
+          @price-history="priceHistory"
         />
       </div>
     </VCardText>
@@ -419,13 +475,13 @@ const paymentActive = () => {
             <div class="align-center mb-4">
               <div class="d-flex">
                   <span class="text-sm font-weight-semibold me-2 mb-2 pt-2">
-                    Erase Payments :
+                    Payment :
 
                   </span>
                 <VSwitch
                   v-model="props.data.payment"
-                  :true-value="1"
-                  :false-value="0"
+                  :true-value="true"
+                  :false-value="false"
                   @change="paymentActive"
                 />
               </div>
@@ -450,7 +506,7 @@ const paymentActive = () => {
 
               <VTextField
 
-                v-model="props.data.paymentAmount"
+                v-model="props.data.regulation"
                 type="number"
 
               />
@@ -470,7 +526,10 @@ const paymentActive = () => {
                       Total Invoice
                     </p>
                     <p class="mb-2 text-sm">
-                     Payment:
+                     Payment Initial:
+                    </p>
+                    <p class="mb-2 text-sm">
+                     Payments:
                     </p>
                     <p class="mb-2 text-sm">
                       Rest:
@@ -484,10 +543,16 @@ const paymentActive = () => {
                     {{totalInvoice.toFixed(2)}} DZD
                   </p>
                   <p class="mb-2 text-sm">
-                    {{props.data.paymentAmount ? props.data.paymentAmount : 0.00}} DZD
+                    {{props.data.payment ? parseFloat(props.data.regulation).toFixed(2) : 0.00}} DZD
                   </p>
                   <p class="mb-2 text-sm">
-                    {{((props.data.paymentAmount ? props.data.paymentAmount : 0) - totalInvoice).toFixed(2)}} DZD
+                    {{props.data.paymentAmount ? parseFloat(props.data.paymentAmount).toFixed(2) : 0.00}} DZD
+                  </p>
+                  <p class="mb-2 text-sm">
+                    {{(props.data.payment ?
+                    (parseFloat(totalInvoice) - parseFloat(props.data.regulation) - parseFloat(props.data.paymentAmount)):
+                    (parseFloat(totalInvoice) - parseFloat(props.data.paymentAmount))).toFixed(2)
+                    }} DZD
                   </p>
 
                 </td>

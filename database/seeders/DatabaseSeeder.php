@@ -15,7 +15,9 @@ class DatabaseSeeder extends Seeder
     public function run()
     {
         $this->call([
+            AlgerianCitiesSeeder::class,
             FakeDataSeeder::class,
+
         ]);
     }
 }

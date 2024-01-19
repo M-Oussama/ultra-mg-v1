@@ -12,14 +12,16 @@ const sale = ref({
   id:1,
   balance: 0,
   total_amount: 0,
-  sale_date: null,
-  client_id: 1,
+  sale_date: new Date().getFullYear()+'-'+(new Date().getMonth()+1)+'-'+ new Date().getDate(),
+  client_id: null,
+  city:null,
   sale_status:{
     id:-1,
     name: ""
   },
   amount_letter: "",
   notes: "",
+
   client:{
     id: -1,
     name: "",
@@ -32,6 +34,8 @@ const sale = ref({
     NART: "",
     NIS: "",
   },
+  cities: [],
+
   sale_items:[],
   clients: [],
   products: [],
@@ -43,6 +47,7 @@ const router = useRouter()
 const paymentTerms = ref(true)
 const clientNotes = ref(false)
 const paymentStub = ref(false)
+const cities = ref([])
 const loading = ref({
   isActive: false
 })
@@ -55,6 +60,7 @@ const saleStore = useSaleStore()
 saleStore.fetchData().then(response => {
   sale.value.id = response.data.last_id
   sale.value.clients = response.data.clients
+  sale.value.cities = response.data.cities
   sale.value.products = response.data.products
   sale.value.sale_statues = response.data.sale_statues
   //companyProfile.value = response.data.companyProfile

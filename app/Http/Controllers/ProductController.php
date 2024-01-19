@@ -95,15 +95,16 @@ class ProductController extends Controller
     {
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
-            'brand' => 'string|max:255',
-            'description' => 'string|max:255',
-            'product_code' => 'string|max:255',
-            'category_id' => 'integer',
-            'SKU' => 'string|max:255',
-            'min_stock_level' => 'integer',
-            'price' => 'numeric',
-            'stockable' => 'boolean',
-            'tax_rate' => 'numeric',
+            'brand' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:255',
+            'product_code' => 'nullable|string|max:255',
+            'category_id' => 'nullable|integer',
+            'SKU' => 'nullable|string|max:255',
+            'min_stock_level' => 'nullable|integer',
+            'price' => 'nullable|numeric',
+            'stockable' => 'nullable|boolean',
+            'tax_rate' => 'nullable|numeric',
+            'weight' => 'nullable',
         ]);
 
 
@@ -166,17 +167,18 @@ class ProductController extends Controller
     public function update(int $id, Request $request): JsonResponse
     {
         $validatedData = $request->validate([
-            'name' => 'string|max:255',
-            'brand' => 'string|max:255',
-            'description' => 'string|max:255',
-            'product_code' => 'string|max:255',
-            'category_id' => 'integer',
-            'SKU' => 'string|max:255',
-            'min_stock_level' => 'integer',
-            'price' => 'numeric',
-            'stockable' => 'boolean',
-            'tax_rate' => 'numeric',
-            'type_id' => 'integer',
+            'name' => 'required|string|max:255',
+            'brand' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:255',
+            'product_code' => 'nullable|string|max:255',
+            'category_id' => 'nullable|integer',
+            'SKU' => 'nullable|string|max:255',
+            'min_stock_level' => 'nullable|integer',
+            'price' => 'nullable|numeric',
+            'stockable' => 'nullable|boolean',
+            'tax_rate' => 'nullable|numeric',
+            'type_id' => 'nullable|integer',
+            'weight' => 'nullable',
         ]);
 
         $product = Product::find($id);

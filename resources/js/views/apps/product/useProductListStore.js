@@ -10,7 +10,7 @@ export const useProductListStore = defineStore('ProductListStore', {
 
     // 👉 Add Product
     addProduct(productData) {
-      const { name, brand, description, product_code, SKU, min_stock_level, price, stockable, tax_rate } = productData;
+      const { name, brand, description, product_code, SKU, min_stock_level, weight, price, stockable, tax_rate } = productData;
       return new Promise((resolve, reject) => {
         axios.post('/api/products/store', {
           name,
@@ -21,7 +21,8 @@ export const useProductListStore = defineStore('ProductListStore', {
           min_stock_level,
           price,
           stockable,
-          tax_rate
+          tax_rate,
+          weight
         }).then(response => {
 
           successMiddleware('requests.product.success')
@@ -36,7 +37,7 @@ export const useProductListStore = defineStore('ProductListStore', {
 
     // 👉 Update Product
     updateProduct(productData) {
-      const { id, name, brand, description, product_code, SKU, min_stock_level, price, stockable, tax_rate } = productData;
+      const { id, name, brand, description, product_code, SKU, min_stock_level, weight, price, stockable, tax_rate } = productData;
       return new Promise((resolve, reject) => {
         let requestData = {
           name,
@@ -47,11 +48,18 @@ export const useProductListStore = defineStore('ProductListStore', {
           min_stock_level,
           price,
           stockable,
-          tax_rate
+          tax_rate,
+          weight
         };
         axios.post('/api/products/update/' + id, requestData)
-            .then(response => resolve(response))
-            .catch(error => reject(error));
+            .then(response => {
+
+              resolve(response)
+            })
+            .catch(error => {
+
+              reject(error)
+            });
       });
     },
 

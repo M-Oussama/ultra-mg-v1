@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\City;
 use App\Models\Client;
+use App\Models\Sale;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -35,15 +37,19 @@ class ClientController extends Controller
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
 
-        $clients = Client::when($searchValue, function ($queryBuilder) use ($searchValue) {
+        $clients = Client::with(['sales','payments'])->when($searchValue, function ($queryBuilder) use ($searchValue) {
             // Search for users with matching name or email
             $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
                 ->orWhere('surname', 'LIKE', '%' . $searchValue . '%');
         })->paginate($perPage, ['*'], 'page', $currentPage);
+
+
         $totalUsers = $clients->total(); // Total number of users matching the query
         $totalPage = ceil($totalUsers / $perPage); // Calculate total pages
 
-        return response()->json(["clients" => $clients, "totalPage" => $totalPage, "totalClients"=>$totalUsers]);
+        $cities = City::all();
+
+        return response()->json(["clients" => $clients, "totalPage" => $totalPage, "totalClients"=>$totalUsers, 'cities'=>$cities]);
     }
 
     /**
@@ -79,21 +85,27 @@ class ClientController extends Controller
     )])]
     public function store(Request $request): JsonResponse
     {
+
         // Validate the incoming request data
         $validatedData = $request->validate([
             'name' => 'string|max:255',
-            'surname' => 'string|max:255',
-            'phone' => 'string|max:255',
-            'address' => 'string|max:255',
-            'NRC' => 'string|max:255',
-            'NIF' => 'string|max:255',
-            'NART' => 'string|max:255',
-            'NIS' => 'string|max:255',
-            'email' => 'email|unique:users,email',
+            'city_id' => 'required|integer',
+            'surname' => 'string|nullable|max:255',
+            'phone' => 'string|nullable|max:255',
+            'address' => 'string|nullable|max:255',
+            'NRC' => 'string|nullable|max:255',
+            'NIF' => 'string|nullable|max:255',
+            'NART' => 'string|nullable|max:255',
+            'NIS' => 'string|nullable|max:255',
+            'email' => 'nullable|email|unique:users,email',
         ]);
+
 
         // Create a new user record in the database using User::create()
         $client = Client::create($validatedData);
+
+        $client->full_name = $client->surname ? $client->name.' '.$client->surname : $client->name;
+        $client->save();
 
         // Optionally, you can return a response, redirect the user, or perform any other actions here
         return response()->json(['message' => 'Client created successfully', 'client' => $client]);
@@ -132,22 +144,23 @@ class ClientController extends Controller
     {
         // Validate the incoming request data
         $validatedData = $request->validate([
-            'name' => 'string|max:255',
-            'surname' => 'string|max:255',
-            'phone' => 'string|max:255',
-            'address' => 'string|max:255',
-            'NRC' => 'string|max:255',
-            'NIF' => 'string|max:255',
-            'NART' => 'string|max:255',
-            'NIS' => 'string|max:255',
-            'email' => 'email|unique:users,email',
+            'name' => 'nullable|string|max:255',
+            'surname' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'NRC' => 'nullable|string|max:255',
+            'NIF' => 'nullable|string|max:255',
+            'NART' => 'nullable|string|max:255',
+            'NIS' => 'nullable|string|max:255',
+            'email' => 'nullable|email|unique:users,email',
         ]);
 
         $client = Client::find($id);
 
 
         $client->update($validatedData);
-
+        $client->full_name = $client->surname ? $client->name.' '.$client->surname : $client->name;
+        $client->save();
         // Optionally, you can return a response, redirect the user, or perform any other actions here
         return response()->json(['message' => 'Client updated successfully', 'client' => $client]);
 
@@ -176,5 +189,17 @@ class ClientController extends Controller
         $client = Client::find($id);
         $client->delete();
         return response()->json(["message" => "User deleted successfully"]);
+    }
+
+    public function getClientsPerCity($cityId) {
+
+        if($cityId != "null") {
+            $clients = Client::where('city_id',$cityId)->get();
+            return response()->json(['clients'=>$clients]);
+        }
+
+        $clients = Client::all();
+        return response()->json(['clients'=>$clients]);
+
     }
 }

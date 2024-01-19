@@ -83,7 +83,7 @@ const handleDrawerModelValueUpdate = val => {
     <!-- 👉 Title -->
     <div class="d-flex align-center pa-6 pb-1">
       <h6 class="text-h6">
-        Add Payment
+        Add Attendance
       </h6>
 
       <VSpacer />
@@ -125,8 +125,6 @@ const handleDrawerModelValueUpdate = val => {
                     item-title="name"
                     label="Month"
                   />
-
-
               </VCol>
               <!-- 👉  name -->
               <VCol cols="12">

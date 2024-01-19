@@ -9,7 +9,10 @@ const props = defineProps({
   isDrawerOpen: {
     type: Boolean,
     required: true,
-
+  },
+  cities: {
+    type: Array,
+    required: true,
   },
 })
 
@@ -32,6 +35,7 @@ const NART = ref('')
 const company = ref('')
 const country = ref('')
 const contact = ref('')
+const city_id = ref(null)
 const role = ref()
 let password = ref()
 let visible = ref(false)
@@ -64,6 +68,7 @@ const onSubmit = () => {
         NIS: NIS.value,
         NIF: NIF.value,
         NART: NART.value,
+        city_id: city_id.value,
       })
       emit('update:isDrawerOpen', false)
       nextTick(() => {
@@ -76,6 +81,9 @@ const onSubmit = () => {
 
 const handleDrawerModelValueUpdate = val => {
   emit('update:z', val)
+}
+const printName = (city) => {
+  console.log(city);
 }
 </script>
 
@@ -134,7 +142,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="surname"
-                  :rules="[requiredValidator]"
+
                   label="Surname"
                 />
               </VCol>
@@ -143,12 +151,27 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="email"
-                  :rules="[requiredValidator, emailValidator]"
+                  :rules="[emailValidator]"
+
                   label="Email"
                 />
               </VCol>
 
               <!-- 👉 Address -->
+              <VCol cols="12">
+
+
+                <VAutocomplete
+                  clearable
+                  v-model="city_id"
+                  :items="props.cities"
+                  item-value="id"
+                  item-title="name"
+                  label="City"
+                  :rules="[requiredValidator]"
+                />
+
+              </VCol>
               <VCol cols="12">
                 <VTextField
                   v-model="address"
@@ -160,7 +183,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="phone"
-                  :rules="[requiredValidator]"
+
                   label="Phone"
                 />
               </VCol>
@@ -169,7 +192,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="NRC"
-                  :rules="[requiredValidator]"
+
                   label="Numéro de registre"
                 />
               </VCol>
@@ -177,7 +200,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="NIF"
-                  :rules="[requiredValidator]"
+
                   label="Numéro de NIF"
                 />
               </VCol>
@@ -185,7 +208,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="NIS"
-                  :rules="[requiredValidator]"
+
                   label="Numéro de NIS"
                 />
               </VCol>
@@ -193,7 +216,7 @@ const handleDrawerModelValueUpdate = val => {
               <VCol cols="12">
                 <VTextField
                   v-model="NART"
-                  :rules="[requiredValidator]"
+
                   label="Numéro de ARTICLE"
                 />
               </VCol>

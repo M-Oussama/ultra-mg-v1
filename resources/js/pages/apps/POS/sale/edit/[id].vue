@@ -15,6 +15,8 @@ const sale = ref({
   total_amount: 0,
   sale_date: null,
   client_id: 1,
+  city:null,
+  cities: [],
   sale_status:{
     id:-1,
     name: ""
@@ -37,7 +39,7 @@ const sale = ref({
   clients: [],
   products: [],
   sale_statues:[],
-  payment: false,
+  payment: true,
   paymentAmount: 0,
   payment_total: 0,
   totalPayment:0,
@@ -50,12 +52,12 @@ const loading = ref({
 })
 const invoice_id = ref(null)
 
-
 // 👉 fetchInvoice
 saleStore.getSaleData(Number(route.params.id)).then(response => {
   loading.isActive = false;
   sale.value = response.data.sale
   sale.value.clients = response.data.clients
+  sale.value.cities = response.data.cities
   sale.value.products = response.data.products
   sale.value.sale_statues = response.data.sale_statues
   sale.paymentAmount = response.data.sale.payment_total

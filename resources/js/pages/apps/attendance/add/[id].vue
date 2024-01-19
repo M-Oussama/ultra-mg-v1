@@ -22,7 +22,7 @@ const items = [
 ]
 
 const values = ref([])
-const isTyping = ref(true)
+const isPreview = ref(false)
 const selectedRole = ref()
 const selectedPlan = ref()
 const selectedStatus = ref()
@@ -34,14 +34,20 @@ let attendance = ref({
   employees:[],
   dates:[],
 })
+let employeeAttendance = ref({})
 let attendances = ref({})
+let employees = ref([])
+let employee = ref({})
+let removEmp = ref({})
 // 👉 Fetching Employees
 const fetchAttendances = () => {
   loading2.value.isActive = true;
-  attendanceStore.fetchAttendanceData(Number(route.params.id)).then(response => {
-     attendance.value.employees = response.data.employees
-     attendance.value.dates = response.data.dates
-    console.log(attendance)
+  attendanceStore.getAttendanceByID(Number(route.params.id)).then(response => {
+    employeeAttendance.value = response.data.employeeAttendance
+    employees.value = response.data.employees
+
+    console.log("employeeAttendance")
+    console.log(employeeAttendance)
      loading2.value.isActive = false;
   }).catch(error => {
     console.error(error)
@@ -62,6 +68,8 @@ watch(searchQuery, () => {
   //loading.value = true;
   fetchAttendances();
 });
+
+
 const isAddNewEmployeeDrawerVisible = ref(false)
 const isEditEmployeeDrawerVisible = ref(false)
 const isDialogVisible = ref(false)
@@ -81,13 +89,12 @@ const paginationData = computed(() => {
   return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalAttendances.value } entries`
 })
 
-const addNewEmployee = employeeData => {
+const saveAttendance = () => {
   loading2.value.isActive = true;
-  attendanceStore.addEmployee(employeeData).then(response =>{
+  attendanceStore.updateAttendance(attendance, route.params.id).then(response =>{
     successMiddleware(response.data.message)
     loading2.value.isActive = false;
-    // refetch User
-    fetchAttendances()
+    router.push('/apps/attendance/preview/'+route.params.id)
   }).catch(error => {
     errorsMiddleware(error.data.message)
     loading2.value.isActive = false;
@@ -96,12 +103,15 @@ const addNewEmployee = employeeData => {
 
 }
 
-const updateEmployee = attendanceData => {
+const updateAttendance = () => {
   loading2.value.isActive = true;
-  attendanceStore.updateAttendance(attendanceData).then(response =>{
+
+  attendanceStore.updateAttendance(employeeAttendance,Number(route.params.id)).then(response =>{
     successMiddleware(response.data.message)
 
     loading2.value.isActive = false;
+
+
     // refetch User
     fetchAttendances()
   }).catch(error =>{
@@ -142,6 +152,69 @@ const capitalizedLabel = label => {
 
   return ''
 }
+
+const AllDaysPressed = employee =>{
+console.log(employee.allDays);
+
+  for (let i = 0; i <employee.workingDays.length ; i++) {
+    employee.workingDays[i].present = !employee.allDays;
+  }
+  console.log(employee);
+}
+
+const printName = employee =>{
+
+
+  return employee.name === undefined ? 'Select An Employee' : employee.name + ' '+employee.surname;
+}
+
+const AddEmployeeToAttendance = () =>{
+  loading2.value.isActive = true;
+
+  attendanceStore.AddEmployeeToAttendance(employee.value,Number(route.params.id)).then(response =>{
+    loading2.value.isActive = false;
+    employees.value = response.data.employees
+
+    employeeAttendance[response.data.key] = response.data.newAttendance;
+
+    console.log(employeeAttendance)
+
+    // refetch User
+    fetchAttendances()
+  }).catch(error =>{
+    errorsMiddleware(error.data.message)
+    loading2.value.isActive = false;
+  })
+}
+const updateAll = attendance => {
+  console.log(attendance);
+  attendance.allDays = !attendance.allDays;
+
+  for (let i = 0; i <attendance.length ; i++) {
+    attendance[i].present = attendance.allDays;
+
+  }
+}
+const removeEmployee = attendance => {
+ loading2.value.isActive = true;
+
+ console.log(attendance.result)
+  attendanceStore.RemoveEmployeeFromAttendance(attendance.result,Number(route.params.id)).then(response =>{
+    loading2.value.isActive = false;
+    employees = response.data.employees
+
+  if (employeeAttendance.value.hasOwnProperty(attendance.id)) {
+    delete employeeAttendance.value[attendance.id];
+  }
+
+    // refetch User
+    fetchAttendances()
+  }).catch(error =>{
+    errorsMiddleware(error.data.message)
+    loading2.value.isActive = false;
+  })
+}
+
 </script>
 
 <template>
@@ -157,7 +230,7 @@ const capitalizedLabel = label => {
           size="64"
         ></v-progress-circular>
       </v-overlay>
-      <VCol cols="12">
+      <VCol cols="9">
         <VCard title="New Attendance">
           <VDivider />
 
@@ -182,9 +255,33 @@ const capitalizedLabel = label => {
 
             </div>
           </VCardText>
+          <div class="pa-6">
+            <VRow>
+              <VCol cols="8">
+                <VAutocomplete
+                  v-model="employee"
+                  :items="employees"
+                  label="Employee"
+                  item-value="id"
+                  :item-title="printName"
+                />
+              </VCol>
+              <VCol cols="3">
+                <v-btn
 
+                  block
+                  color="default"
+                  variant="tonal"
+                  @click="AddEmployeeToAttendance"
+                >
+                  Add
+                </v-btn>
+              </VCol>
+            </VRow>
+          </div>
 
           <div class="ma-7">
+
             <VRow>
               <VCol
                 cols="5"
@@ -195,14 +292,18 @@ const capitalizedLabel = label => {
                   direction="vertical"
                   class="v-tabs-pill"
                 >
-                  <VTab v-for="employee in attendance.employees">
+                  <VTab v-for="attendance in employeeAttendance">
                     <VIcon
                       start
                       icon="tabler-user"
                     />
-                    {{employee.name}} {{employee.surname}}
+
+                    {{attendance.employee.name}} {{attendance.employee.surname}}
+
                   </VTab>
+
                 </VTabs>
+
               </VCol>
 
               <VCol
@@ -211,36 +312,111 @@ const capitalizedLabel = label => {
               >
                 <VCard>
                   <VCardText>
+
+
                     <VWindow v-model="currentTab">
-                      <VWindowItem  v-for="employee in attendance.employees">
-                        <v-table >
-                          <thead>
-                          <tr>
-                            <th class="text-left">
-                              date
-                            </th>
-                            <th class="text-left">
-                              Presence
-                            </th>
-                          </tr>
-                          </thead>
-                          <tbody>
-                          <tr v-for="date in attendance.dates">
-                            <th class="text-left">
-                              {{date.date}}
-                            </th>
-                            <th class="text-left">
-                              <VCheckbox
-                                v-model="date.present"
-                                :label="capitalizedLabel(toggleCheckboxThree)"
-                                true-icon="tabler-check"
-                                false-icon="tabler-circle-x"
-                                color="error"
-                              />
-                            </th>
-                          </tr>
-                          </tbody>
-                        </v-table>
+                      <VWindowItem  v-for="attendance in employeeAttendance">
+
+
+                        <VCard v-for="(empAttendance, key) in attendance.result">
+                          <VCardText>
+                            <v-table >
+                              <thead>
+                              <tr class="pt-5">
+                                <th class="text-left">
+                                  Quit Employee
+                                </th>
+                                <th class="text-left">
+
+                                  {{key}}
+<!--                                  <VRow>-->
+<!--                                    <VCol cols="4">-->
+<!--                                      <VSwitch-->
+<!--                                        v-model="empAttendance.employee.active"-->
+<!--                                        inset-->
+<!--                                      />-->
+<!--                                    </VCol>-->
+
+
+
+<!--                                    <VCol cols="8" v-if="empAttendance.employee.active">-->
+
+<!--                                      <AppDateTimePicker-->
+<!--                                        v-model="attendance.end_date.end_date"-->
+<!--                                        label="End Date"-->
+<!--                                      />-->
+<!--                                    </VCol>-->
+
+<!--                                  </VRow>-->
+
+
+
+                                </th>
+                              </tr>
+<!--                              <tr>-->
+<!--                                <th class="text-left">-->
+<!--                                  Remove Employee-->
+<!--                                </th>-->
+<!--                                <th class="text-left">-->
+<!--                                  <VCheckbox-->
+<!--                                    v-model="removEmp"-->
+<!--                                    :label="capitalizedLabel(toggleCheckboxThree)"-->
+<!--                                    true-icon="tabler-check"-->
+<!--                                    false-icon="tabler-circle-x"-->
+<!--                                    color="error"-->
+<!--                                    @click="removeEmployee(empAttendance)"-->
+
+<!--                                  />-->
+<!--                                </th>-->
+<!--                              </tr>-->
+                              <tr>
+                                <th class="text-left">
+                                  date
+                                </th>
+                                <th class="text-left">
+                                  Presence
+                                </th>
+                              </tr>
+                              </thead>
+                              <tbody>
+                              <tr>
+                                <th class="text-left">
+                                  ALL DAYS
+                                </th>
+                                <th class="text-left">
+                                  <VCheckbox
+                                    v-model="empAttendance.allDays"
+                                    :label="capitalizedLabel(toggleCheckboxThree)"
+                                    true-icon="tabler-check"
+                                    false-icon="tabler-circle-x"
+                                    color="error"
+                                    @click="updateAll(empAttendance)"
+
+                                  />
+                                </th>
+
+                              </tr>
+
+                              <tr v-for="record in empAttendance">
+                                <th class="text-left">
+                                  {{record.date}}
+                                </th>
+                                <th class="text-left">
+                                  <VCheckbox
+                                    v-model="record.present"
+                                    :label="capitalizedLabel(toggleCheckboxThree)"
+                                    true-icon="tabler-check"
+                                    false-icon="tabler-circle-x"
+                                    color="error"
+                                  />
+                                </th>
+                              </tr>
+                              </tbody>
+                            </v-table>
+
+                          </VCardText>
+                        </VCard>
+
                       </VWindowItem>
 
                     </VWindow>
@@ -265,6 +441,38 @@ const capitalizedLabel = label => {
               :total-visible="5"
               :length="totalPage"
             />
+          </VCardText>
+        </VCard>
+      </VCol>
+
+      <VCol
+        cols="12"
+        md="3"
+      >
+        <VCard class="mb-8">
+          <VCardText>
+            <!-- 👉 Send Invoice -->
+            <VBtn
+              block
+              prepend-icon="tabler-send"
+              class="mb-2"
+            >
+              Send Invoice
+            </VBtn>
+
+            <!-- 👉 Save -->
+            <v-btn
+
+              block
+              color="default"
+              variant="tonal"
+              @click="updateAttendance"
+            >
+              Update
+            </v-btn>
+
+
+
           </VCardText>
         </VCard>
       </VCol>

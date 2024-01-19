@@ -6,7 +6,11 @@ export const useAttendanceStore = defineStore('AttendanceStore', {
     // 👉 Fetch users data
     fetchAttendances(params) { return axios.get('/api/attendances/list', { params }) },
 
+    getAttendanceByID(id) { return axios.get('/api/attendances/getAttendanceByID/'+id, { id }) },
+
     fetchAttendanceData(params) {  return axios.get('/api/attendances/getAttendanceData/'+params) },
+
+    deleteCareer(params) {  return axios.get('/api/attendances/career/delete/'+params) },
 
     // 👉 Add User
     addAttendance(attendanceData) {
@@ -17,6 +21,51 @@ export const useAttendanceStore = defineStore('AttendanceStore', {
           attendance
         }).then(response => resolve(response))
           .catch(error => reject(error))
+      })
+    },
+
+    // 👉 Add User
+    submitAttendance(attendance, attendanceId) {
+
+      var employees =  attendance.value.employees;
+      return new Promise((resolve, reject) => {
+        axios.post('/api/attendances/submit', {
+          attendanceId,
+          employees
+        }).then(response => resolve(response))
+            .catch(error => reject(error))
+      })
+    },
+
+    updateAttendance(employeeAttendance, attendanceId) {
+      var attendances =  employeeAttendance.value;
+      console.log(attendances)
+      return new Promise((resolve, reject) => {
+        axios.post('/api/attendances/update', {
+          attendanceId,
+          attendances
+        }).then(response => resolve(response))
+            .catch(error => reject(error))
+      })
+    },
+
+    AddEmployeeToAttendance(employee, attendanceId) {
+      return new Promise((resolve, reject) => {
+        axios.post('/api/attendances/AddEmployeeToAttendance', {
+          attendanceId,
+          employee
+        }).then(response => resolve(response))
+            .catch(error => reject(error))
+      })
+    },
+
+    RemoveEmployeeFromAttendance(attendance, attendanceId) {
+      return new Promise((resolve, reject) => {
+        axios.post('/api/attendances/RemoveEmployeeFromAttendance', {
+          attendanceId,
+          attendance
+        }).then(response => resolve(response))
+            .catch(error => reject(error))
       })
     },
 
@@ -34,7 +83,6 @@ export const useAttendanceStore = defineStore('AttendanceStore', {
       });
     },
 
-
     fetchEmployee(id) {
       return new Promise((resolve, reject) => {
         axios.get(`/apps/employees/${id}`).then(response => resolve(response)).catch(error => reject(error))
@@ -48,5 +96,27 @@ export const useAttendanceStore = defineStore('AttendanceStore', {
         axios.delete('/api/employees/delete/'+ id).then(response => resolve(response)).catch(error => reject(error))
       })
     },
+
+
+    fetchEmployeesByAttendance(id){
+      return axios.get('/api/attendances/employees/list/'+id)
+    },
+    updateEndDate(endDate, startDate, id){
+
+
+      console.log("id "+id)
+      return new Promise((resolve, reject) => {
+        axios.post('/api/attendances/updateEndDate/'+id,{endDate, startDate})
+            .then(response => resolve(response))
+            .catch(error => reject(error));
+      })
+    },
+    addEmployeeAttendanceRecord(endDate, startDate, id){
+      return new Promise((resolve, reject) => {
+        axios.post('/api/attendances/addNewEmployeeAttendanceRecord/'+id,{endDate, startDate})
+            .then(response => resolve(response))
+            .catch(error => reject(error));
+      })
+    }
   },
 })

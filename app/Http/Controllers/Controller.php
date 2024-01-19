@@ -80,4 +80,35 @@ class Controller extends BaseController
         return $dates;
     }
 
+    public function getDatesIntervale($start_date, $end_date, $month,$year ) {
+        $startDate = new \DateTime($start_date);
+        $endDate = new \DateTime($end_date);
+
+        $month_endDate = new \DateTime("last day of $year-$month");
+        $month_startDate =  new \DateTime("$year-$month-01");
+
+        $dates = [];
+
+        if($startDate < $month_startDate )
+            $startDate = $month_startDate;
+
+        if(!$end_date) {
+            $endDate = $month_endDate;
+        } else {
+            if($endDate > $month_endDate)
+                $endDate = $month_endDate;
+        }
+
+        while ($startDate <= $endDate) {
+            $dates[] = $startDate->format('Y-m-d');
+            $startDate->modify('+1 day');
+        }
+
+        return $dates;
+    }
+
+
+
+
+
 }

@@ -36,6 +36,7 @@ props.data.oldQuantity = oldQuantity;
 const emit = defineEmits([
   'removeProduct',
   'totalAmount',
+  'priceHistory',
 ])
 
 const totalPrice = computed(() => Number(props.data.price) * Number(props.data.quantity))
@@ -48,6 +49,9 @@ const totalAmount = () => {
   emit('totalAmount', props.data)
 }
 
+const checkPriceHistory = () => {
+  emit('priceHistory', props.data)
+}
 watch(totalPrice, () => {
   totalAmount()
 }, { immediate: true })
@@ -56,10 +60,12 @@ watch(totalPrice, () => {
 // }, { immediate: true })
 
 const quantityChanged = () =>{
-  if((props.data.product.product_stock.quantity+oldQuantity)
-    < props.data.quantity){
-    props.data.quantity = oldQuantity
-    errorsMiddleware('Insufficient quantity only '+props.data.product.product_stock.quantity+' left')
+  if(props.data.product.stockable) {
+    if((props.data.product.product_stock.quantity+oldQuantity)
+      < props.data.quantity){
+      props.data.quantity = oldQuantity
+      errorsMiddleware('Insufficient quantity only '+props.data.product.product_stock.quantity+' left')
+    }
   }
 }
 </script>
@@ -179,7 +185,19 @@ const quantityChanged = () =>{
           icon="tabler-x"
         />
       </VBtn>
+      <VBtn
+        icon
+        size="x-small"
+        color="default"
+        variant="text"
+        @click="checkPriceHistory"
 
+      >
+        <VIcon
+          size="20"
+          icon="tabler-eye"
+        />
+      </VBtn>
     </div>
   </VCard>
 </template>

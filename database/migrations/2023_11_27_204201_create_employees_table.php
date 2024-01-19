@@ -27,7 +27,7 @@ return new class extends Migration
             $table->string('CNAS')->nullable();
             $table->date('card_issue_date')->nullable();
             $table->string('card_issue_place')->nullable();
-            $table->string('active')->default(true);
+            $table->string('active')->default(false);
             $table->timestamps();
         });
     }
