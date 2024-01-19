@@ -104,6 +104,7 @@ class ProductController extends Controller
             'price' => 'nullable|numeric',
             'stockable' => 'nullable|boolean',
             'tax_rate' => 'nullable|numeric',
+            'weight' => 'nullable',
         ]);
 
 
@@ -177,6 +178,7 @@ class ProductController extends Controller
             'stockable' => 'nullable|boolean',
             'tax_rate' => 'nullable|numeric',
             'type_id' => 'nullable|integer',
+            'weight' => 'nullable',
         ]);
 
         $product = Product::find($id);

@@ -3,11 +3,13 @@ import AddNewClientDrawer from '@/views/apps/client/list/AddNewClientDrawer.vue'
 import EditClientDrawer from '@/views/apps/client/list/EditClientDrawer.vue';
 import ConfirmationDialog from '@/views/apps/client/list/ConfirmationDialog.vue';
 import {useClientListStore} from "@/views/apps/client/useClientListStore";
+import ClientMonthlyReport from '@/views/dashboards/crm/ClientMonthlyReport.vue'
 
 const clientListStore = useClientListStore()
 const searchQuery = ref('')
 const loading = ref(false)
 const isTyping = ref(true)
+const isShoppingDialog = ref(false)
 const selectedRole = ref()
 const selectedPlan = ref()
 const selectedStatus = ref()
@@ -17,9 +19,34 @@ const totalPage = ref(1)
 const totalClients = ref(0)
 const cities = ref([])
 let clients = ref([])
+let currentTab = ref('Appetizers')
 let loading2 = ref({
   isActive: false,
 })
+
+const items = [
+  {
+    id: 1,
+    name: 'Home'
+  },
+  {
+    id: 2,
+    name: 'Record'
+  },
+  {
+    id: 3,
+    name: 'Payments'
+  },
+  {
+    id: 4,
+    name: 'State'
+  },
+
+
+
+]
+const tabItemText = 'hortbread chocolate bar marshmallow bear claw tiramisu chocolate cookie wafer. Gummies sweet brownie brownie marshmallow chocolate cake pastry. Topping macaroon shortbread liquorice dragée macaroon.'
+
 
 // 👉 Fetching Clients
 const fetchClients = () => {
@@ -110,6 +137,11 @@ const openUpdateDrawer = (client) => {
 
 const openConfirmationDialog = (client) => {
   isDialogVisible.value = true;
+  selectedClient = client;
+
+}
+const openDialogData = (client) => {
+  isShoppingDialog.value = true;
   selectedClient = client;
 
 }
@@ -271,6 +303,20 @@ const openConfirmationDialog = (client) => {
                     size="x-small"
                     color="default"
                     variant="text"
+                    @click="openDialogData(client)"
+
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-shopping-cart"
+
+                    />
+                  </VBtn>
+                  <VBtn
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
                     @click="openUpdateDrawer(client)"
 
                   >
@@ -354,6 +400,227 @@ const openConfirmationDialog = (client) => {
       </VCol>
     </VRow>
 
+    <VDialog
+      v-model="isShoppingDialog"
+      scrollable
+      class="v-dialog-sm"
+      max-width="700"
+      width="auto"
+
+      content-class="scrollable-dialog"
+    >
+      <!-- Dialog Activator -->
+      <template #activator="{ props }">
+        <VBtn v-bind="props">
+          Open Dialog
+        </VBtn>
+      </template>
+
+      <!-- Dialog close btn -->
+      <DialogCloseBtn @click="isShoppingDialog = !isShoppingDialog" />
+
+      <!-- Dialog Content -->
+      <VCard title=" ">
+
+
+        <VCardText class="d-flex justify-end gap-3 flex-wrap">
+          <VTabs
+            v-model="currentTab"
+            grow
+          >
+            <VTab
+              v-for="item in items"
+              :key="item.id"
+              :value="item.id"
+            >
+              {{ item.name }}
+            </VTab>
+          </VTabs>
+          <VDivider />
+
+          <VWindow
+            v-model="currentTab"
+            class="mt-6 pl-3 pa-1"
+          >
+            <VWindowItem
+              :key="items[0].id"
+              :value="items[0].id"
+              width="150%"
+            >
+               <VRow>
+                 <VCol
+                   cols="6"
+                   md="6"
+                 >
+                   <ClientMonthlyReport />
+                 </VCol>
+
+               </VRow>
+
+            </VWindowItem>
+            <VWindowItem
+
+              :key="items[1].id"
+              :value="items[1].id"
+              class="mt-0"
+              style="    margin-top: 0 !important;"
+            >
+
+              <VTable class="text-no-wrap mt-0 mb-10"   v-for="sale in selectedClient.sales" >
+
+                <thead>
+                <tr>
+                  <th class="text-caption">
+                    Product
+                  </th>
+                  <th class="text-caption">
+                    Date
+                  </th>
+                  <th class="text-caption">
+                    Quantity
+                  </th>
+                  <th class="text-caption">
+                    Price
+                  </th>
+                  <th class="text-caption">
+                    Total
+                  </th>
+
+                </tr>
+                </thead>
+
+                <tbody>
+                <tr
+                  v-for="item in sale.sale_items"
+                  :key="item.id"
+                >
+                  <td class="text-caption">
+                    {{item.product.name}}
+                  </td>
+                  <td class="text-caption">
+                    {{item.sale_date}}
+                  </td>
+                  <td class="text-caption">
+                    {{item.quantity}}
+                  </td>
+                  <td class="text-caption">
+                    {{item.price}}
+                  </td>
+                  <td class="text-caption">
+                    {{item.total_price}}
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+
+                  </td>
+                  <td>
+
+                  </td>
+                  <td>
+
+                  </td>
+                  <td class="text-caption">
+                    Total
+                  </td>
+                  <td class="text-caption">
+                    {{sale.total_amount}}
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+
+                  </td>
+                  <td>
+
+                  </td>
+                  <td>
+
+                  </td>
+                  <td class="text-caption">
+                    Payment
+                  </td>
+                  <td class="text-caption">
+                    {{sale.regulation}}
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+
+                  </td>
+                  <td>
+
+                  </td>
+                  <td>
+
+                  </td>
+                  <td class="text-caption">
+                    Rest
+                  </td>
+                  <td class="text-caption">
+                    {{sale.balance}}
+                  </td>
+                </tr>
+                </tbody>
+              </VTable>
+            </VWindowItem>
+            <VWindowItem
+
+              :key="items[2].id"
+              :value="items[2].id"
+              class="mt-0"
+              style="width: -webkit-fill-available;"
+              width="100%"
+            >
+
+                <VTable class="text-no-wrap mt-0 "   style="width: -webkit-fill-available;" >
+
+                  <thead>
+                  <tr>
+
+                    <th >
+                      Date
+                    </th>
+                    <th >
+                      Amount
+                    </th>
+                  </tr>
+                  </thead>
+
+                  <tbody>
+                  <tr
+                    v-for="payment in selectedClient.payments"
+                    :key="payment.id"
+                  >
+                    <td >
+                      {{payment.payment_date}}
+                    </td>
+                    <td>
+                      {{payment.amount_paid}}
+                    </td>
+
+                  </tr>
+
+                  </tbody>
+                </VTable>
+
+
+            </VWindowItem>
+            <VWindowItem
+
+              :key="items[3].id"
+              :value="items[3].id"
+            >
+
+            </VWindowItem>
+
+          </VWindow>
+          <VBtn @click="isShoppingDialog = false">
+            Close
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
     <!-- 👉 Add New Client -->
     <AddNewClientDrawer
       v-model:isDrawerOpen="isAddNewClientDrawerVisible"
@@ -390,5 +657,12 @@ const openConfirmationDialog = (client) => {
 
 .user-list-name:not(:hover) {
   color: rgba(var(--v-theme-on-background), var(--v-high-emphasis-opacity));
+}
+.v-theme--light{
+  margin-top: 0 !important;
+
+}
+.v-window{
+  width: -webkit-fill-available;
 }
 </style>

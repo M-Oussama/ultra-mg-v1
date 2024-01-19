@@ -3,6 +3,8 @@ import AddNewProductDrawer from '@/views/apps/product/list/AddNewProductDrawer.v
 import EditProductDrawer from '@/views/apps/product/list/EditProductDrawer.vue';
 import ConfirmationDialog from '@/views/apps/product/list/ConfirmationDialog.vue';
 import { useProductListStore } from '@/views/apps/product/useProductListStore'
+import {successMiddleware} from "@/middlewares/successMiddleware";
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 
 
 const productListStore = useProductListStore()
@@ -121,17 +123,34 @@ const paginationData = computed(() => {
 })
 
 const addNewProduct = productData => {
-  productListStore.addProduct(productData)
+  loading2.value.isActive = true;
+  productListStore.addProduct(productData).then(response => {
 
-  // refetch product
-  fetchProducts()
+    loading2.value.isActive = false;
+    successMiddleware('requests.product.success')
+    // refetch product
+    fetchProducts()
+  }).catch(error => {
+    errorsMiddleware(error);
+    loading2.value.isActive = false;
+  })
+
+
 }
 const updateProduct = productData => {
+  loading2.value.isActive = true;
+  productListStore.updateProduct(productData).then(response => {
 
-  productListStore.updateProduct(productData)
+    loading2.value.isActive = false;
+    successMiddleware('requests.product.success')
+    // refetch product
+    fetchProducts()
+  }).catch(error => {
+    errorsMiddleware(error);
+    loading2.value.isActive = false;
+  })
 
-  // refrech products
-  fetchProducts()
+
 }
 const deleteProduct = productData =>  {
   productListStore.deleteProduct(productData)

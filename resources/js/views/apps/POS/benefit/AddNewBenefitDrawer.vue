@@ -1,72 +1,100 @@
 <script setup>
 import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
-import {
-  emailValidator,
-  requiredValidator,
-} from '@validators'
 
 import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
+import {successMiddleware} from "@/middlewares/successMiddleware";
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 
+import "vue-search-select/dist/VueSearchSelect.css"
+import { ModelListSelect } from 'vue-search-select'
 const props = defineProps({
   isDrawerOpen: {
     type: null,
     required: true,
   },
-  attendances:{
+  data:{
     type: null,
     required:true
   },
   months:{
-    type:null,
+    type: null,
     required:true
   },
   years:{
-    type:null,
+    type: null,
     required:true
+  },
+  loading:{
+    type:null,
+    required: true
   }
 })
 const isFormValid = ref(false)
 const refForm = ref()
 const saleStore = useSaleStore()
-const attendance = ref({
-  month:'',
-  year:'',
+const benefit = ref({
+  month:null,
+  year:null,
+
 })
 const data = ref();
 const client = ref({
   id:-1,
 })
 const emit = defineEmits([
-  'update:isDrawerOpen',
-  'attendanceData',
+  'benefitData',
 ])
 // 👉 drawer close
 const closeNavigationDrawer = () => {
-  emit('update:isDrawerOpen', false)
-  nextTick(() => {
-    refForm.value?.reset()
-    refForm.value?.resetValidation()
-  })
+  props.isDrawerOpen.open = false;
 }
 const onSubmit = () => {
-  refForm.value?.validate().then(({ valid }) => {
+  if(benefit.value.month === null ||
+    benefit.value.year === null ) {
 
-    if (valid) {
-      emit('attendanceData', {
-        attendance
-      })
-      emit('update:isDrawerOpen', false)
-      nextTick(() => {
-        refForm.value?.reset()
-        refForm.value?.resetValidation()
-      })
+    if(benefit.value.client.month === null){
+      errorsMiddleware(
+        "Month not selected",
+        "Oops! Looks like you forgot to select a Month. Kindly pick at least one month to proceed"
+      )
     }
-  })
+    if(benefit.value.client.year === null){
+      errorsMiddleware(
+        "Month not selected",
+        "Oops! Looks like you forgot to select a Year. Kindly pick at least one year to proceed"
+      )
+    }
+  } else {
+
+    handleDrawerModelValueUpdate()
+      props.loading.isActive = true;
+      saleStore.storeBenefit(benefit.value).then(response => {
+       props.loading.isActive = false;
+        benefit.value.month = 0;
+        benefit.value.year = 0;
+       successMiddleware('Benefit created Successfully')
+        emit('benefitData', {
+          data
+        })
+     }).catch(error => {
+       console.log(error)
+       props.loading.isActive = false;
+       errorsMiddleware(
+         "Error Occured",
+         "Oops! Looks like the Benefit has not been submited "
+       )
+     })
+  }
 }
+
+const fullName = item => {
+  return `${item.name}  ${item.surname}`
+}
+
 const handleDrawerModelValueUpdate = val => {
 
-
-  emit('update:isDrawerOpen', val)
+  console.log(val);
+  props.isDrawerOpen.open = false;
 }
 
 </script>
@@ -77,13 +105,13 @@ const handleDrawerModelValueUpdate = val => {
     :width="400"
     location="end"
     class="scrollable-content"
-    :model-value="props.isDrawerOpen"
+    :model-value="props.isDrawerOpen.open"
     @update:model-value="handleDrawerModelValueUpdate"
   >
     <!-- 👉 Title -->
     <div class="d-flex align-center pa-6 pb-1">
       <h6 class="text-h6">
-        Add Attendance
+        Add Benefit
       </h6>
 
       <VSpacer />
@@ -114,27 +142,28 @@ const handleDrawerModelValueUpdate = val => {
             @submit.prevent="onSubmit"
           >
             <VRow>
-              <VCol cols="12">
+
+                <VCol cols="12">
 
                   <!-- 👉 Autocomplete -->
                   <VAutocomplete
-                    v-model="attendance.month"
+                    v-model="benefit.month"
                     :items="props.months"
-                    :rules="[requiredValidator]"
+
                     item-value="id"
                     item-title="name"
                     label="Month"
                   />
-              </VCol>
-              <!-- 👉  name -->
-              <VCol cols="12">
-                <VAutocomplete
-                  v-model="attendance.year"
-                  :items="props.years"
-                  :rules="[requiredValidator]"
-                  label="Year"
-                />
-              </VCol>
+                </VCol>
+
+                <VCol cols="12">
+                  <VAutocomplete
+                    v-model="benefit.year"
+                    :items="props.years"
+
+                    label="Year"
+                  />
+                </VCol>
               <VCol cols="12">
                 <VBtn
                   type="submit"

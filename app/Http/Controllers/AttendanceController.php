@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\EmployeeAttendance;
 use App\Models\EmployeeCareer;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -52,19 +53,25 @@ class AttendanceController extends Controller
             'month'=>$month,
             'year'=>$year
         ]);
+        $firstDayOfMonth = date("Y-m-d", strtotime("$attendance->year-$attendance->month-01"));
+        $lastDayOfMonth = date("Y-m-t", strtotime("$attendance->year-$attendance->month-01"));
 
-        $employees = Employee::where('active',true)->get();
-
-        $dates = $this->getDatesOfMonth($attendance->year, $attendance->month);
+        $employees = EmployeeCareer::where('start_date','<=',$lastDayOfMonth)->orwhere('end_date',Null)->orWhere('end_date','>=',$firstDayOfMonth)->get();
 
         foreach ($employees as $employee) {
+            $dates = $this->getDatesIntervale($employee->start_date, $employee->end_date, $attendance->month,$attendance->year);
             foreach($dates as $day){
-                EmployeeAttendance::create([
+                $att = EmployeeAttendance::create([
                     'date'=> $day,
                     'attendance_id'=> $attendance->id,
-                    'employee_id'=> $employee->id,
+                    'employee_id'=> $employee->employee_id,
+
                     'present' => false
                 ]);
+
+                $att->end_date = $employee->end_date;
+                $att->start_date = $employee->start_date;
+                $att->save();
             }
         }
 
@@ -109,12 +116,12 @@ class AttendanceController extends Controller
         $employeeAttendances = $request->input('attendances');
 
         foreach ($employeeAttendances as $employeeAttendance){
-
-            foreach ($employeeAttendance['result'] as $attendance) {
-
-                $_attendance = EmployeeAttendance::find($attendance['id']);
-                $_attendance->present = $attendance['present'];
-                $_attendance->save();
+            foreach($employeeAttendance['result'] as $result) {
+                foreach ($result as $attendance) {
+                    $_attendance = EmployeeAttendance::find($attendance['id']);
+                    $_attendance->present = $attendance['present'];
+                    $_attendance->save();
+                }
             }
         }
 
@@ -147,6 +154,10 @@ class AttendanceController extends Controller
                         ->orWhere('end_date', '>=', $firstDayOfMonth);
                 });
         })->with('employeeCareer')->get();
+        $employeesActive = Employee::whereHas('employeeCareer', function ($query) use ($lastDayOfMonth,$firstDayOfMonth) {
+            $query->where('end_date', '>=', $firstDayOfMonth)->orWhere('end_date', '=', null);
+
+        })->with('employeeCareer')->get();
 
         $employeesNonActive = Employee::where('active',false)->get();
 
@@ -175,17 +186,38 @@ class AttendanceController extends Controller
         return response()->json(["attendance"=>$attendance, "employees"=>$employee, "employeeAttendance"=>$attendance_employee]);
 
     }
+
     public function getAttendanceByID(Request $request,$id){
         $attendance = Attendance::find($id);
+        $lastDayOfMonth = date("Y-m-t", strtotime("$attendance->year-$attendance->month-01"));
 
-        $attendance_employee = EmployeeAttendance::with('employee')->where('attendance_id',$id)->orderBy('date')->get()->groupBy('employee_id')->map(function ($items, $employee_id) {
-            $presentCount = $items->where('present', false)->count();
-            $absentCount = $items->where('present', true)->count();
+        $firstDayOfMonth = date("Y-m-d", strtotime("$attendance->year-$attendance->month-01"));
+
+        $employees_Id = EmployeeCareer::where('start_date','>=',$firstDayOfMonth)->get()->pluck('employee_id');
+
+
+        // $attendance_employee = EmployeeAttendance::whereIn('employee_id',$employees_Id)->where('attendance_id',$id)->get();
+
+        $attendance_employee = EmployeeAttendance::with('employee')->where('attendance_id',$id)->whereIn('employee_id',$employees_Id)->orderBy('date')->get()->groupBy('employee_id')->map(function ($items, $employee_id) use ($firstDayOfMonth, $lastDayOfMonth) {
+            $presentCount = $items->where('present', true)
+                ->where(function ($item) {
+                    // Use Carbon to get the day of the week
+                    $dayOfWeek = Carbon::parse($item->date)->dayOfWeek;
+
+                    // Check if the day is not Thursday (4) or Friday (5)
+                    return !in_array($dayOfWeek, [Carbon::THURSDAY, Carbon::FRIDAY]);
+                })
+                ->count();
+            $absentCount = $items->where('present', false)->count();
+
+
             return [
                 'id' => $employee_id,
+                'employee' => Employee::find($employee_id),
                 'present_count' => $presentCount,
                 'absent_count' => $absentCount,
-                'result' => $items->toArray(), // or $items->pluck('column_name') if you want specific columns
+                'end_date'=> '',
+                'result' => $items->groupBy('end_date')->toArray(), // or $items->pluck('column_name') if you want specific columns
             ];
         });
 
@@ -257,7 +289,7 @@ class AttendanceController extends Controller
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
-        $employees = EmployeeCareer::where('employee_id', $Id)->orderBy('id','desc')->paginate($perPage, ['*'], 'page', $currentPage);
+        $employees = EmployeeCareer::where('employee_id', $Id)->orderBy('start_date','desc')->paginate($perPage, ['*'], 'page', $currentPage);
         $totalEmployees = $employees->total(); // Total number of users matching the query
         $totalPage = ($totalEmployees / $perPage); // Calculate total pages
 
@@ -302,14 +334,76 @@ class AttendanceController extends Controller
 
         $record = EmployeeCareer::orderBy('created_at', 'desc')->first();
 
-        if($record){
-            if($record->end_date) {
-                if($record->end_date >= $start_date ){
-                    throw new BadRequestHttpException('Start Date must be after the latest end date of the employee');
+        if(!$end_date) {
+            if($record){
+                if($record->end_date) {
+                    if($record->end_date >= $start_date ){
+                        throw new BadRequestHttpException('Start Date must be after the latest end date of the employee');
+                    }
+
+                }else{
+                    throw new BadRequestHttpException('You can not add a new record until the previous one is ended');
                 }
-            }else{
-                throw new BadRequestHttpException('You can not add a new record until the previous one is ended');
             }
+        }
+
+
+// Condition 1: new_start_date < start_date and new_end_date < end_date
+        $condition1 = EmployeeCareer::
+            where('employee_id', $Id)
+            ->where('start_date', '<', $start_date)
+            ->where('end_date', '>', $end_date)
+            ->exists();
+
+// Condition 2: new_start_date < start_date and new_end_date > end_date
+        $condition2 = EmployeeCareer::
+            where('employee_id', $Id)
+            ->where('start_date', '>', $start_date)
+            ->where('end_date', '<', $end_date)
+            ->exists();
+
+        $condition3 = EmployeeCareer::
+        where('employee_id', $Id)
+            ->where('start_date', '>', $start_date)
+            ->where('end_date', '>', $end_date)
+            ->where('start_date', '<=', $end_date)
+            ->exists();
+
+// Condition 4: new_start_date > start_date and new_end_date > end_date
+        $condition4 = EmployeeCareer::
+            where('employee_id', $Id)
+            ->where('start_date', '<', $start_date)
+            ->where('end_date', '>=', $start_date)
+            ->where('end_date', '<', $end_date)
+            ->exists();
+
+
+
+        $overlap = EmployeeCareer::where('employee_id', $Id)
+            ->where(function ($query) use ($start_date, $end_date) {
+                $query->where(function ($q) use ($start_date, $end_date) {
+                    $q->where('start_date', '<=', $start_date)
+                        ->where(function ($qq) use ($start_date) {
+                            $qq->whereNull('end_date')
+                                ->orWhere('end_date', '>=', $start_date);
+                        });
+                })
+                    ->orWhere(function ($q) use ($start_date, $end_date) {
+                        $q->where('start_date', '<=', $end_date)
+                            ->where(function ($qq) use ($end_date) {
+                                $qq->whereNull('end_date')
+                                    ->orWhere('end_date', '>=', $end_date);
+                            });
+                    });
+            })
+            ->exists();
+
+
+       
+
+        if($overlap || $condition1 || $condition2 || $condition3 || $condition4) {
+            throw new BadRequestHttpException('The Date Intervale is wrong choose a correct one ');
+
         }
 
         EmployeeCareer::create([
@@ -318,7 +412,16 @@ class AttendanceController extends Controller
             'end_date' => $end_date ? date("Y-m-d", strtotime($end_date)) : null,
         ]);
 
-
         return response()->json([ 'msg' =>'Record created Successfully']);
+    }
+
+    public function deleteEmployeeCareer(Request $request, $Id) {
+        $career = EmployeeCareer::find($Id);
+
+        // if the employee has no attendance in this career
+        //$attendance = EmployeeAttendance::
+        $career->delete();
+        return response()->json(['message' =>'Record deleted Successfully']);
+
     }
 }

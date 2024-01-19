@@ -31,6 +31,10 @@ const currentPage = ref(1)
 const totalPage = ref(1)
 const totalAttendances = ref(0)
 let attendance = ref()
+let _attendance = ref({
+  month:'',
+  year:''
+})
 let employeeAttendance = ref([])
 let attendances = ref({})
 // 👉 Fetching Employees
@@ -39,6 +43,7 @@ const getAttendanceByID = () => {
   attendanceStore.getAttendanceByID(Number(route.params.id)).then(response => {
 
      employeeAttendance.value = response.data.employeeAttendance
+     _attendance.value = response.data.attendance
 
 
     console.log(response)
@@ -171,14 +176,13 @@ const printAttendance = () => {
       </v-overlay>
       <VCol  cols="12"
              md="9">
-        <VCard title="New Attendance" class="text-center" >
+        <VCard  class="text-center" >
 
 
           <VCardText class=" flex-wrap justify-space-between flex-column flex-sm-row print-row">
 
-
-
-            <div class="align-center flex-wrap gap-4">
+            <h3>Attendance {{_attendance.month}}/ {{_attendance.year}}</h3>
+            <div class="align-center flex-wrap gap-4 ">
               <!-- 👉 Search  -->
               <div >
                 <v-progress-circular
@@ -189,17 +193,25 @@ const printAttendance = () => {
 
               </div>
 
-              <v-table >
+              <v-table class="mt-6">
                 <thead>
-                <tr v-for="employee in employeeAttendance">
+                <tr >
                   <th class="text-center">
                     Employee
+                  </th>
+
+                  <th class="text-center" >
+                    Start Date
+                  </th>
+                  <th class="text-center" >
+                    Days
                   </th>
                   <th class="text-center" >
                     Number Of Present Days
                   </th>
+
                   <th class="text-center" >
-                    Number Of Absent Days
+                    End Date
                   </th>
                 </tr>
                 </thead>
@@ -207,13 +219,20 @@ const printAttendance = () => {
 
                 <tr v-for="employee in employeeAttendance">
                   <th class="text-center">
-                    {{employee['result'][0].employee.name}} {{employee['result'][0].employee.surname}}
+                    {{employee.employee.name}} {{employee.employee.surname}}
+                  </th>
+                  <th class="text-center" >
+                    <p class="ma-0 " v-for="(value, key) in employee.result">{{value[0].start_date}}</p>
+
+                  </th>
+                  <th class="text-center" >
+                      Jours(J)
                   </th>
                   <th class="text-center" >
                     {{employee.present_count}}
                   </th>
                   <th class="text-center" >
-                    {{employee.absent_count}}
+                    <p class="ma-0 " v-for="(value, key) in employee.result">{{key === "" ? "Still Working": key}}</p>
                   </th>
                 </tr>
                 </tbody>

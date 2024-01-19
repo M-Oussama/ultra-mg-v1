@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\BenefitController;
 use App\Http\Controllers\CertifyInvoiceController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\EmployeeController;
@@ -32,6 +33,7 @@ Route::get('/clients/list', [ClientController::class, 'getClients'])->name('getC
 Route::post('/clients/store', [ClientController::class, 'store'])->name('store');
 Route::post('/clients/update/{id}', [ClientController::class, 'update'])->name('update');
 Route::delete('/clients/delete/{id}', [ClientController::class, 'delete'])->name('delete');
+Route::get('/clients/getClientsPerCity/{id}', [ClientController::class, 'getClientsPerCity'])->name('getClientsPerCity');
 
 /** PRODUCTS  */
 
@@ -61,6 +63,9 @@ Route::get('/pos/sales/payments/list', [POSController::class, 'listPayment'])->n
 Route::post('/pos/sales/payment/create', [POSController::class, 'createPayment'])->name('createPayment');
 Route::post('/pos/sales/payment/update', [POSController::class, 'updatePayment'])->name('updatePayment');
 Route::post('/pos/sales/payment/delete', [POSController::class, 'deletePayment'])->name('deletePayment');
+Route::get('/pos/benefits/list', [BenefitController::class, 'getBenefits'])->name('getBenefits');
+Route::post('/pos/benefits/store', [BenefitController::class, 'store'])->name('store');
+Route::get('/pos/benefits/{id}', [BenefitController::class, 'getArticlesBenefit'])->name('getArticlesBenefit');
 
 /** EMPLOYEES */
 Route::get('/employees/list', [EmployeeController::class, 'getEmployees'])->name('getEmployees');
@@ -82,6 +87,7 @@ Route::post('/attendances/RemoveEmployeeFromAttendance', [AttendanceController::
 Route::get('attendances/employees/list/{id}', [AttendanceController::class, 'fetchEmployeesByAttendance'])->name('fetchEmployeesByAttendance');
 Route::post('attendances/updateEndDate/{id}', [AttendanceController::class, 'updateEndDate'])->name('updateEndDate');
 Route::post('attendances/addNewEmployeeAttendanceRecord/{id}', [AttendanceController::class, 'NewEmployeeAttendanceRecord'])->name('NewEmployeeAttendanceRecord');
+Route::get('/attendances/career/delete/{id}', [AttendanceController::class, 'deleteEmployeeCareer'])->name('deleteEmployeeCareer');
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

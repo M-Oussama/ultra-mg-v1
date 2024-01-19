@@ -13,14 +13,14 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('employee_attendances', function (Blueprint $table) {
+        Schema::create('product_benefits', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('employee_id');
-            $table->unsignedBigInteger('attendance_id');
-            $table->date('date');
-            $table->date('end_date')->nullable();
-            $table->boolean('present')->default(false);
-            $table->boolean('disable')->default(false);
+            $table->unsignedBigInteger('benefit_id');
+            $table->unsignedBigInteger('product_id');
+            $table->decimal('raw_material_price');
+            $table->decimal('weight');
+            $table->decimal('benefit');
+            $table->decimal('product_price');
             $table->timestamps();
         });
     }
@@ -32,6 +32,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('employee_attendances');
+        Schema::dropIfExists('product_benefits');
     }
 };

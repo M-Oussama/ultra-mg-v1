@@ -24,6 +24,9 @@ let employees = ref([])
 let isEditDrawerVisible = ref({
   open : false
 })
+let isDeleteDialogVisible = ref({
+  open : false
+})
 let isAddDrawerOpen = ref({
   open : false
 })
@@ -129,11 +132,34 @@ const openConfirmationDialog = (employee) => {
   selectedEmployee.value = employee;
   isEditDrawerVisible.value.open = true;
 }
+const openDeleteDialog = (employee) => {
+  selectedEmployee.value = employee;
+  isDeleteDialogVisible.value.open = true;
+}
 const openAddRecord = () => {
 
   isAddDrawerOpen.value.open = true;
 }
+const onDelete = () => {
 
+  loading2.value.isActive = true;
+  isDeleteDialogVisible.value.open = false;
+  attendanceStore.deleteCareer(selectedEmployee.value.id).then(response =>{
+    loading2.value.isActive = false;
+    successMiddleware(response.data.message)
+    // refetch Employee
+    fetchEmployees()
+  }).catch(error =>{
+    errorsMiddleware(error.data.message)
+    loading2.value.isActive = false;
+  })
+
+
+}
+const closeConfirmationDialog= () => {
+  isDeleteDialogVisible.value.open = false;
+
+}
 </script>
 
 <template>
@@ -300,7 +326,8 @@ const openAddRecord = () => {
                   >
                     <VIcon
                       size="22"
-                      icon="tabler-dots-vertical"
+                      icon="tabler-trash"
+                      @click="openDeleteDialog(employee)"
                     />
 
 
@@ -355,6 +382,38 @@ const openAddRecord = () => {
 
 
     />
+
+
+    <VDialog
+      v-model="isDeleteDialogVisible.open"
+      persistent
+      class="v-dialog-sm"
+
+    >
+
+      <!-- Dialog close btn -->
+      <DialogCloseBtn @click="closeConfirmationDialog()" />
+
+      <!-- Dialog Content -->
+      <VCard title="Confirmation">
+        <VCardText>
+          Are you sure you want to delete this record ?
+        </VCardText>
+
+        <VCardText class="d-flex justify-end gap-3 flex-wrap">
+          <VBtn
+            color="secondary"
+            variant="tonal"
+            @click="closeConfirmationDialog()"
+          >
+            Disagree
+          </VBtn>
+          <VBtn @click="onDelete">
+            Agree
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
   </section>
 </template>
 

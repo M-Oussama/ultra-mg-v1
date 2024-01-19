@@ -10,6 +10,8 @@ export const useAttendanceStore = defineStore('AttendanceStore', {
 
     fetchAttendanceData(params) {  return axios.get('/api/attendances/getAttendanceData/'+params) },
 
+    deleteCareer(params) {  return axios.get('/api/attendances/career/delete/'+params) },
+
     // 👉 Add User
     addAttendance(attendanceData) {
 

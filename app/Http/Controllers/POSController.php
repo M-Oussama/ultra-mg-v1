@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Benefit;
 use App\Models\City;
 use App\Models\Client;
 use App\Models\Company;
@@ -307,4 +308,6 @@ class POSController extends Controller
         return response()->json(["payments" => $payments, "totalPage" => $totalPage, "totalPayments"=>$totalSales,"clients"=>$clients]);
 
     }
+
+
 }

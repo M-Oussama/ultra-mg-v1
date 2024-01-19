@@ -288,7 +288,7 @@ const openConfirmationDialog = (employee) => {
                   >
                     <VIcon
                       size="22"
-                      icon="tabler-circle-plus"
+                      icon="tabler-edit"
 
                     />
                   </VBtn>
@@ -308,7 +308,6 @@ const openConfirmationDialog = (employee) => {
                   </VBtn>
 
                   <VBtn
-                    v-if="attendance.active"
                     icon
                     size="x-small"
                     color="default"

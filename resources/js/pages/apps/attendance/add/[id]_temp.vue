@@ -25,6 +25,8 @@ const values = ref([])
 const isPreview = ref(false)
 const selectedRole = ref()
 const selectedPlan = ref()
+const minDate = ref("")
+const maxDate = ref("")
 const selectedStatus = ref()
 const rowPerPage = ref(10)
 const currentPage = ref(1)
@@ -36,18 +38,22 @@ let attendance = ref({
 })
 let employeeAttendance = ref({})
 let attendances = ref({})
-let employees = ref([])
+let employees = ref({
+  list:[]
+})
 let employee = ref({})
 let removEmp = ref({})
+
 // 👉 Fetching Employees
 const fetchAttendances = () => {
   loading2.value.isActive = true;
-  attendanceStore.getAttendanceByID(Number(route.params.id)).then(response => {
-    employeeAttendance.value = response.data.employeeAttendance
-    employees.value = response.data.employees
-
-    console.log("employeeAttendance")
-    console.log(employeeAttendance)
+  attendanceStore.fetchAttendanceData(Number(route.params.id)).then(response => {
+     attendance.value.employees = response.data.employees
+     employees.value.list = response.data.restEmployees
+     attendance.value.dates = response.data.dates
+      minDate.value = response.data.minDate
+      maxDate.value = response.data.maxDate
+      console.log(minDate)
      loading2.value.isActive = false;
   }).catch(error => {
     console.error(error)
@@ -91,22 +97,21 @@ const paginationData = computed(() => {
 
 const saveAttendance = () => {
   loading2.value.isActive = true;
-  attendanceStore.updateAttendance(attendance, route.params.id).then(response =>{
+  attendanceStore.submitAttendance(attendance, route.params.id).then(response =>{
     successMiddleware(response.data.message)
     loading2.value.isActive = false;
     router.push('/apps/attendance/preview/'+route.params.id)
   }).catch(error => {
-    errorsMiddleware(error.data.message)
+    //errorsMiddleware(error)
     loading2.value.isActive = false;
   });
 
 
 }
 
-const updateAttendance = () => {
+const updateEmployee = attendanceData => {
   loading2.value.isActive = true;
-
-  attendanceStore.updateAttendance(employeeAttendance,Number(route.params.id)).then(response =>{
+  attendanceStore.updateAttendance(attendanceData).then(response =>{
     successMiddleware(response.data.message)
 
     loading2.value.isActive = false;
@@ -161,60 +166,77 @@ console.log(employee.allDays);
   }
   console.log(employee);
 }
-
 const printName = employee =>{
 
 
   return employee.name === undefined ? 'Select An Employee' : employee.name + ' '+employee.surname;
 }
-
 const AddEmployeeToAttendance = () =>{
-  loading2.value.isActive = true;
+  var emp = getEmployee(employees.value.list,employee.value)
+  attendance.value.employees.push({...emp})
+  employees.value.list.splice(getEmployeeIndex(employees.value.list, employee),1)
 
-  attendanceStore.AddEmployeeToAttendance(employee.value,Number(route.params.id)).then(response =>{
-    loading2.value.isActive = false;
-    employees.value = response.data.employees
 
-    employeeAttendance[response.data.key] = response.data.newAttendance;
 
-    console.log(employeeAttendance)
-
-    // refetch User
-    fetchAttendances()
-  }).catch(error =>{
-    errorsMiddleware(error.data.message)
-    loading2.value.isActive = false;
-  })
 }
-const updateAll = attendance => {
-  console.log(attendance);
+
+const getEmployee = (employeeArray,employeeId) =>{
+  for (let i = 0; i <employeeArray.length ; i++) {
+    if(employeeArray[i].id === employeeId)
+      return employeeArray[i];
+  }
+}
+
+const updateAll = employee => {
   attendance.allDays = !attendance.allDays;
 
-  for (let i = 0; i <attendance.length ; i++) {
-    attendance[i].present = attendance.allDays;
+  for (let i = 0; i <attendance['result'].length ; i++) {
+    attendance['result'][i].present = attendance.allDays;
 
   }
 }
-const removeEmployee = attendance => {
- loading2.value.isActive = true;
+const removeEmployee = _employee => {
 
- console.log(attendance.result)
-  attendanceStore.RemoveEmployeeFromAttendance(attendance.result,Number(route.params.id)).then(response =>{
-    loading2.value.isActive = false;
-    employees = response.data.employees
+  employees.value.list.push({..._employee})
 
-  if (employeeAttendance.value.hasOwnProperty(attendance.id)) {
-    delete employeeAttendance.value[attendance.id];
-  }
-
-    // refetch User
-    fetchAttendances()
-  }).catch(error =>{
-    errorsMiddleware(error.data.message)
-    loading2.value.isActive = false;
-  })
+  attendance.value.employees.splice(getEmployeeIndex(attendance.value.employees, _employee.id),1)
 }
 
+watch(employees.value, () =>{
+  console.log(employees)
+})
+
+const getEmployeeIndex = (employeeArray,employeeId) =>{
+  for (let i = 0; i <employeeArray.length ; i++) {
+    if(employeeArray[i].id === employeeId)
+      return i;
+  }
+}
+
+const changeQuitDate = (employee) =>{
+  console.log(maxDate._value)
+  for (let i = 0; i <employee.workingDays.length ; i++) {
+
+      if(employee.workingDays[i].date >= employee.quitDate){
+        employee.workingDays[i].present = false;
+      }else{
+        employee.workingDays[i].present = true;
+      }
+  }
+}
+const activeQuitDate = (employee) =>{
+  console.log(employee.quitEmployee)
+  if(employee.quitEmployee){
+    employee.quitDate = maxDate._value;
+    console.log(employee.quitDate)
+    console.log(maxDate._value)
+  }else{
+    for (let i = 0; i <employee.workingDays.length ; i++) {
+      employee.workingDays[i].present = true;
+    }
+  }
+
+}
 </script>
 
 <template>
@@ -260,7 +282,7 @@ const removeEmployee = attendance => {
               <VCol cols="8">
                 <VAutocomplete
                   v-model="employee"
-                  :items="employees"
+                  :items="employees.list"
                   label="Employee"
                   item-value="id"
                   :item-title="printName"
@@ -281,7 +303,6 @@ const removeEmployee = attendance => {
           </div>
 
           <div class="ma-7">
-
             <VRow>
               <VCol
                 cols="5"
@@ -292,18 +313,14 @@ const removeEmployee = attendance => {
                   direction="vertical"
                   class="v-tabs-pill"
                 >
-                  <VTab v-for="attendance in employeeAttendance">
+                  <VTab v-for="employee in attendance.employees">
                     <VIcon
                       start
                       icon="tabler-user"
                     />
-
-                    {{attendance.employee.name}} {{attendance.employee.surname}}
-
+                    {{employee.name}} {{employee.surname}}
                   </VTab>
-
                 </VTabs>
-
               </VCol>
 
               <VCol
@@ -315,108 +332,97 @@ const removeEmployee = attendance => {
 
 
                     <VWindow v-model="currentTab">
-                      <VWindowItem  v-for="attendance in employeeAttendance">
+                      <VWindowItem  v-for="employee in attendance.employees">
+                        <v-table >
+                          <thead>
+                          <tr class="pt-5">
+                            <th class="text-left">
+                              Quit Employee
+                            </th>
+                            <th class="text-left">
 
-
-                        <VCard v-for="(empAttendance, key) in attendance.result">
-                          <VCardText>
-                            <v-table >
-                              <thead>
-                              <tr class="pt-5">
-                                <th class="text-left">
-                                  Quit Employee
-                                </th>
-                                <th class="text-left">
-
-                                  {{key}}
-<!--                                  <VRow>-->
-<!--                                    <VCol cols="4">-->
-<!--                                      <VSwitch-->
-<!--                                        v-model="empAttendance.employee.active"-->
-<!--                                        inset-->
-<!--                                      />-->
-<!--                                    </VCol>-->
-
-
-
-<!--                                    <VCol cols="8" v-if="empAttendance.employee.active">-->
-
-<!--                                      <AppDateTimePicker-->
-<!--                                        v-model="attendance.end_date.end_date"-->
-<!--                                        label="End Date"-->
-<!--                                      />-->
-<!--                                    </VCol>-->
-
-<!--                                  </VRow>-->
-
-
-
-                                </th>
-                              </tr>
-<!--                              <tr>-->
-<!--                                <th class="text-left">-->
-<!--                                  Remove Employee-->
-<!--                                </th>-->
-<!--                                <th class="text-left">-->
-<!--                                  <VCheckbox-->
-<!--                                    v-model="removEmp"-->
-<!--                                    :label="capitalizedLabel(toggleCheckboxThree)"-->
-<!--                                    true-icon="tabler-check"-->
-<!--                                    false-icon="tabler-circle-x"-->
-<!--                                    color="error"-->
-<!--                                    @click="removeEmployee(empAttendance)"-->
-
-<!--                                  />-->
-<!--                                </th>-->
-<!--                              </tr>-->
-                              <tr>
-                                <th class="text-left">
-                                  date
-                                </th>
-                                <th class="text-left">
-                                  Presence
-                                </th>
-                              </tr>
-                              </thead>
-                              <tbody>
-                              <tr>
-                                <th class="text-left">
-                                  ALL DAYS
-                                </th>
-                                <th class="text-left">
-                                  <VCheckbox
-                                    v-model="empAttendance.allDays"
-                                    :label="capitalizedLabel(toggleCheckboxThree)"
-                                    true-icon="tabler-check"
-                                    false-icon="tabler-circle-x"
-                                    color="error"
-                                    @click="updateAll(empAttendance)"
-
+                              <VRow>
+                                <VCol cols="4">
+                                  <VSwitch
+                                    v-model="employee.quitEmployee"
+                                    inset
+                                    @change="activeQuitDate(employee)"
                                   />
-                                </th>
+                                </VCol>
 
-                              </tr>
 
-                              <tr v-for="record in empAttendance">
-                                <th class="text-left">
-                                  {{record.date}}
-                                </th>
-                                <th class="text-left">
-                                  <VCheckbox
-                                    v-model="record.present"
-                                    :label="capitalizedLabel(toggleCheckboxThree)"
-                                    true-icon="tabler-check"
-                                    false-icon="tabler-circle-x"
-                                    color="error"
+                                <VCol cols="8" v-if="employee.quitEmployee">
+                                  <AppDateTimePicker
+                                    v-model="employee.quitDate"
+                                    label="End Date"
+                                    @change="changeQuitDate(employee)"
+                                    :config="{  minDate: `${minDate}`, maxDate: `${maxDate}`  }"
                                   />
-                                </th>
-                              </tr>
-                              </tbody>
-                            </v-table>
+                                </VCol>
 
-                          </VCardText>
-                        </VCard>
+                              </VRow>
 
+
+
+                            </th>
+                          </tr>
+                          <tr>
+                            <th class="text-left">
+                              Remove Employee
+                            </th>
+                            <th class="text-left">
+                              <VCheckbox
+                                v-model="removEmp"
+                                :label="capitalizedLabel(toggleCheckboxThree)"
+                                true-icon="tabler-check"
+                                false-icon="tabler-circle-x"
+                                color="error"
+                                @click="removeEmployee(employee)"
+
+                              />
+                            </th>
+                          </tr>
+                          <tr>
+                            <th class="text-left">
+                              date
+                            </th>
+                            <th class="text-left">
+                              Presence
+                            </th>
+                          </tr>
+                          </thead>
+                          <tbody>
+                          <tr>
+                            <th class="text-left">
+                              ALL DAYS
+                            </th>
+                            <th class="text-left">
+                              <VCheckbox
+                                v-model="employee.allDays"
+                                :label="capitalizedLabel(toggleCheckboxThree)"
+                                true-icon="tabler-check"
+                                false-icon="tabler-circle-x"
+                                color="error"
+                                @click="AllDaysPressed(employee)"
+                              />
+                            </th>
+                          </tr>
+                          <tr v-for="date in employee.workingDays">
+                            <th class="text-left">
+                              {{date.date}}
+                            </th>
+                            <th class="text-left">
+                              <VCheckbox
+                                v-model="date.present"
+                                :label="capitalizedLabel(toggleCheckboxThree)"
+                                true-icon="tabler-check"
+                                false-icon="tabler-circle-x"
+                                color="error"
+                              />
+                            </th>
+                          </tr>
+                          </tbody>
+                        </v-table>
                       </VWindowItem>
 
                     </VWindow>
@@ -466,12 +472,10 @@ const removeEmployee = attendance => {
               block
               color="default"
               variant="tonal"
-              @click="updateAttendance"
+              @click="saveAttendance"
             >
-              Update
+              Save
             </v-btn>
-
-
 
           </VCardText>
         </VCard>

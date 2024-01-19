@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\City;
 use App\Models\Client;
+use App\Models\Sale;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -36,11 +37,13 @@ class ClientController extends Controller
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
 
-        $clients = Client::when($searchValue, function ($queryBuilder) use ($searchValue) {
+        $clients = Client::with(['sales','payments'])->when($searchValue, function ($queryBuilder) use ($searchValue) {
             // Search for users with matching name or email
             $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
                 ->orWhere('surname', 'LIKE', '%' . $searchValue . '%');
         })->paginate($perPage, ['*'], 'page', $currentPage);
+
+
         $totalUsers = $clients->total(); // Total number of users matching the query
         $totalPage = ceil($totalUsers / $perPage); // Calculate total pages
 
@@ -186,5 +189,17 @@ class ClientController extends Controller
         $client = Client::find($id);
         $client->delete();
         return response()->json(["message" => "User deleted successfully"]);
+    }
+
+    public function getClientsPerCity($cityId) {
+
+        if($cityId != "null") {
+            $clients = Client::where('city_id',$cityId)->get();
+            return response()->json(['clients'=>$clients]);
+        }
+
+        $clients = Client::all();
+        return response()->json(['clients'=>$clients]);
+
     }
 }

@@ -8,6 +8,10 @@ export const useSaleStore = defineStore('SaleStore', {
     // 👉 Fetch products data
     fetchSales(params) { return axios.get('/api/pos/sales/list', { params }) },
 
+    fetchBenefits(params) { return axios.get('/api/pos/benefits/list', { params }) },
+
+    getArticlesBenefit(id) { return axios.get('/api/pos/benefits/'+id) },
+
     getPriceHistory(clientId, productId) { return axios.get('/api/pos/sales/getPriceHistory/'+clientId+'/'+productId) },
     // 👉 Fetch products data
     getLastID(params) { return axios.get('/api/certifyInvoices/getLastID', { params }) },
@@ -15,6 +19,7 @@ export const useSaleStore = defineStore('SaleStore', {
     // 👉 Fetch products data
     fetchData(params) { return axios.get('/api/pos/sales/getData', { params }) },
 
+    getClientsPerCity(cityId) { return axios.get('/api/clients/getClientsPerCity/'+cityId) },
     // 👉 Add Product
     storeSale(data) {
       const { client_id, date, amount, payment_type, products} = data;
@@ -148,7 +153,24 @@ export const useSaleStore = defineStore('SaleStore', {
             })
       })
     },
+    storeBenefit(data) {
+      const { month, year} = data;
+      return new Promise((resolve, reject) => {
+        axios.post('/api/pos/benefits/store', {
+          data,
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
   },
+
 
 
 })

@@ -4,6 +4,8 @@ import { VNodeRenderer } from '@layouts/components/VNodeRenderer'
 import { themeConfig } from '@themeConfig'
 import "vue-search-select/dist/VueSearchSelect.css"
 import { ModelListSelect } from 'vue-search-select'
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
+import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
 
 const props = defineProps({
   data: {
@@ -35,6 +37,7 @@ const product = ref({
 })
 const client = ref([])
 const clients = ref([])
+const priceHistoryList = ref([])
 const companyProfile = ref({
   name:'EURL SETIFIS DETERGENTS',
   address: 'LOT N, 6 GROUPE 51, ZONE INDUSTRIELLE, 34 SECTION, Ksar El Abtal 19220',
@@ -43,7 +46,8 @@ const companyProfile = ref({
   phone2:'+213 0668 15 41 45',
 
 })
-
+const isDialogVisible = ref(false)
+const saleStore = useSaleStore()
 let selectedItem = ref({
   quantity:0,
   price:0,
@@ -84,6 +88,15 @@ const defaultSelectedItem = ref({
   }
 })
 
+const onCityChanged = (item) => {
+  props.data.client_id = null
+  saleStore.getClientsPerCity(props.data.client.city_id).then(response => {
+    props.data.clients = response.data.clients
+  }).catch(err => {
+    console.log(err)
+  })
+
+}
 
 const totalAmount = data => {
   computeTotal()
@@ -153,15 +166,106 @@ watch(props.data.payment, ()=>{
 })
 
 const onChange = item => {
-  props.data.client = {...props.data.clients[item-1]}
 
+  var client = getItemById(item)
+
+  props.data.client = {...client}
+}
+const getItemById = (id) => {
+  for (let i = 0; i <props.data.clients.length ; i++) {
+    if(props.data.clients[i].id == id)
+      return props.data.clients[i]
+  }
+  return null
+}
+const priceHistory = data => {
+
+  if(props.data.client.id !== undefined && props.data.client.id > -1) {
+
+    saleStore.getPriceHistory(data.id,props.data.client.id).then(response => {
+      priceHistoryList.value = response.data.products
+      console.log(priceHistoryList.value)
+      isDialogVisible.value = true
+
+      console.log(response);
+    }).catch(err => {
+      console.log(err)
+    })
+  } else {
+    errorsMiddleware('Error',' You must select a client first')
+  }
 
 }
-
 </script>
 
 <template>
   <VCard>
+    <VDialog
+      v-model="isDialogVisible"
+      persistent
+      class="v-dialog-sm"
+    >
+      <!-- Dialog Activator -->
+      <template #activator="{ props }">
+        <VBtn v-bind="props">
+          Open Dialog
+        </VBtn>
+      </template>
+
+      <!-- Dialog close btn -->
+      <DialogCloseBtn @click="isDialogVisible = !isDialogVisible" />
+
+      <!-- Dialog Content -->
+      <VCard title="Price History ">
+        <VTable class="text-no-wrap pt-5">
+          <thead>
+          <tr>
+            <th class="text-uppercase">
+              Product
+            </th>
+            <th class="text-uppercase">
+              Date
+            </th>
+            <th class="text-uppercase">
+              Quantity
+            </th>
+            <th class="text-uppercase">
+              Price
+            </th>
+
+          </tr>
+          </thead>
+
+          <tbody>
+          <tr
+            v-for="item in priceHistoryList"
+            :key="item.id"
+          >
+            <td>
+              {{ item.product.name }}
+            </td>
+            <td>
+              {{ item.sale_date }}
+            </td>
+            <td>
+              {{ item.quantity }}
+            </td>
+            <td>
+              {{ item.price }} DZD
+            </td>
+
+          </tr>
+          </tbody>
+        </VTable>
+
+        <VCardText class="d-flex justify-end gap-3 flex-wrap">
+
+          <VBtn @click="isDialogVisible = false">
+            Close
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
     <!-- SECTION Header -->
     <!--  eslint-disable vue/no-mutating-props -->
     <VCardText class="d-flex flex-wrap justify-space-between flex-column flex-sm-row">
@@ -263,12 +367,12 @@ const onChange = item => {
                 </h6>
                 <VAutocomplete
                   clearable
-                  v-model="props.data.city"
+                  v-model="props.data.client.city_id"
                   :items="props.data.cities"
                   item-value="id"
                   item-title="name"
                   label="City"
-
+                  @update:modelValue="onCityChanged"
                 />
 
               </div>
@@ -351,6 +455,7 @@ const onChange = item => {
           :data="_product"
           @remove-product="removeProduct"
           @total-amount="totalAmount"
+          @price-history="priceHistory"
         />
       </div>
     </VCardText>

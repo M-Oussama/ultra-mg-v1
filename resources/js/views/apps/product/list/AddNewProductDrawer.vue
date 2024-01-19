@@ -27,6 +27,7 @@ const product_code = ref('')
 const sku = ref('')
 const min_stock_level = ref(0)
 let price = ref(0)
+let weight = ref(0)
 let stockable = ref(false)
 const tax_rate = ref(0.00)
 // 👉 drawer close
@@ -51,6 +52,7 @@ const onSubmit = () => {
         price: price.value,
         stockable: stockable.value,
         tax_rate: tax_rate.value,
+        weight: weight.value,
       })
       emit('update:isDrawerOpen', false)
       nextTick(() => {
@@ -155,7 +157,14 @@ const handleDrawerModelValueUpdate = val => {
                   type="number"
                 />
               </VCol>
-
+              <VCol cols="12">
+                <VTextField
+                  v-model="weight"
+                  :rules="[requiredValidator]"
+                  label="Weight"
+                  type="number"
+                />
+              </VCol>
               <VCol cols="12">
                 <VTextField
                   v-model="price"

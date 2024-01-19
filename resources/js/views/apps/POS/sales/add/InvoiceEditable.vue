@@ -94,7 +94,7 @@ const totalAmount = data => {
 }
 
 const priceHistory = data => {
-  console.log(props.data.client.id)
+console.log(props.data.client.isEmpty)
   if(props.data.client.id !== undefined && props.data.client.id > -1) {
 
     saleStore.getPriceHistory(data.id,props.data.client.id).then(response => {
@@ -155,9 +155,17 @@ const removeProduct = Item => {
 }
 
 const onChange = item => {
-  props.data.client = {...props.data.clients[item-1]}
 
-
+  var client = getItemById(item)
+  console.log(client)
+  props.data.client = {...client}
+}
+const getItemById = (id) => {
+  for (let i = 0; i <props.data.clients.length ; i++) {
+    if(props.data.clients[i].id == id)
+      return props.data.clients[i]
+  }
+  return null
 }
 const fullName = item => {
 
@@ -179,7 +187,15 @@ const paymentActive = () => {
 
 }
 
+const onCityChanged = (item) => {
+  props.data.client_id = null
+  saleStore.getClientsPerCity(props.data.city).then(response => {
+    props.data.clients = response.data.clients
+  }).catch(err => {
+    console.log(err)
+  })
 
+}
 
 
 </script>
@@ -358,7 +374,7 @@ const paymentActive = () => {
                   item-value="id"
                   item-title="name"
                   label="City"
-
+                  @update:modelValue="onCityChanged"
                 />
 
               </div>
