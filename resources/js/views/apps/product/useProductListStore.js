@@ -25,7 +25,7 @@ export const useProductListStore = defineStore('ProductListStore', {
           weight
         }).then(response => {
 
-          successMiddleware('requests.product.success')
+
           resolve(response)
         })
           .catch(error => {

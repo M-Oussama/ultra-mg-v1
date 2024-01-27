@@ -16,7 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             AlgerianCitiesSeeder::class,
-            //FakeDataSeeder::class,
+            FakeDataSeeder::class,
 
         ]);
     }

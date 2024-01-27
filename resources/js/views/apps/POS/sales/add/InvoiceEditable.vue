@@ -126,7 +126,7 @@ function computeTotal() {
 
 // 👉 Add item function
 const addItem = () => {
-  if(selectedItem.value !== undefined){
+  if(selectedItem.value !== undefined && selectedItem.value.product !== undefined && selectedItem.value.product.id !== -1){
     console.log(selectedItem.value.product.id)
     const index = props.data.sale_items.findIndex(p =>
       p.product.id ===
@@ -149,6 +149,7 @@ watch(selectedItem , ()=> {
 
 const removeProduct = Item => {
   const index = props.data.sale_items.findIndex(p => p.product.id === Item.product.id);
+  console.log("index: "+index);
   props.data.sale_items.splice(index,1);
   computeTotal()
 
@@ -195,6 +196,16 @@ const onCityChanged = (item) => {
     console.log(err)
   })
 
+}
+
+const onProductChanged = (item) => {
+  const foundProduct = props.data.products.find(product => product.id === item);
+  selectedItem.value = {...foundProduct};
+  handleProductChange()
+}
+
+const onClearProduct = (item) => {
+  console.log(item)
 }
 
 
@@ -422,17 +433,29 @@ const onCityChanged = (item) => {
             md="12"
           >
 
-            <span class="text-sm-caption mb-2">Products</span>
-            <model-list-select
-              :list="props.data.products"
+            <span class="text-sm-caption mb-5">Products</span>
+<!--            <model-list-select-->
+<!--              :list="props.data.products"-->
+<!--              v-model="selectedItem"-->
+<!--              option-value="id"-->
+<!--              :custom-text="productFullName"-->
+<!--              placeholder="Select Product"-->
+<!--            >-->
+
+<!--            </model-list-select>-->
+
+            <VAutocomplete
+              class="mt-4"
+              clearable
               v-model="selectedItem"
-              option-value="id"
-              :custom-text="productFullName"
-              placeholder="Select Product"
+              :items="props.data.products"
+              item-value="id"
+              :item-title="productFullName"
+              label="Products"
+
+              @update:modelValue="onProductChanged"
             >
-
-            </model-list-select>
-
+            </VAutocomplete>
 
           </VCol>
           <VCol

@@ -110,24 +110,36 @@ const paginationData = computed(() => {
 })
 
 const addNewClient = clientData => {
-  clientListStore.addClient(clientData)
+  clientListStore.addClient(clientData).then(response => {
+    // refetch User
+    fetchClients()
+  }).catch(error => {
+    console.log(error)
+  })
 
-  // refetch User
-  fetchClients()
+
 }
 
 const updateClient = clientData => {
-  clientListStore.updateClient(clientData)
+  clientListStore.updateClient(clientData).then(response => {
+    // refetch User
+    fetchClients()
+  }).catch(error => {
+    console.log(error)
+  })
 
-  // refetch User
-  fetchClients()
+
 }
 
 const deleteClient = clientData =>  {
-  clientListStore.deleteClient(clientData)
+  clientListStore.deleteClient(clientData).then(response => {
+    // refetch User
+    fetchClients()
+  }).catch(error => {
+    console.log(error)
+  })
 
-  // refetch Client
-  fetchClients()
+
 }
 
 const openUpdateDrawer = (client) => {
@@ -409,12 +421,12 @@ const openDialogData = (client) => {
 
       content-class="scrollable-dialog"
     >
-      <!-- Dialog Activator -->
-      <template #activator="{ props }">
-        <VBtn v-bind="props">
-          Open Dialog
-        </VBtn>
-      </template>
+<!--      &lt;!&ndash; Dialog Activator &ndash;&gt;-->
+<!--      <template #activator="{ props }">-->
+<!--        <VBtn v-bind="props">-->
+<!--          Open Dialog-->
+<!--        </VBtn>-->
+<!--      </template>-->
 
       <!-- Dialog close btn -->
       <DialogCloseBtn @click="isShoppingDialog = !isShoppingDialog" />

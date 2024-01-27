@@ -115,7 +115,7 @@ function computeTotal() {
 
 // 👉 Add item function
 const addItem = () => {
-  if(selectedItem.value !== undefined){
+  if(selectedItem.value !== undefined && selectedItem.value.product !== undefined && selectedItem.value.product.id !== -1){
     console.log(selectedItem.value.product.id)
     const index = props.data.sale_items.findIndex(p =>
       p.product.id ===
@@ -196,21 +196,28 @@ const priceHistory = data => {
   }
 
 }
+
+const onProductChanged = (item) => {
+  const foundProduct = props.data.products.find(product => product.id === item);
+  selectedItem.value = {...foundProduct};
+  handleProductChange()
+}
 </script>
 
 <template>
   <VCard>
     <VDialog
+
       v-model="isDialogVisible"
       persistent
       class="v-dialog-sm"
     >
       <!-- Dialog Activator -->
-      <template #activator="{ props }">
-        <VBtn v-bind="props">
-          Open Dialog
-        </VBtn>
-      </template>
+<!--      <template #activator="{ props }">-->
+<!--        <VBtn v-bind="props">-->
+<!--          Open Dialog-->
+<!--        </VBtn>-->
+<!--      </template>-->
 
       <!-- Dialog close btn -->
       <DialogCloseBtn @click="isDialogVisible = !isDialogVisible" />
@@ -418,16 +425,29 @@ const priceHistory = data => {
             md="12"
           >
 
-            <span class="text-sm-caption mb-2">Products</span>
-            <model-list-select
-              :list="props.data.products"
-              v-model="selectedItem"
-              option-value="id"
-              :custom-text="productFullName"
-              placeholder="Select Product"
-            >
+            <span class="text-sm-caption mb-5">Products</span>
+<!--            <model-list-select-->
+<!--              :list="props.data.products"-->
+<!--              v-model="selectedItem"-->
+<!--              option-value="id"-->
+<!--              :custom-text="productFullName"-->
+<!--              placeholder="Select Product"-->
+<!--            >-->
 
-            </model-list-select>
+<!--            </model-list-select>-->
+
+            <VAutocomplete
+              class="mt-4"
+              clearable
+              v-model="selectedItem"
+              :items="props.data.products"
+              item-value="id"
+              :item-title="productFullName"
+              label="Products"
+
+              @update:modelValue="onProductChanged"
+            >
+            </VAutocomplete>
 
 
           </VCol>

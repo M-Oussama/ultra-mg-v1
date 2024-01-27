@@ -127,7 +127,7 @@ const addNewProduct = productData => {
   productListStore.addProduct(productData).then(response => {
 
     loading2.value.isActive = false;
-    successMiddleware('requests.product.success')
+    successMiddleware(response.data.message)
     // refetch product
     fetchProducts()
   }).catch(error => {
