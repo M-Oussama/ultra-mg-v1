@@ -21,11 +21,11 @@ class FakeDataSeeder extends Seeder
      */
     public function run()
     {
-        $this->createProducts();
-        $this->createClients();
-        $this->createSaleStatus();
+       // $this->createProducts();
+       // $this->createClients();
+       // $this->createSaleStatus();
         $this->companies();
-        $this->createEmployees();
+       // $this->createEmployees();
     }
 
     public function createProducts(){
