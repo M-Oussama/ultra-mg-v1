@@ -24,7 +24,7 @@ class POSController extends Controller
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
 
-        $sales = Sale::paginate($perPage, ['*'], 'page', $currentPage);
+        $sales = Sale::orderBy('sale_date', 'desc')->paginate($perPage, ['*'], 'page', $currentPage);
         $totalSales = $sales->total(); // Total number of invoices matching the query
         $totalPage = ceil($totalSales / $perPage); // Calculate total pages
 
