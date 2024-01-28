@@ -133,7 +133,7 @@ const addItem = () => {
 
 watch(selectedItem , ()=> {
 
-  handleProductChange()
+  //handleProductChange()
 })
 
 const removeProduct = Item => {
