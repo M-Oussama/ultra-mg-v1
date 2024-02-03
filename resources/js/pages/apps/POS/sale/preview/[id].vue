@@ -298,7 +298,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-2 text-sm-subtitle-2  border-right">
+                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right">
                   Address
                 </div>
                 <div    class=" v-col-md-10 border-left padding-8 data-font">
@@ -306,7 +306,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center  custom-white-border">
-                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right padding-right-0">
+                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right">
                   Phone
                 </div>
                 <div    class=" v-col-md-10 border-left padding-8 data-font">
@@ -378,17 +378,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               </p>
 
               <!-- 👉 Issue Date -->
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center ">
-                <div    class=" v-col-md-4 text-sm-subtitle-2 border-right padding-right-0">
-                  <span>
 
-                  </span>
-
-                </div>
-                <div    class=" v-col-md-8 text-sm-subtitle-2 padding-8 border-left data-font">
-
-                </div>
-              </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row custom-white-border">
                 <div class=" v-col-md-5 text-sm-subtitle-2 border-right">
                   Facture
@@ -427,31 +417,31 @@ watch(clientId, (value, oldValue, onCleanup)=>{
           <VTable>
             <thead>
               <tr>
-                <th scope="col">
+                <th class="text-sm-caption" scope="col">
                   ID
                 </th>
-                <th scope="col" v-if="show.sku">
+                <th class="text-sm-caption" scope="col" v-if="show.sku">
                   SKU
                 </th>
-                <th scope="col">
+                <th class="text-sm-caption" scope="col">
                   name
                 </th>
                 <th
                   scope="col"
-                  class="text-center"
+                  class="text-center text-sm-caption"
                   v-if="show.price"
                 >
                   Price
                 </th>
                 <th
                   scope="col"
-                  class="text-center"
+                  class="text-center text-sm-caption"
                 >
                   QTY
                 </th>
                 <th
                   scope="col"
-                  class="text-center"
+                  class="text-center text-sm-caption"
                   v-if="show.price"
                 >
                   TOTAL
@@ -464,24 +454,24 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 v-for="(item,index) in sale.sale_items"
                 :key="item.name"
               >
-                <td class="text-no-wrap">
+                <td class="text-no-wrap text-sm-caption">
                   {{ index+1 }}
                 </td>
-                <td class="text-no-wrap"  v-if="show.sku">
+                <td class="text-no-wrap text-sm-caption"  v-if="show.sku">
                   {{ item.product.SKU }}
                 </td>
                 <td class="text-no-wrap">
-                  <p class="text-sm-caption mb-0">{{item.product.brand}}</p>
-                  {{ item.product.name }}
+                  <p class="text-sm-caption mb-0">{{ item.product.name }}</p>
+
 
                 </td>
-                <td class="text-center" v-if="show.price">
+                <td class="text-center text-sm-caption" v-if="show.price">
                   {{ item.price }} DZD
                 </td>
-                <td class="text-center">
+                <td class="text-center text-sm-caption">
                   {{ item.quantity }}
                 </td>
-                <td class="text-center" v-if="show.price">
+                <td class="text-center text-sm-caption" v-if="show.price">
                   {{ item.total_price }} DZD
                 </td>
               </tr>
@@ -839,6 +829,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
     font-size: 10px !important;
     height: 28px;
     padding: 4px 8px 8px;
+    border-right: solid 1px #dbdbdb ;
   }
 
   .padding-8{
@@ -860,7 +851,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
     font-weight: bold;
   }
   .border-left{
-    border-left: solid 1px #dbdbdb;
+
   }
 }
 .text-color-black{
@@ -897,9 +888,10 @@ watch(clientId, (value, oldValue, onCleanup)=>{
   font-size: 10px !important;
   height: 28px;
   padding: 4px 8px 8px;
+  border-right: solid 1px #dbdbdb;
 }
 .border-left{
-  border-left: solid 1px #dbdbdb;
+
 }
 
 .padding-8{
@@ -915,5 +907,8 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 }
 .v-autocomplete__selection-text{
   font-size: small;
+}
+table > tbody > tr > td, table > thead > tr > th{
+  height: 31px !important;
 }
 </style>
