@@ -38,7 +38,9 @@ const login = () => {
   axios.post('/auth/login', {
     email: email.value,
     password: password.value,
+    device_name: 'iphone'
   }).then(r => {
+
     const { accessToken, userData, userAbilities } = r.data
 
     localStorage.setItem('userAbilities', JSON.stringify(userAbilities))
@@ -112,19 +114,19 @@ const onSubmit = () => {
             Please sign-in to your account and start the adventure
           </p>
         </VCardText>
-        <VCardText>
-          <VAlert
-            color="primary"
-            variant="tonal"
-          >
-            <p class="text-caption mb-2">
-              Admin Email: <strong>admin@demo.com</strong> / Pass: <strong>admin</strong>
-            </p>
-            <p class="text-caption mb-0">
-              Client Email: <strong>client@demo.com</strong> / Pass: <strong>client</strong>
-            </p>
-          </VAlert>
-        </VCardText>
+<!--        <VCardText>-->
+<!--          <VAlert-->
+<!--            color="primary"-->
+<!--            variant="tonal"-->
+<!--          >-->
+<!--&lt;!&ndash;            <p class="text-caption mb-2">&ndash;&gt;-->
+<!--&lt;!&ndash;              Admin Email: <strong>admin@demo.com</strong> / Pass: <strong>admin</strong>&ndash;&gt;-->
+<!--&lt;!&ndash;            </p>&ndash;&gt;-->
+<!--&lt;!&ndash;            <p class="text-caption mb-0">&ndash;&gt;-->
+<!--&lt;!&ndash;              Client Email: <strong>client@demo.com</strong> / Pass: <strong>client</strong>&ndash;&gt;-->
+<!--&lt;!&ndash;            </p>&ndash;&gt;-->
+<!--          </VAlert>-->
+<!--        </VCardText>-->
         <VCardText>
           <VForm
             ref="refVForm"
@@ -176,18 +178,18 @@ const onSubmit = () => {
               </VCol>
 
               <!-- create account -->
-              <VCol
-                cols="12"
-                class="text-center"
-              >
-                <span>New on our platform?</span>
-                <RouterLink
-                  class="text-primary ms-2"
-                  :to="{ name: 'register' }"
-                >
-                  Create an account
-                </RouterLink>
-              </VCol>
+<!--              <VCol-->
+<!--                cols="12"-->
+<!--                class="text-center"-->
+<!--              >-->
+<!--                <span>New on our platform?</span>-->
+<!--                <RouterLink-->
+<!--                  class="text-primary ms-2"-->
+<!--                  :to="{ name: 'register' }"-->
+<!--                >-->
+<!--                  Create an account-->
+<!--                </RouterLink>-->
+<!--              </VCol>-->
               <VCol
                 cols="12"
                 class="d-flex align-center"

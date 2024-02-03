@@ -38,11 +38,13 @@ const sale = ref({
   sale_items:[],
 })
 const show = ref({
-  sku:true,
+  sku:false,
   invoice:false,
   price:true,
-  paymentType:'Espece'
+  paymentType:'Espece',
+  sold: false
 })
+const sold = ref(0)
 const defaultClient = ref();
 let clients = ref([])
 const companyVal = ref(1);
@@ -71,6 +73,7 @@ const loading = ref({
 saleStore.fetchSale(Number(route.params.id)).then(response => {
 
   sale.value = response.data.sale
+  sold.value = response.data.sold
   defaultClient.value = {...sale.value.client};
   companies = response.data.companies
   clients = response.data.clients
@@ -141,10 +144,10 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 <div class="ma-sm-3">
                   <div class="d-flex align-center mb-6">
                     <!-- 👉 Logo -->
-                    <VNodeRenderer
-                      :nodes="themeConfig.app.logo"
-                      class="me-3"
-                    />
+<!--                    <VNodeRenderer-->
+<!--                      :nodes="themeConfig.app.logo"-->
+<!--                      class="me-3"-->
+<!--                    />-->
 
                     <!-- 👉 Title -->
                     <h6 class="font-weight-bold text-xl">
@@ -433,9 +436,6 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 <th scope="col">
                   name
                 </th>
-                <th scope="col">
-                  Description
-                </th>
                 <th
                   scope="col"
                   class="text-center"
@@ -475,11 +475,8 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                   {{ item.product.name }}
 
                 </td>
-                <td class="text-no-wrap">
-                  {{ item.product.description }}
-                </td>
                 <td class="text-center" v-if="show.price">
-                  {{ item.unit_price }} DZD
+                  {{ item.price }} DZD
                 </td>
                 <td class="text-center">
                   {{ item.quantity }}
@@ -497,14 +494,32 @@ watch(clientId, (value, oldValue, onCleanup)=>{
           <VCardText class="d-flex justify-space-between flex-column flex-sm-row print-row " v-if="show.price">
             <div class="my-2 mx-sm-5 v-col-md-6">
 
-              <h5>Invoice's Final Amount : {{ sale.amount_letter }}</h5>
+              <h5>La Facture est arretée à la somme de : {{ sale.amount_letter }}</h5>
+              <div v-if="show.sold" class="mt-10 d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
+                  Ancien solde
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                  {{ parseFloat(sold).toFixed(2) }} DZD
+                </div>
+              </div>
+
+
+              <div v-if="show.sold" class=" d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
+                  Nouveau solde
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                  {{ (parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2) }} DZD
+                </div>
+              </div>
             </div>
 
             <div class="my-2 mx-sm-4 v-col-md-4">
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
                 <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
-                  Invoice
+                  Total
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ (sale.total_amount) }} DZD
@@ -512,7 +527,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
                 <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
-                  Payment
+                  Paiement
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ sale.payment ? parseFloat(sale.regulation).toFixed(2): 0.00 }} DZD
@@ -521,7 +536,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
                 <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
-                  Rest
+                  Nouveau solde
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ (parseFloat(sale.total_amount) - parseFloat(sale.regulation)).toFixed(2) }} DZD
@@ -538,14 +553,16 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
           <VDivider />
 
+
           <VCardText>
             <div class="d-flex mx-sm-4">
               <h6 class="text-sm font-weight-semibold me-1">
                 Note:
               </h6>
-              <span>It was a pleasure working with you and your team. We hope you will keep us in mind for future freelance projects. Thank You!</span>
+              <span>Merci pour votre règlement rapide. Nous apprécions votre collaboration </span>
             </div>
           </VCardText>
+
         </VCard>
       </VCol>
 
@@ -600,6 +617,17 @@ watch(clientId, (value, oldValue, onCleanup)=>{
         <VCard class="mt-7">
           <VCardText>
             <div class="d-flex align-center justify-space-between mt-5">
+              <VLabel for="sold">
+                Sold
+              </VLabel>
+              <div>
+                <VSwitch
+                  id="sku"
+                  v-model="show.sold"
+                />
+              </div>
+            </div>
+            <div class="d-flex align-center justify-space-between">
               <VLabel for="price">
                 SKU
               </VLabel>
@@ -685,6 +713,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
             </div>
           </VCardText>
+
         </VCard>
 
 
