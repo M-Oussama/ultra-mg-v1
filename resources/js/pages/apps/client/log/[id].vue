@@ -21,6 +21,7 @@ const totalPage = ref(1)
 const totalLogs = ref(0)
 const cities = ref([])
 let logs = ref([])
+let client = ref()
 let currentTab = ref('Appetizers')
 let loading2 = ref({
   isActive: false,
@@ -84,7 +85,8 @@ const fetchClientLog = () => {
     console.log(response)
     loading2.value.isActive = false;
      logs.value = response.data.logs
-    console.log(logs)
+     client.value = response.data.client
+
      totalPage.value = response.data.totalPage
      cities.value = response.data.cities
      totalLogs.value = response.data.totalLogs
@@ -217,7 +219,7 @@ const exportLog = () => {
   array.push(['ID', 'Date', 'Sale', 'Payment', 'Balance'])
   for (let i = 0; i <logs._rawValue.length ; i++) {
     if(logs._rawValue[i].type === "sale") {
-      array.push([counter,logs._rawValue[i].date,  logs._rawValue[i].amount, logs._rawValue[i].regulation, logs._rawValue[i].total_balance])
+      array.push([counter,logs._rawValue[i].date,  logs._rawValue[i].amount, logs._rawValue[i].regulation > 0 ? logs._rawValue[i].regulation : '' , logs._rawValue[i].total_balance])
     } else {
       array.push([counter,logs._rawValue[i].date,  '', logs._rawValue[i].amount, logs._rawValue[i].total_balance])
 
@@ -234,13 +236,18 @@ const exportLog = () => {
       format: "letter"
     }
   );
+  let date = new Date();
+  let day = String(date.getDate()).padStart(2, '0');
+  let month = String(date.getMonth() + 1).padStart(2, '0'); // Adding 1 because getMonth() returns zero-based month
+  let year = date.getFullYear();
+  let current_date = day + '/' + month + '/' + year;
   doc.setFontSize(16).text("CUSTOMER LOG", 100,15, { align: "center", maxWidth: "100"});
-  doc.setFontSize(8).text("Client: Fellahi Khalil", 15,25, { align: "left", maxWidth: "100"});
-  doc.setFontSize(8).text("Address: Cite 200 Constantine NVL Ville", 100,25, { align: "center", maxWidth: "100"});
-  doc.setFontSize(8).text("Email: giam@gmail.com", 195,25, { align: "right", maxWidth: "100"});
-  doc.setFontSize(8).text("Phone: +213668154145", 15,35, { align: "left", maxWidth: "100"});
-  doc.setFontSize(8).text("From: 15-02-2024  To: 15-02-2024", 97,35, { align: "center", maxWidth: "100"});
-  doc.setFontSize(8).text("Date: 15-02-2024", 187,35, { align: "right", maxWidth: "100"});
+  doc.setFontSize(8).text("Client: "+client.value.name+ ' '+ client.value.surname, 15,25, { align: "left", maxWidth: "100"});
+  doc.setFontSize(8).text("Address: "+client.value.address, 100,25, { align: "center", maxWidth: "100"});
+  doc.setFontSize(8).text("Email: "+(client.value.email === null ? '' : client.value.email), 195,25, { align: "right", maxWidth: "100"});
+  doc.setFontSize(8).text("Phone: "+(client.value.phone === null ? '' : client.value.phone), 15,35, { align: "left", maxWidth: "100"});
+  doc.setFontSize(8).text("From:        To:      ", 97,35, { align: "center", maxWidth: "100"});
+  doc.setFontSize(8).text("Date: "+current_date, 187,35, { align: "right", maxWidth: "100"});
   autoTable(doc, {
     columnStyles: { 0: { halign: 'center' } }, // Cells in first column centered and green
     margin: { top: 40 , left: 10},

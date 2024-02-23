@@ -2,6 +2,7 @@
 import { avatarText } from '@core/utils/formatters'
 import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
 import InvoiceAddPaymentDrawer from '@/views/apps/invoice/InvoiceAddPaymentDrawer.vue'
+import ConfirmationDialog from "@/views/apps/POS/sales/list/ConfirmationDialog.vue";
 
 const saleStore = useSaleStore()
 const searchQuery = ref('')
@@ -14,8 +15,10 @@ const sales = ref([])
 const selectedRows = ref([])
 const isAddPaymentSidebarActive = ref(false)
 
-// 👉 Fetch Invoices
-watchEffect(() => {
+const isDialogVisible = ref(false)
+let selectedSale = ref()
+
+const fetchSale = () =>{
   saleStore.fetchSales({
     searchValue: searchQuery.value,
     status: selectedStatus.value,
@@ -30,6 +33,10 @@ watchEffect(() => {
     loading.value.isActive = false;
     console.log(error)
   })
+}
+// 👉 Fetch Invoices
+watchEffect(() => {
+  fetchSale()
 })
 
 // 👉 Fetch Invoices
@@ -99,6 +106,23 @@ const openPaymentDrawer = (item) => {
 const loading = ref({
   isActive :true
 })
+
+const openConfirmationDialog = (sale) => {
+  isDialogVisible.value = true;
+  selectedSale = sale;
+  console.log(selectedSale)
+}
+const deleteSale = saleData =>  {
+  saleStore.deleteSale(saleData).then(response => {
+    // refetch User
+    fetchSale()
+  }).catch(error => {
+    console.log(error)
+  })
+
+
+}
+
 </script>
 
 <template>
@@ -304,6 +328,18 @@ const loading = ref({
                   variant="text"
                   color="default"
                   size="x-small"
+                  @click="openConfirmationDialog(sale)"
+                >
+                  <VIcon
+                    :size="22"
+                    icon="tabler-trash"
+                  />
+                </VBtn>
+                <VBtn
+                  icon
+                  variant="text"
+                  color="default"
+                  size="x-small"
                   :to="{ name: 'apps-POS-sale-preview-id', params: { id: sale.id } }"
                 >
                   <VIcon
@@ -311,7 +347,6 @@ const loading = ref({
                     icon="tabler-eye"
                   />
                 </VBtn>
-
                 <VBtn
                   icon
                   variant="text"
@@ -404,7 +439,12 @@ const loading = ref({
 
           </VCardText>
           <!-- !SECTION -->
-
+          <ConfirmationDialog
+            v-model:isDialogVisible="isDialogVisible"
+            v-model:sale="selectedSale"
+            @sale-data="deleteSale"
+            v-if="isDialogVisible"
+          />
         </VCard>
       </VCol>
 

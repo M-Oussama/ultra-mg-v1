@@ -315,5 +315,18 @@ class POSController extends Controller
 
     }
 
+    public function deleteSale(Request $request) {
+
+        $id = $request->input('sale.id');
+        $sale = Sale::find($id);
+
+        SaleItem::where('sale_id', $id)->delete();
+        Payment::where('sale_id', $id)->delete();
+
+        $sale->delete();
+
+        return response()->json('Sale deleted Successfully');
+
+    }
 
 }

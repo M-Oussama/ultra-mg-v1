@@ -55,6 +55,23 @@ export const useSaleStore = defineStore('SaleStore', {
       })
     },
 
+    deleteSale(sale){
+
+      return new Promise((resolve, reject) => {
+        axios.post('/api/pos/sales/delete', {
+          sale,
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
+
     // 👉 Update Product
     updateCertifyInvoice(invoiceData) {
       const { id } = invoiceData;

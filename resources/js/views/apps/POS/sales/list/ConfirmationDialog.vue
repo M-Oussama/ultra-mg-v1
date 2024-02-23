@@ -4,7 +4,7 @@ const props = defineProps({
     type: Boolean,
     required: true,
   },
-  product: {
+  sale: {
     type: Object,
     required: true,
   },
@@ -14,7 +14,7 @@ const id = ref()
 
 const emit = defineEmits([
   'update:isDrawerOpen',
-  'productData',
+  'saleData',
 ])
 // 👉 drawer close
 const closeConfirmationDialog = () => {
@@ -22,14 +22,14 @@ const closeConfirmationDialog = () => {
 
 }
 // 👉 Watch for changes in the user prop and update form fields
-watch(() => props.product, (product) => {
-  if (product) {
-    id.value = product.id || 0
+watch(() => props.sale, (sale) => {
+  if (sale) {
+    id.value = sale.id || 0
   }
 });
 const onSubmit = () => {
-    emit('productData', {
-      id: props.product.id,
+    emit('saleData', {
+      id: props.sale.id,
     })
     emit('update:isDialogVisible', false)
 }
@@ -51,7 +51,7 @@ const onSubmit = () => {
     <!-- Dialog Content -->
     <VCard title="Confirmation">
       <VCardText>
-        Are you sure you want to delete this product ?
+        Are you sure you want to delete this sale ?
       </VCardText>
 
       <VCardText class="d-flex justify-end gap-3 flex-wrap">
