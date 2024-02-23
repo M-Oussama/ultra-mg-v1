@@ -62,5 +62,8 @@ export const useClientListStore = defineStore('ClientListStore', {
         axios.delete('/api/clients/delete/'+ id).then(response => resolve(response)).catch(error => reject(error))
       })
     },
+
+    fetchClientLog(params) { return axios.post('/api/clients/log', { params }) },
+
   },
 })

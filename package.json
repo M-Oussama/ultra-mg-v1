@@ -29,6 +29,8 @@
     "es6-promise": "^4.2.8",
     "eslint-import-resolver-alias": "^1.1.2",
     "html2pdf.js": "^0.10.1",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
     "jwt-decode": "^3.1.2",
     "pinia": "^2.0.24",
     "prismjs": "^1.29.0",

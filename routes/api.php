@@ -4,6 +4,7 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BenefitController;
 use App\Http\Controllers\CertifyInvoiceController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ClientLogController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
@@ -89,6 +90,10 @@ Route::post('attendances/updateEndDate/{id}', [AttendanceController::class, 'upd
 Route::post('attendances/addNewEmployeeAttendanceRecord/{id}', [AttendanceController::class, 'NewEmployeeAttendanceRecord'])->name('NewEmployeeAttendanceRecord');
 Route::get('/attendances/career/delete/{id}', [AttendanceController::class, 'deleteEmployeeCareer'])->name('deleteEmployeeCareer');
 
+/**
+ * logs
+ */
+Route::post('/clients/log', [ClientLogController::class, 'getLog'])->name('getLog');
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

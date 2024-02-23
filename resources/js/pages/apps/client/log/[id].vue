@@ -4,6 +4,8 @@ import EditClientDrawer from '@/views/apps/client/list/EditClientDrawer.vue';
 import ConfirmationDialog from '@/views/apps/client/list/ConfirmationDialog.vue';
 import {useClientListStore} from "@/views/apps/client/useClientListStore";
 import ClientMonthlyReport from '@/views/dashboards/crm/ClientMonthlyReport.vue'
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const clientListStore = useClientListStore()
 const searchQuery = ref('')
@@ -16,52 +18,76 @@ const selectedStatus = ref()
 const rowPerPage = ref(10)
 const currentPage = ref(1)
 const totalPage = ref(1)
-const totalClients = ref(0)
+const totalLogs = ref(0)
 const cities = ref([])
-let clients = ref([])
+let logs = ref([])
 let currentTab = ref('Appetizers')
 let loading2 = ref({
   isActive: false,
 })
 
-const items = [
-  {
-    id: 1,
-    name: 'Home'
-  },
-  {
-    id: 2,
-    name: 'Record'
-  },
-  {
-    id: 3,
-    name: 'Payments'
-  },
-  {
-    id: 4,
-    name: 'State'
-  },
+const heading = ref("Sample PDF Generator")
+const  moreText = ref( [
+  "This is another few sentences of text to look at it.",
+  "Just testing the paragraphs to see how they format.",
+  "jsPDF likes arrays for sentences.",
+  "Do paragraphs wrap properly?",
+  "Yes, they do!",
+  "What does it look like?",
+  "Not bad at all."
+])
+const  items = ref( [
+  { title: "Item 1", body: "I am item 1 body text" },
+  { title: "Item 2", body: "I am item 2 body text" },
+  { title: "Item 3", body: "I am item 3 body text" },
+  { title: "Item 4", body: "I am item 4 body text" }
+])
 
 
 
-]
+
+let balance = ref(0)
+const route = useRoute()
+// const items = [
+//   {
+//     id: 1,
+//     name: 'Home'
+//   },
+//   {
+//     id: 2,
+//     name: 'Record'
+//   },
+//   {
+//     id: 3,
+//     name: 'Payments'
+//   },
+//   {
+//     id: 4,
+//     name: 'State'
+//   },
+//
+//
+//
+// ]
 const tabItemText = 'hortbread chocolate bar marshmallow bear claw tiramisu chocolate cookie wafer. Gummies sweet brownie brownie marshmallow chocolate cake pastry. Topping macaroon shortbread liquorice dragée macaroon.'
 
 
-// 👉 Fetching Clients
-const fetchClients = () => {
+// 👉 Fetching logs
+const fetchClientLog = () => {
   loading2.value.isActive = true;
-  clientListStore.fetchClients({
+  clientListStore.fetchClientLog({
+     client_id: Number(route.params.id),
      searchValue: searchQuery.value,
      perPage: rowPerPage.value,
      currentPage: currentPage.value,
   }).then(response => {
+    console.log(response)
     loading2.value.isActive = false;
-     clients.value = response.data.clients.data
-    console.log(clients.value)
+     logs.value = response.data.logs
+    console.log(logs)
      totalPage.value = response.data.totalPage
      cities.value = response.data.cities
-     totalClients.value = response.data.totalClients
+     totalLogs.value = response.data.totalLogs
     loading.value = false;
     // Focus on the text field after loading is complete
     // Focus on the text field after loading is complete
@@ -75,18 +101,18 @@ const fetchClients = () => {
 
 
 
-watchEffect(fetchClients)
+watchEffect(fetchClientLog)
 
 // 👉 watching current page
 watchEffect(() => {
   if (currentPage.value > totalPage.value)
     currentPage.value = totalPage.value
 })
-// 👉 Watching changes in searchQuery and executing fetchClients
+// 👉 Watching changes in searchQuery and executing fetchlogs
 watch(searchQuery, () => {
 
   //loading.value = true;
-  fetchClients();
+  fetchClientLog();
 });
 
 
@@ -103,16 +129,16 @@ watchEffect(() => {
 
 // 👉 Computing pagination data
 const paginationData = computed(() => {
-  const firstIndex = clients.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
-  const lastIndex = clients.value.length + (currentPage.value - 1) * rowPerPage.value
+  const firstIndex = logs.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
+  const lastIndex = logs.value.length + (currentPage.value - 1) * rowPerPage.value
   
-  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalClients.value } entries`
+  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalLogs.value } entries`
 })
 
 const addNewClient = clientData => {
   clientListStore.addClient(clientData).then(response => {
     // refetch User
-    fetchClients()
+    fetchClientLog()
   }).catch(error => {
     console.log(error)
   })
@@ -123,7 +149,7 @@ const addNewClient = clientData => {
 const updateClient = clientData => {
   clientListStore.updateClient(clientData).then(response => {
     // refetch User
-    fetchClients()
+    fetchClientLog()
   }).catch(error => {
     console.log(error)
   })
@@ -134,7 +160,7 @@ const updateClient = clientData => {
 const deleteClient = clientData =>  {
   clientListStore.deleteClient(clientData).then(response => {
     // refetch User
-    fetchClients()
+    fetchClientLog()
   }).catch(error => {
     console.log(error)
   })
@@ -158,6 +184,115 @@ const openDialogData = (client) => {
 
 }
 
+const getBalance = (log) => {
+  if(log.type === "sale" ) {
+    if(!log.counted) {
+      log.total_balance = balance.value;
+      log.total_balance += parseFloat(log.amount);
+      log.counted = true;
+      balance.value = log.total_balance;
+
+    }
+
+  }
+  else {
+    if((!log.counted )) {
+      log.total_balance = balance.value;
+      log.total_balance -= parseFloat(log.amount);
+      log.counted = true;
+      balance.value = log.total_balance;
+
+    }
+
+  }
+
+
+  return log.total_balance;
+
+}
+
+const exportLog = () => {
+  var array = [];
+  var counter = 1;
+  array.push(['ID', 'Date', 'Sale', 'Payment', 'Balance'])
+  for (let i = 0; i <logs._rawValue.length ; i++) {
+    if(logs._rawValue[i].type === "sale") {
+      array.push([counter,logs._rawValue[i].date,  logs._rawValue[i].amount, logs._rawValue[i].regulation, logs._rawValue[i].total_balance])
+    } else {
+      array.push([counter,logs._rawValue[i].date,  '', logs._rawValue[i].amount, logs._rawValue[i].total_balance])
+
+    }
+    counter++;
+  }
+  console.log(array);
+
+
+  array.push([counter,'','','',logs._rawValue[logs._rawValue.length-1].total_balance])
+  const doc = new jsPDF({
+      orientation: "portrait",
+
+      format: "letter"
+    }
+  );
+  doc.setFontSize(16).text("CUSTOMER LOG", 100,15, { align: "center", maxWidth: "100"});
+  doc.setFontSize(8).text("Client: Fellahi Khalil", 15,25, { align: "left", maxWidth: "100"});
+  doc.setFontSize(8).text("Address: Cite 200 Constantine NVL Ville", 100,25, { align: "center", maxWidth: "100"});
+  doc.setFontSize(8).text("Email: giam@gmail.com", 195,25, { align: "right", maxWidth: "100"});
+  doc.setFontSize(8).text("Phone: +213668154145", 15,35, { align: "left", maxWidth: "100"});
+  doc.setFontSize(8).text("From: 15-02-2024  To: 15-02-2024", 97,35, { align: "center", maxWidth: "100"});
+  doc.setFontSize(8).text("Date: 15-02-2024", 187,35, { align: "right", maxWidth: "100"});
+  autoTable(doc, {
+    columnStyles: { 0: { halign: 'center' } }, // Cells in first column centered and green
+    margin: { top: 40 , left: 10},
+    body:
+
+      array
+    ,
+  })
+
+  doc.save('table.pdf');
+}
+  // const columns = [
+  //   { title: "Title", dataKey: "title" },
+  //   { title: "Body", dataKey: "body" }
+  // ];
+  // const doc = new jsPDF({
+  //   orientation: "portrait",
+  //   unit: "in",
+  //   format: "letter"
+  // });
+  // console.log(doc);
+  // // text is placed using x, y coordinates
+  // doc.setFontSize(16).text(heading.value, 0.5, 1.0);
+  // // create a line under heading
+  // doc.setLineWidth(0.01).line(0.5, 1.1, 8.0, 1.1);
+  // // Using autoTable plugin
+  // doc.autoTable({
+  //   columns,
+  //   body: items,
+  //   margin: { left: 0.5, top: 1.25 }
+  // });
+  // // Using array of sentences
+  // doc
+  //   .setFont("helvetica")
+  //   .setFontSize(12)
+  //   .text(moreText, 0.5, 3.5, { align: "left", maxWidth: "7.5" });
+  //
+  // // Creating footer and saving file
+  // doc
+  //   .setFont("times")
+  //   .setFontSize(11)
+  //   .setFontStyle("italic")
+  //   .setTextColor(0, 0, 255)
+  //   .text(
+  //     "This is a simple footer located .5 inches from page bottom",
+  //     0.5,
+  //     doc.internal.pageSize.height - 0.5
+  //   )
+
+
+
+
 </script>
 
 <template>
@@ -174,7 +309,7 @@ const openDialogData = (client) => {
         ></v-progress-circular>
       </v-overlay>
       <VCol cols="12">
-        <VCard title="Clients">
+        <VCard title="logs">
           <VDivider />
 
           <VCardText class="d-flex flex-wrap py-4 gap-4">
@@ -215,17 +350,13 @@ const openDialogData = (client) => {
                 variant="tonal"
                 color="secondary"
                 prepend-icon="tabler-screen-share"
+                @click="exportLog"
               >
                 Export
               </VBtn>
 
               <!-- 👉 Add client button -->
-              <VBtn
-                prepend-icon="tabler-plus"
-                @click="isAddNewClientDrawerVisible = true"
-              >
-                Add New Client
-              </VBtn>
+
             </div>
           </VCardText>
 
@@ -239,31 +370,34 @@ const openDialogData = (client) => {
                   ID
                 </th>
                 <th scope="col">
-                  Client
+                  Date
                 </th>
                 <th scope="col">
-                  City
+                  Achat
                 </th>
                 <th scope="col">
-                  Phone
+                  Regulation
+                </th>
+                <th scope="col">
+                  Payment
+                </th>
+                <th scope="col">
+                  Balance
                 </th>
 
-
-                <th scope="col">
-                  ACTIONS
-                </th>
               </tr>
             </thead>
             <!-- 👉 table body -->
+
             <tbody>
               <tr
-                v-for="client in clients"
-                :key="client.id"
+                v-for="(log, index) in logs"
+                :key="log.id"
                 style="height: 3.75rem;"
               >
                 <!-- 👉 ID -->
                 <td>
-                  {{client.id}}
+                  {{parseInt(index)+1}}
                 </td>
 
                 <!-- 👉 User -->
@@ -275,130 +409,47 @@ const openDialogData = (client) => {
                       class="me-3"
                       size="38"
                     >
-                      <VImg
-                        v-if="client.avatar"
-                        :src="client.avatar"
-                      />
-                      <span v-else>{{ client.name.toUpperCase().charAt(0) }} </span>
+
+
+                      <span> {{ log.type.toUpperCase().charAt(0) }} </span>
                     </VAvatar>
 
                     <div class="d-flex flex-column">
                       <h6 class="text-base">
                         <RouterLink
-                          :to="{ name: 'apps-user-view-id', params: { id: client.id } }"
+                          :to="{ name: 'apps-user-view-id', params: { id: log.id } }"
                           class="font-weight-medium user-list-name"
                         >
-                          {{ client.name }}
+                          {{ log.date }}
                         </RouterLink>
                       </h6>
-                      <span class="text-sm text-disabled">@{{ client.email }}</span>
+                      <span class="text-sm text-disabled">{{ }}</span>
                     </div>
                   </div>
                 </td>
 
                 <!-- 👉 email -->
                 <td>
-                  <span class="text-capitalize text-base font-weight-semibold">{{ client.city.name }}</span>
+                  <span class="text-capitalize text-base font-weight-semibold">{{log.type === 'sale' ? log.amount : ''}}</span>
                 </td>
                 <td>
-                  <span class="text-capitalize text-base font-weight-semibold">{{ client.phone }}</span>
+                  <span class="text-capitalize text-base font-weight-semibold">{{log.type === 'sale' ? log.regulation : ''}}</span>
+                </td>
+                <td>
+                  <span class="text-capitalize text-base font-weight-semibold">{{log.type === 'payment' ? log.amount : ''}}</span>
+                </td>
+                <td>
+                  <span class="text-capitalize text-base font-weight-semibold">{{getBalance(log)}}</span>
                 </td>
 
 
                 <!-- 👉 Actions -->
-                <td
-                  class="text-center"
-                  style="width: 5rem;"
-                >
-                  <VBtn
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                    :to="{ name: 'apps-client-log-id', params: { id: client.id } }"
 
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-currency-dollar"
-
-                    />
-                  </VBtn>
-                  <VBtn
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                    @click="openDialogData(client)"
-
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-shopping-cart"
-
-                    />
-                  </VBtn>
-
-
-                  <VBtn
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                    @click="openUpdateDrawer(client)"
-
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-edit"
-
-                    />
-                  </VBtn>
-
-                  <VBtn
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                    @click="openConfirmationDialog(client)"
-
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-trash"
-                    />
-                  </VBtn>
-
-                  <VBtn
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-dots-vertical"
-                    />
-
-<!--                    <VMenu activator="parent">-->
-<!--                      <VList>-->
-<!--                        <VListItem-->
-<!--                          title="View"-->
-<!--                          :to="{ name: 'apps-user-view-id', params: { id: user.id } }"-->
-<!--                        />-->
-<!--                        <VListItem-->
-<!--                          title="Suspend"-->
-<!--                          href="javascript:void(0)"-->
-<!--                        />-->
-<!--                      </VList>-->
-<!--                    </VMenu>-->
-                  </VBtn>
-                </td>
               </tr>
             </tbody>
 
             <!-- 👉 table footer  -->
-            <tfoot v-show="!clients.length">
+            <tfoot v-show="!logs.length">
               <tr>
                 <td
                   colspan="7"
@@ -552,7 +603,7 @@ const openDialogData = (client) => {
                     Total
                   </td>
                   <td class="text-caption">
-                    {{sale.total_amount}}
+                    {{sale.amount}}
                   </td>
                 </tr>
                 <tr>
@@ -624,7 +675,7 @@ const openDialogData = (client) => {
                       {{payment.payment_date}}
                     </td>
                     <td>
-                      {{payment.amount_paid}}
+                      {{payment.amount}}
                     </td>
 
                   </tr>
