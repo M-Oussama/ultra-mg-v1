@@ -26,7 +26,8 @@ let currentTab = ref('Appetizers')
 let loading2 = ref({
   isActive: false,
 })
-
+const FromDate = ref();
+const ToDate = ref();
 const heading = ref("Sample PDF Generator")
 const  moreText = ref( [
   "This is another few sentences of text to look at it.",
@@ -78,19 +79,21 @@ const fetchClientLog = () => {
   loading2.value.isActive = true;
   clientListStore.fetchClientLog({
      client_id: Number(route.params.id),
+     from_date: FromDate.value,
+     to_date: ToDate.value,
      searchValue: searchQuery.value,
      perPage: rowPerPage.value,
      currentPage: currentPage.value,
   }).then(response => {
     console.log(response)
     loading2.value.isActive = false;
-     logs.value = response.data.logs
+     logs.value = response.data.logs.data
      client.value = response.data.client
 
      totalPage.value = response.data.totalPage
      cities.value = response.data.cities
      totalLogs.value = response.data.totalLogs
-    loading.value = false;
+     loading.value = false;
     // Focus on the text field after loading is complete
     // Focus on the text field after loading is complete
 
@@ -212,7 +215,22 @@ const getBalance = (log) => {
   return log.total_balance;
 
 }
+const exportAllLog = () => {
 
+    loading2.value.isActive = true;
+    clientListStore.exportAllLog({
+      client_id: Number(route.params.id),
+      from_date: FromDate.value,
+      to_date: ToDate.value,
+
+    }).then(response => {
+      loading2.value.isActive = false;
+    }).catch(error => {
+      console.error(error)
+      loading2.value.isActive = false;
+    })
+
+}
 const exportLog = () => {
   var array = [];
   var counter = 1;
@@ -330,8 +348,17 @@ const exportLog = () => {
                 variant="outlined"
                 :items="[10, 20, 30, 50]"
               />
-            </div>
 
+
+            </div>
+            <AppDateTimePicker
+              v-model="FromDate"
+              label="From"
+            />
+            <AppDateTimePicker
+              v-model="ToDate"
+              label="To"
+            />
             <VSpacer />
 
             <div class="app-user-search-filter d-flex align-center flex-wrap gap-4">
@@ -360,6 +387,14 @@ const exportLog = () => {
                 @click="exportLog"
               >
                 Export
+              </VBtn>
+              <VBtn
+                variant="tonal"
+                color="secondary"
+                prepend-icon="tabler-screen-share"
+                @click="exportAllLog"
+              >
+                ExportAll
               </VBtn>
 
               <!-- 👉 Add client button -->

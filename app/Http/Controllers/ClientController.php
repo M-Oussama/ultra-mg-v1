@@ -32,24 +32,28 @@ class ClientController extends Controller
     )])]
     public function getClients(Request $request): JsonResponse
     {
+
         $searchValue = $request->input('searchValue', ''); // search value
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
+
 
 
         $clients = Client::with(['sales','payments'])->when($searchValue, function ($queryBuilder) use ($searchValue) {
             // Search for users with matching name or email
             $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
                 ->orWhere('surname', 'LIKE', '%' . $searchValue . '%');
-        })->paginate($perPage, ['*'], 'page', $currentPage);
+        });
+        $clientsAll = $clients->get();
+        $clientsPage = $clients->paginate($perPage, ['*'], 'page', $currentPage);
 
 
-        $totalUsers = $clients->total(); // Total number of users matching the query
+        $totalUsers = $clientsPage->total(); // Total number of users matching the query
         $totalPage = ceil($totalUsers / $perPage); // Calculate total pages
 
         $cities = City::all();
 
-        return response()->json(["clients" => $clients, "totalPage" => $totalPage, "totalClients"=>$totalUsers, 'cities'=>$cities]);
+        return response()->json(["clients" => $clientsPage, 'clientsAll' => $clientsAll, "totalPage" => $totalPage, "totalClients"=>$totalUsers, 'cities'=>$cities]);
     }
 
     /**

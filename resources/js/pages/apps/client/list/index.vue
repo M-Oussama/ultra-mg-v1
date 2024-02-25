@@ -4,6 +4,8 @@ import EditClientDrawer from '@/views/apps/client/list/EditClientDrawer.vue';
 import ConfirmationDialog from '@/views/apps/client/list/ConfirmationDialog.vue';
 import {useClientListStore} from "@/views/apps/client/useClientListStore";
 import ClientMonthlyReport from '@/views/dashboards/crm/ClientMonthlyReport.vue'
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const clientListStore = useClientListStore()
 const searchQuery = ref('')
@@ -19,6 +21,7 @@ const totalPage = ref(1)
 const totalClients = ref(0)
 const cities = ref([])
 let clients = ref([])
+let clientsAll = ref([])
 let currentTab = ref('Appetizers')
 let loading2 = ref({
   isActive: false,
@@ -58,6 +61,8 @@ const fetchClients = () => {
   }).then(response => {
     loading2.value.isActive = false;
      clients.value = response.data.clients.data
+    console.log(response.data.clientsAll);
+    clientsAll.value = response.data.clientsAll
     console.log(clients.value)
      totalPage.value = response.data.totalPage
      cities.value = response.data.cities
@@ -157,7 +162,49 @@ const openDialogData = (client) => {
   selectedClient = client;
 
 }
+const exportList = () => {
+  var array = [];
+  var counter = 1;
+  array.push(['ID', 'Date', 'Sale'])
+  console.log(clientsAll)
+  for (let i = 0; i <clientsAll._rawValue.length ; i++) {
 
+   array.push([counter,clientsAll._rawValue[i].name,  clientsAll._rawValue[i].surname])
+
+    counter++;
+  }
+  console.log(array);
+
+
+  const doc = new jsPDF({
+      orientation: "portrait",
+
+      format: "letter"
+    }
+  );
+  let date = new Date();
+  let day = String(date.getDate()).padStart(2, '0');
+  let month = String(date.getMonth() + 1).padStart(2, '0'); // Adding 1 because getMonth() returns zero-based month
+  let year = date.getFullYear();
+  let current_date = day + '/' + month + '/' + year;
+  // doc.setFontSize(16).text("CUSTOMER LOG", 100,15, { align: "center", maxWidth: "100"});
+  // doc.setFontSize(8).text("Client: "+client.value.name+ ' '+ client.value.surname, 15,25, { align: "left", maxWidth: "100"});
+  // doc.setFontSize(8).text("Address: "+client.value.address, 100,25, { align: "center", maxWidth: "100"});
+  // doc.setFontSize(8).text("Email: "+(client.value.email === null ? '' : client.value.email), 195,25, { align: "right", maxWidth: "100"});
+  // doc.setFontSize(8).text("Phone: "+(client.value.phone === null ? '' : client.value.phone), 15,35, { align: "left", maxWidth: "100"});
+  // doc.setFontSize(8).text("From:        To:      ", 97,35, { align: "center", maxWidth: "100"});
+  // doc.setFontSize(8).text("Date: "+current_date, 187,35, { align: "right", maxWidth: "100"});
+  autoTable(doc, {
+    columnStyles: { 0: { halign: 'center' } }, // Cells in first column centered and green
+    margin: { top: 40 , left: 10},
+    body:
+
+    array
+    ,
+  })
+
+  doc.save('table.pdf');
+}
 </script>
 
 <template>
@@ -215,6 +262,7 @@ const openDialogData = (client) => {
                 variant="tonal"
                 color="secondary"
                 prepend-icon="tabler-screen-share"
+                @click="exportList"
               >
                 Export
               </VBtn>

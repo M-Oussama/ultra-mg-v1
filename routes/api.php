@@ -6,6 +6,7 @@ use App\Http\Controllers\CertifyInvoiceController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientLogController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\PDFController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\POSController;
@@ -95,6 +96,7 @@ Route::get('/attendances/career/delete/{id}', [AttendanceController::class, 'del
  * logs
  */
 Route::post('/clients/log', [ClientLogController::class, 'getLog'])->name('getLog');
+Route::post('/clients/log/generate', [PDFController::class, 'generateCustomerLog'])->name('generateCustomerLog');
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

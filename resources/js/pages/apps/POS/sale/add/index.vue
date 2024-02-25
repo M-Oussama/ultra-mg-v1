@@ -55,17 +55,21 @@ const invoice_id = ref(null)
 const saved = ref(false)
 
 const saleStore = useSaleStore()
-
+loading.isActive = true;
 // 👉 fetchData
 saleStore.fetchData().then(response => {
+  console.log(loading.isActive)
   sale.value.id = response.data.last_id
   sale.value.clients = response.data.clients
   sale.value.cities = response.data.cities
   sale.value.products = response.data.products
   sale.value.sale_statues = response.data.sale_statues
   //companyProfile.value = response.data.companyProfile
+  loading.isActive = false;
+  console.log(loading.isActive)
 }).catch(err => {
   console.log(err)
+  loading.isActive = false;
 })
 
 /** METHODS **/
@@ -106,12 +110,13 @@ const saveInvoice = () => {
   } else {
 
     if(!loading.isActive) {
-       loading.isActive = true;
+      loading.isActive = true;
         saleStore.storeSale(sale.value).then( response => {
-        loading.isActive = false;
+
         saved.value = true;
         invoice_id.value = response.data.id
         successMiddleware('Sale created Successfully')
+          loading.isActive = false;
         router.push('/apps/pos/sale/preview/'+invoice_id.value)
 
       }).catch(err => {

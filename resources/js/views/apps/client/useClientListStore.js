@@ -65,5 +65,7 @@ export const useClientListStore = defineStore('ClientListStore', {
 
     fetchClientLog(params) { return axios.post('/api/clients/log', { params }) },
 
+    exportAllLog(params) { return axios.post('/api/clients/log/generate', { params }) },
+
   },
 })
