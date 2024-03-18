@@ -63,7 +63,6 @@ class POSController extends Controller
 
         $sold = Sale::where('client_id',$sale->client_id)
             ->where('id', '!=', $sale->id)
-            ->where('balance','>',0)
             ->where('sale_date','<=', $sale->sale_date)
             ->sum('balance');
 

@@ -500,7 +500,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                   Nouveau solde
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
-                  {{ (parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2) }} DZD
+                  {{ parseFloat(sold) > 0 ? (parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2) : (-parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2)}} DZD
                 </div>
               </div>
             </div>
@@ -719,7 +719,16 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 </template>
 
 <style lang="scss">
+label, p, div {
+  color:black !important;
+}
 @media print {
+  * {
+    border-color: rgb(0 0 0 / 30%) !important;
+  }
+  * {
+    color: rgba(0, 0, 0, 0.8784313725) !important;
+  }
   .v-application {
     background: none !important;
   }

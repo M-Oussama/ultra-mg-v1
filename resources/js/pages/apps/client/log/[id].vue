@@ -193,7 +193,12 @@ const getBalance = (log) => {
   if(log.type === "sale" ) {
     if(!log.counted) {
       log.total_balance = balance.value;
-      log.total_balance += parseFloat(log.amount);
+      if(parseFloat(log.amount) > 0) {
+        log.total_balance += parseFloat(log.amount);
+      }else {
+        log.total_balance -= parseFloat(log.amount);
+      }
+
       log.counted = true;
       balance.value = log.total_balance;
 
@@ -203,7 +208,12 @@ const getBalance = (log) => {
   else {
     if((!log.counted )) {
       log.total_balance = balance.value;
-      log.total_balance -= parseFloat(log.amount);
+      if(parseFloat(log.amount) > 0) {
+        log.total_balance -= parseFloat(log.amount);
+      }else {
+        log.total_balance += parseFloat(log.amount);
+      }
+
       log.counted = true;
       balance.value = log.total_balance;
 

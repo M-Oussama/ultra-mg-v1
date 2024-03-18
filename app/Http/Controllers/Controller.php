@@ -6,6 +6,7 @@ use App\Http\Helpers\NumberToLetter;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
 /**
  * @OA\Info(title="My First API", version="0.1")
@@ -64,6 +65,21 @@ class Controller extends BaseController
 
     public function responseMessage(String $message){
         return response()->json(["message"=>$message]);
+    }
+
+
+    /**
+     * Returns a json response with success true and the message.
+     *
+     * @param string|null $message
+     * @return JsonResponse
+     */
+    public function fsSuccess(?string $message): JsonResponse
+    {
+        return response()->json([
+            "success" => true,
+            "message" => $message
+        ]);
     }
 
     public function getDatesOfMonth($year, $month) {

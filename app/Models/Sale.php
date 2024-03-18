@@ -16,7 +16,8 @@ class Sale extends Model
         'total_amount',
         'sale_statuses_id',
         'notes',
-        'balance'
+        'balance',
+        'regulation'
     ];
     protected $casts = [
         'payment' => 'boolean'
@@ -27,9 +28,6 @@ class Sale extends Model
     {
         return $this->belongsTo(Client::class);
     }
-
-
-
 
     public function saleStatus()
     {

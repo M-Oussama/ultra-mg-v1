@@ -8,6 +8,7 @@ use App\Http\Controllers\ClientLogController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\POSController;
 use Illuminate\Http\Request;
@@ -97,6 +98,19 @@ Route::get('/attendances/career/delete/{id}', [AttendanceController::class, 'del
  */
 Route::post('/clients/log', [ClientLogController::class, 'getLog'])->name('getLog');
 Route::post('/clients/log/generate', [PDFController::class, 'generateCustomerLog'])->name('generateCustomerLog');
+
+/**
+ *  supplier
+ */
+
+
+    Route::group(['prefix' => 'suppliers'], function () {
+        Route::post('/list', [SupplierController::class, 'getSuppliers']);
+        Route::post('/create', [SupplierController::class, 'create']);
+        Route::post('/update', [SupplierController::class, 'update']);
+        Route::post('/delete', [SupplierController::class, 'delete']);
+    });
+
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

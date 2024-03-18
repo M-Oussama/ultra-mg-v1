@@ -72,21 +72,30 @@ const resolveInvoiceBalanceVariant = (balance, total) => {
   }
 }
 
-const resolveInvoiceStatusVariantAndIcon = balance => {
+const resolveInvoiceStatusVariantAndIcon = sale => {
 
-  if(balance > 0) {
-    return {
-      variant: 'error',
-      icon: 'tabler-chart-pie',
+  if(sale.balance > 0) {
+
+    if(sale.balance == sale.total_amount) {
+      return {
+        variant: 'error',
+        icon: 'tabler-x',
+      }
+    } else {
+      return {
+        variant: 'info',
+        icon: 'tabler-circle-half-2',
+      }
     }
+
   } else {
-    if(balance < 0) {
+    if(sale.balance < 0) {
       return {
         variant: 'warning',
         icon: 'tabler-alert-circle',
       }
     }
-    if(balance == 0) {
+    if(sale.balance == 0) {
       return {
         variant: 'success',
         icon: 'tabler-circle-check',
@@ -254,12 +263,12 @@ const deleteSale = saleData =>  {
                     <VAvatar
                       :size="30"
                       v-bind="props"
-                      :color="resolveInvoiceStatusVariantAndIcon(sale.balance).variant"
+                      :color="resolveInvoiceStatusVariantAndIcon(sale).variant"
                       variant="tonal"
                     >
                       <VIcon
                         :size="20"
-                        :icon="resolveInvoiceStatusVariantAndIcon(sale.balance).icon"
+                        :icon="resolveInvoiceStatusVariantAndIcon(sale).icon"
                       />
                     </VAvatar>
                   </template>
@@ -279,7 +288,7 @@ const deleteSale = saleData =>  {
                 <div class="d-flex align-center">
                   <VAvatar
                     size="34"
-                    :color="resolveInvoiceStatusVariantAndIcon(sale.balance).variant"
+                    :color="resolveInvoiceStatusVariantAndIcon(sale).variant"
                     variant="tonal"
                     class="me-3"
                   >

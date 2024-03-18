@@ -34,7 +34,8 @@ class ClientLogController extends Controller
            DB::raw("0 as total_balance"),
            'balance',
            'regulation'
-       )->whereBetween('sale_date', [$from_date, $to_date]);
+       )->where('client_id', $client_id)
+           ->whereBetween('sale_date', [$from_date, $to_date]);
        $payments = Payment::select(
            'id',
            'client_id',
@@ -46,7 +47,11 @@ class ClientLogController extends Controller
            DB::raw("0 as balance"),
            DB::raw("0 as  regulation"),
 
-       )->whereBetween('payment_date', [$from_date, $to_date])->union($sale)->orderBy('date')->paginate($perPage, ['*'], 'page', $currentPage);;
+       )
+           ->whereBetween('payment_date', [$from_date, $to_date])
+           ->where('client_id', $client_id)
+
+           ->union($sale)->orderBy('date')->paginate($perPage, ['*'], 'page', $currentPage);;
 
         $totalLogs = $payments->total(); // Total number of users matching the query
         $totalPage = ceil($totalLogs / $perPage); // Calculate total pages

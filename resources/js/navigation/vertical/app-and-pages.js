@@ -111,6 +111,9 @@ export default [
     title: 'Client', to: 'apps-client-list', icon: { icon: 'tabler-address-book' },
   },
   {
+    title: 'Supplier', to: 'apps-supplier-list', icon: { icon: 'tabler-briefcase' },
+  },
+  {
     title: 'Employee', to: 'apps-employee-list', icon: { icon: 'tabler-user' },
 
   },

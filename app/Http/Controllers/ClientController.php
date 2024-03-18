@@ -47,7 +47,6 @@ class ClientController extends Controller
         $clientsAll = $clients->get();
         $clientsPage = $clients->paginate($perPage, ['*'], 'page', $currentPage);
 
-
         $totalUsers = $clientsPage->total(); // Total number of users matching the query
         $totalPage = ceil($totalUsers / $perPage); // Calculate total pages
 
