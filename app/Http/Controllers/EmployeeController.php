@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\City;
 use App\Models\Employee;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,8 +24,15 @@ class EmployeeController extends Controller
         })->paginate($perPage, ['*'], 'page', $currentPage);
         $totalEmployees = $employees->total(); // Total number of users matching the query
         $totalPage = ceil($totalEmployees / $perPage); // Calculate total pages
+        $cities = City::all();
 
-        return response()->json(["employees" => $employees, "totalPage" => $totalPage, "totalEmployees"=>$totalEmployees]);
+        return response()->json(["cities"=> $cities, "employees" => $employees, "totalPage" => $totalPage, "totalEmployees"=>$totalEmployees]);
+    }
+    public function getEmployee($Id): JsonResponse
+    {
+       $employee = Employee::find($Id);
+
+        return response()->json(["employee" => $employee]);
     }
 
     public function store(Request $request) {

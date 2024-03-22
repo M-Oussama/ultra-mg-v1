@@ -35,7 +35,7 @@ export const useEmployeeStore = defineStore('EmployeeStore', {
 
     fetchEmployee(id) {
       return new Promise((resolve, reject) => {
-        axios.get(`/apps/employees/${id}`).then(response => resolve(response)).catch(error => reject(error))
+        axios.get(`/api/employees/${id}`).then(response => resolve(response)).catch(error => reject(error))
       })
     },
     // 👉 delete single client

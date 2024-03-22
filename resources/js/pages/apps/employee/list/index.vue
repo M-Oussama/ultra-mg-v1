@@ -5,10 +5,15 @@ import ConfirmationDialog from '@/views/apps/employee/list/ConfirmationDialog.vu
 import {useEmployeeStore} from "@/views/apps/employee/useEmployeeStore";
 import {successMiddleware} from "@/middlewares/successMiddleware";
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
-
+import VueHtml2pdf from 'vue-html2pdf'
+import { onMounted, ref } from "vue";
+import jsPDF from "jspdf";
+const route = useRouter()
 const employeeStore = useEmployeeStore()
 const searchQuery = ref('')
 const loading = ref(false)
+const html2Pdf = ref(null)
+const cities = ref([])
 const loading2 = ref({
   isActive:true
 })
@@ -32,6 +37,7 @@ const fetchEmployees = () => {
   }).then(response => {
 
     employees.value = response.data.employees.data
+    cities.value = response.data.cities
      totalPage.value = response.data.totalPage
      totalEmployees.value = response.data.totalEmployees
      loading.value = false;
@@ -133,9 +139,36 @@ const openConfirmationDialog = (employee) => {
   selectedEmployee = employee;
 
 }
+let beforeDownload;
+beforeDownload = async ({html2pdf, options, pdfContent}) => {
+  await html2pdf().set(options).from(pdfContent).toPdf().get('pdf').then((pdf) => {
+    const totalPages = pdf.internal.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+      pdf.setPage(i)
+      pdf.setFontSize(10)
+      pdf.setTextColor(150)
+      pdf.text('Page ' + i + ' of ' + totalPages, (pdf.internal.pageSize.getWidth() * 0.88), (pdf.internal.pageSize.getHeight() - 0.3))
+    }
+  }).save()
+}
+
+
+const navigateToEmployeeContract = (employee) => {
+  console.log(employee)
+  route.push({
+    name: 'apps-employee-contract-id',
+    params: { id: employee.id}
+  });
+
+}
+
 
 </script>
 
+<script>
+
+
+</script>
 <template>
   <section>
     <VRow>
@@ -222,7 +255,7 @@ const openConfirmationDialog = (employee) => {
                 </th>
 
 
-                <th scope="col">
+                <th scope="col" id="test">
                   ACTIONS
                 </th>
               </tr>
@@ -300,7 +333,8 @@ const openConfirmationDialog = (employee) => {
                     size="x-small"
                     color="default"
                     variant="text"
-                    :to="{ name: 'apps-attendance-employees-id', params: { id: employee.id } }"
+
+                    :to="{ name: 'apps-attendance-employees-id', params: { id: employee.id},}"
                   >
                     <VIcon
                       size="22"
@@ -308,7 +342,21 @@ const openConfirmationDialog = (employee) => {
 
                     />
                   </VBtn>
+                  <VBtn
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
+                    @click="navigateToEmployeeContract(employee)"
 
+
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-file"
+
+                    />
+                  </VBtn>
                   <VBtn
                     icon
                     size="x-small"
@@ -371,16 +419,22 @@ const openConfirmationDialog = (employee) => {
       </VCol>
     </VRow>
 
+
+
+
+
     <!-- 👉 Add New Employee -->
     <AddNewEmployeeDrawer
       v-model:isDrawerOpen="isAddNewEmployeeDrawerVisible"
       @employee-data="addNewEmployee"
+      :cities="cities"
     />
 
     <!-- 👉 Edit Employee -->
     <EditEmployeeDrawer
       v-model:isDrawerOpen="isEditEmployeeDrawerVisible"
       v-model:employee = "selectedEmployee"
+      v-model:cities="cities"
       @employee-data="updateEmployee"
     />
 

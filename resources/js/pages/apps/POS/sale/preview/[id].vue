@@ -129,12 +129,13 @@ watch(clientId, (value, oldValue, onCleanup)=>{
     </v-overlay>
     <VRow>
       <VCol
+        class="printed"
         cols="12"
         md="9"
       >
         <VCard>
           <!-- SECTION Header -->
-          <VCardText  class=" d-flex flex-wrap justify-space-between flex-column flex-sm-row print-row">
+          <VCardText  class=" d-flex flex-wrap justify-space-between flex-column flex-sm-row print-row pb-0">
 
             <VRow>
               <VCol
@@ -142,6 +143,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               >
                 <!-- 👉 Left Content -->
                 <div class="ma-sm-3">
+
                   <div class="d-flex align-center mb-6">
                     <!-- 👉 Logo -->
 <!--                    <VNodeRenderer-->
@@ -277,7 +279,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
           </VRow>
 
-          <VDivider />
+
 
           <VCardText class=" invoiceGeneral d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row ">
             <!-- 👉 Left Content -->
@@ -481,7 +483,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
           <VDivider class="my-2" v-if="show.price"/>
 
           <!-- Total -->
-          <VCardText class="d-flex justify-space-between flex-column flex-sm-row print-row " v-if="show.price">
+          <VCardText class="d-flex justify-space-between flex-column flex-sm-row print-row pt-0" v-if="show.price">
             <div class="my-2 mx-sm-5 v-col-md-6">
 
               <h5>La Facture est arretée à la somme de : {{ sale.amount_letter }}</h5>
@@ -496,10 +498,16 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
 
               <div v-if="show.sold" class=" d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
-                  Nouveau solde
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-success" v-if="show.price">
+                  Nouveau
                 </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right" v-if="!show.price">
+                  Nouveau
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-success" v-if="show.price">
+                  {{ parseFloat(sold) > 0 ? (parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2) : (-parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2)}} DZD
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font " v-if="!show.price">
                   {{ parseFloat(sold) > 0 ? (parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2) : (-parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2)}} DZD
                 </div>
               </div>
@@ -525,10 +533,16 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               </div>
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
-                  Nouveau solde
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right"  v-if="show.sold">
+                  Nouveau
                 </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-success" v-if="!show.sold">
+                  Nouveau
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-success" v-if="!show.sold">
+                  {{ (parseFloat(sale.total_amount) - parseFloat(sale.regulation)).toFixed(2) }} DZD
+                </div>
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font" v-if="show.sold">
                   {{ (parseFloat(sale.total_amount) - parseFloat(sale.regulation)).toFixed(2) }} DZD
                 </div>
               </div>
@@ -719,16 +733,18 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 </template>
 
 <style lang="scss">
-label, p, div {
-  color:black !important;
-}
+
 @media print {
   * {
     border-color: rgb(0 0 0 / 30%) !important;
   }
   * {
-    color: rgba(0, 0, 0, 0.8784313725) !important;
+    color: black !important;
   }
+.layout-vertical-nav{
+  display: none;
+}
+
   .v-application {
     background: none !important;
   }
@@ -812,7 +828,6 @@ label, p, div {
     background-color: white !important;
     border-radius: 10px !important;
     padding: 0px !important;
-    margin: 17px !important;
   }
   .display-center{
     display: inline-grid
@@ -820,7 +835,6 @@ label, p, div {
 
   .custom-border{
     padding: 10px 0 10px 15px;
-
     background-color: #f3f2f4;
     border-radius: 19px;
     margin-right: 6px;
@@ -836,9 +850,16 @@ label, p, div {
   }
   .border-right{
     font-size: 10px !important;
-    height: 28px;
-    padding: 4px 8px 8px;
+    height: 22px;
+    padding: 0 8px 0;
     border-right: solid 1px #dbdbdb ;
+  }
+  .text-sm-caption{
+    font-size: 11px !important;
+    font-weight: bold;
+  }
+  .text-sm-subtitle-2{
+    font-weight: bold;
   }
 
   .padding-8{
@@ -869,8 +890,8 @@ label, p, div {
 .invoiceGeneral{
   background-color: white !important;
   border-radius: 10px !important;
-  padding: 0px !important;
-  margin: 17px !important;
+  padding: 0 !important;
+
 }
 .display-center{
   display: inline-grid
@@ -878,14 +899,13 @@ label, p, div {
 
 .custom-border{
   padding: 10px 0 10px 15px;
-
   background-color: #f3f2f4;
   border-radius: 19px;
   margin-right: 6px;
   margin-bottom: 6px;
 }
 .custom-white-border{
-  height: 30px;
+  height: 23px;
   background-color: white;
   border-radius: 19px;
   margin-right: 12px;
@@ -895,14 +915,17 @@ label, p, div {
 
 .border-right{
   font-size: 10px !important;
-  height: 28px;
-  padding: 4px 8px 8px;
+  height: 22px;
+  padding: 0 8px 0;
   border-right: solid 1px #dbdbdb;
 }
 .border-left{
 
 }
-
+.text-success{
+  color:green;
+  font-weight:bold;
+}
 .padding-8{
   padding: 1px 8px 0;
 }
@@ -918,6 +941,6 @@ label, p, div {
   font-size: small;
 }
 table > tbody > tr > td, table > thead > tr > th{
-  height: 31px !important;
+  height: 23px !important;
 }
 </style>

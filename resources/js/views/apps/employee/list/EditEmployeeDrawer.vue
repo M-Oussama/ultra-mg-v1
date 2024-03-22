@@ -16,6 +16,9 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  cities:{
+    type:Object
+  }
 
 })
 const emit = defineEmits([
@@ -28,7 +31,9 @@ const isFormValid = ref(false)
 const refForm = ref()
 const employee = ref({
   name:'',
+  name_ar:'',
   surname:'',
+  surname_ar:'',
   birthdate:'',
   birthplace:'',
   email:'',
@@ -39,6 +44,10 @@ const employee = ref({
   CNAS:'',
   card_issue_date:'',
   card_issue_place:'',
+  father_name_ar: '',
+  mother_full_name_ar: '',
+  birth_city_id:  '',
+  card_issued_city_id:  '',
 })
 watch(() => props.employee, (newEmployee) => {
     if(newEmployee){
@@ -140,7 +149,39 @@ const handleDrawerModelValueUpdate = val => {
                   label="Surname"
                 />
               </VCol>
-
+              <VCol cols="12">
+                <VTextField
+                  v-model="employee.name_ar"
+                  :rules="[requiredValidator]"
+                  label="Name Arabic"
+                  dir="rtl"
+                  lang="ar"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="employee.surname_ar"
+                  :rules="[requiredValidator]"
+                  label="Surname Arabic"
+                  dir="rtl"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="employee.father_name_ar"
+                  :rules="[requiredValidator]"
+                  dir="rtl"
+                  label="Father's name Arabic"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="employee.mother_full_name_ar"
+                  dir="rtl"
+                  :rules="[requiredValidator]"
+                  label="Mother's Full name Arabic"
+                />
+              </VCol>
               <VCol cols="12">
                 <AppDateTimePicker
                   v-model="employee.birthdate"
@@ -152,6 +193,18 @@ const handleDrawerModelValueUpdate = val => {
                   v-model="employee.birthplace"
                   :rules="[requiredValidator]"
                   label="lieu de naissance"
+                />
+              </VCol>
+
+              <VCol cols="12">
+                <VAutocomplete
+                  clearable
+                  v-model="employee.birth_city_id"
+                  :items="props.cities"
+                  item-value="id"
+                  item-title="name"
+                  label="City"
+                  :rules="[requiredValidator]"
                 />
               </VCol>
               <!-- 👉 Email -->
@@ -208,6 +261,17 @@ const handleDrawerModelValueUpdate = val => {
                   v-model="employee.card_issue_place"
                   :rules="[requiredValidator]"
                   label="card issue place"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VAutocomplete
+                  clearable
+                  v-model="employee.card_issued_city_id"
+                  :items="props.cities"
+                  item-value="id"
+                  item-title="name"
+                  label="City"
+                  :rules="[requiredValidator]"
                 />
               </VCol>
               <!-- 👉 NIS -->

@@ -332,9 +332,10 @@ class AttendanceController extends Controller
         $end_date = $request->input('endDate',null);
         $start_date = $request->input('startDate');
 
-        $record = EmployeeCareer::orderBy('created_at', 'desc')->first();
 
-        if(!$end_date) {
+        $record = EmployeeCareer::where('employee_id', $Id)->orderBy('created_at', 'desc')->first();
+
+        if($end_date != null) {
             if($record){
                 if($record->end_date) {
                     if($record->end_date >= $start_date ){
@@ -345,66 +346,73 @@ class AttendanceController extends Controller
                     throw new BadRequestHttpException('You can not add a new record until the previous one is ended');
                 }
             }
-        }
-
-
-// Condition 1: new_start_date < start_date and new_end_date < end_date
-        $condition1 = EmployeeCareer::
+            // Condition 1: new_start_date < start_date and new_end_date < end_date
+            $condition1 = EmployeeCareer::
             where('employee_id', $Id)
-            ->where('start_date', '<', $start_date)
-            ->where('end_date', '>', $end_date)
-            ->exists();
-
+                ->where('start_date', '<', $start_date)
+                ->where('end_date', '>', $end_date)
+                ->exists();
 // Condition 2: new_start_date < start_date and new_end_date > end_date
-        $condition2 = EmployeeCareer::
+            $condition2 = EmployeeCareer::
             where('employee_id', $Id)
-            ->where('start_date', '>', $start_date)
-            ->where('end_date', '<', $end_date)
-            ->exists();
+                ->where('start_date', '>', $start_date)
+                ->where('end_date', '<', $end_date)
+                ->exists();
 
-        $condition3 = EmployeeCareer::
-        where('employee_id', $Id)
-            ->where('start_date', '>', $start_date)
-            ->where('end_date', '>', $end_date)
-            ->where('start_date', '<=', $end_date)
-            ->exists();
+            $condition3 = EmployeeCareer::
+            where('employee_id', $Id)
+                ->where('start_date', '>', $start_date)
+                ->where('end_date', '>', $end_date)
+                ->where('start_date', '<=', $end_date)
+                ->exists();
 
 // Condition 4: new_start_date > start_date and new_end_date > end_date
-        $condition4 = EmployeeCareer::
+            $condition4 = EmployeeCareer::
             where('employee_id', $Id)
-            ->where('start_date', '<', $start_date)
-            ->where('end_date', '>=', $start_date)
-            ->where('end_date', '<', $end_date)
-            ->exists();
+                ->where('start_date', '<', $start_date)
+                ->where('end_date', '>=', $start_date)
+                ->where('end_date', '<', $end_date)
+                ->exists();
 
 
 
-        $overlap = EmployeeCareer::where('employee_id', $Id)
-            ->where(function ($query) use ($start_date, $end_date) {
-                $query->where(function ($q) use ($start_date, $end_date) {
-                    $q->where('start_date', '<=', $start_date)
-                        ->where(function ($qq) use ($start_date) {
-                            $qq->whereNull('end_date')
-                                ->orWhere('end_date', '>=', $start_date);
+            $overlap = EmployeeCareer::where('employee_id', $Id)
+                ->where(function ($query) use ($start_date, $end_date) {
+                    $query->where(function ($q) use ($start_date, $end_date) {
+                        $q->where('start_date', '<=', $start_date)
+                            ->where(function ($qq) use ($start_date) {
+                                $qq->whereNull('end_date')
+                                    ->orWhere('end_date', '>=', $start_date);
+                            });
+                    })
+                        ->orWhere(function ($q) use ($start_date, $end_date) {
+                            $q->where('start_date', '<=', $end_date)
+                                ->where(function ($qq) use ($end_date) {
+                                    $qq->whereNull('end_date')
+                                        ->orWhere('end_date', '>=', $end_date);
+                                });
                         });
                 })
-                    ->orWhere(function ($q) use ($start_date, $end_date) {
-                        $q->where('start_date', '<=', $end_date)
-                            ->where(function ($qq) use ($end_date) {
-                                $qq->whereNull('end_date')
-                                    ->orWhere('end_date', '>=', $end_date);
-                            });
-                    });
-            })
-            ->exists();
+                ->exists();
 
 
-       
 
-        if($overlap || $condition1 || $condition2 || $condition3 || $condition4) {
-            throw new BadRequestHttpException('The Date Intervale is wrong choose a correct one ');
 
+            if($overlap || $condition1 || $condition2 || $condition3 || $condition4) {
+                throw new BadRequestHttpException('The Date Intervale is wrong choose a correct one ');
+
+            }
+
+        }else {
+            if($record){
+                if($record->end_date == null){
+                    throw new BadRequestHttpException('You can not add a new record until the previous one is ended');
+
+                }
+            }
         }
+
+
 
         EmployeeCareer::create([
             'employee_id'=>$Id,

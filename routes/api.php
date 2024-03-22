@@ -76,6 +76,7 @@ Route::get('/employees/list', [EmployeeController::class, 'getEmployees'])->name
 Route::post('/employees/store', [EmployeeController::class, 'store'])->name('store');
 Route::post('/employees/update/{id}', [EmployeeController::class, 'update'])->name('update');
 Route::delete('/employees/delete/{id}', [EmployeeController::class, 'destroy'])->name('destroy');
+Route::get('/employees/{id}', [EmployeeController::class, 'getEmployee'])->name('getEmployee');
 
 /** Attendances */
 Route::get('/attendances/list', [AttendanceController::class, 'getAttendances'])->name('getAttendances');

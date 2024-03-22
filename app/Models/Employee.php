@@ -22,8 +22,14 @@ class Employee extends Model
         'NCN',
         'CNAS',
         'card_issue_date',
-        'card_issue_date',
-        'active'
+        'card_issue_place',
+        'active',
+        'name_ar',
+        'surname_ar',
+        'father_name_ar',
+        'mother_full_name_ar',
+        'birth_city_id',
+        'card_issued_city_id',
     ];
     protected $casts = [
         'active' => 'boolean',
@@ -31,12 +37,21 @@ class Employee extends Model
 
     //protected $with = ['employeeCareer'];
 
+    protected $with = ['birthCity', 'cardIssuedCity'];
+
     public function attendance(){
         return $this->hasMany(EmployeeAttendance::class,'employee_id');
     }
 
     public function employeeCareer() {
         return $this->hasMany(EmployeeCareer::class);
+    }
+
+    public function birthCity(){
+        return $this->belongsTo(City::class,'birth_city_id');
+    }
+    public function cardIssuedCity(){
+        return $this->belongsTo(City::class,'card_issued_city_id');
     }
 
     public function addSchedule($year, $month){
