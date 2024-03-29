@@ -160,6 +160,49 @@ const closeConfirmationDialog= () => {
   isDeleteDialogVisible.value.open = false;
 
 }
+
+const periodInAlphabet = (employee)=> {
+  let endDate = new Date(employee.end_date);
+
+  if (!employee.end_date) {
+    endDate = new Date(); // Use today's date if end date is null
+  }
+
+  const diffInMs = endDate - new Date(employee.start_date);
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  const years = Math.floor(diffInDays / 365);
+  const months = Math.floor((diffInDays % 365) / 30);
+  const days = diffInDays % 30;
+
+  let period = '';
+
+  if (years > 0) {
+    period += ('0' + years).slice(-2)+' years' + ', ';
+  }
+  if (months > 0) {
+    period += ('0' + months).slice(-2)+ ' months' + ', ';
+  }
+  if (days > 0) {
+    period += ('0' + days).slice(-2)+' days'
+  }
+
+  // Remove trailing comma and space
+  period = period.replace(/,\s*$/, '');
+
+  return period;
+}
+const convertToAlphabet = (number, unit) =>{
+  const alphabet = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+    'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen',
+    'nineteen', 'twenty', 'twenty-one', 'twenty-two', 'twenty-three', 'twenty-four', 'twenty-five',
+    'twenty-six', 'twenty-seven', 'twenty-eight', 'twenty-nine', 'thirty', 'thirty-one'];
+
+  if (number <= 31) {
+    return alphabet[number] + ' ' + unit + (number !== 1 ? 's' : '');
+  } else {
+    return number + ' ' + unit + (number !== 1 ? 's' : '');
+  }
+}
 </script>
 
 <template>
@@ -252,6 +295,10 @@ const closeConfirmationDialog= () => {
                 </th>
 
                 <th scope="col">
+                  Period
+                </th>
+
+                <th scope="col">
                   ACTIONS
                 </th>
               </tr>
@@ -291,6 +338,17 @@ const closeConfirmationDialog= () => {
                     <div class="d-flex flex-column">
                       <h6 class="text-base">
                         {{ employee.end_date }}
+                      </h6>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="d-flex align-center">
+
+
+                    <div class="d-flex flex-column">
+                      <h6 class="text-base">
+                        {{ periodInAlphabet(employee)}}
                       </h6>
                     </div>
                   </div>

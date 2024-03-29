@@ -124,6 +124,19 @@ class Controller extends BaseController
     }
 
 
+    function get_dates_between($start_date_str, $end_date_str) {
+        $start_date = new \DateTime($start_date_str);
+        $end_date = new \DateTime($end_date_str);
+
+        $dates = array();
+        $current_date = $start_date;
+        while ($current_date <= $end_date) {
+            $dates[] = $current_date->format('Y-m-d');
+            $current_date->add(new \DateInterval('P1D'));
+        }
+
+        return $dates;
+    }
 
 
 

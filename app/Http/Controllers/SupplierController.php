@@ -43,7 +43,7 @@ class SupplierController extends Controller
         // Validate the request data (you can customize validation rules)
         $rules = [
             'name' => 'required|string|max:255',
-            'surname' => 'string|max:255',
+            'surname' => 'nullable|string|max:255',
             'email' => [
                 'email',
                 'string',

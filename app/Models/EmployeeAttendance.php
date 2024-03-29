@@ -13,7 +13,7 @@ class EmployeeAttendance extends Model
         'attendance_id',
         'date',
         'present',
-        'allDays'
+        'employee_career_id'
     ];
 
     protected $casts = [
@@ -24,5 +24,8 @@ class EmployeeAttendance extends Model
 
     public function employee(){
         return $this->belongsTo(Employee::class);
+    }
+    public function career(){
+        return $this->belongsTo(EmployeeCareer::class,'employee_career_id');
     }
 }

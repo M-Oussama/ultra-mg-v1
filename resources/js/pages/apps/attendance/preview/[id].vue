@@ -159,6 +159,14 @@ console.log(employee.allDays);
 const printAttendance = () => {
   window.print()
 }
+const getStartDate = (array) =>{
+  return array[""] ? array[""][0].career.start_date : array[0][0].career.start_date;
+
+}
+const getEndDate = (array) =>{
+  return array[""] ? (array[""][0].career.end_date == null ? '' : array[""][0].career.end_date) : (array[0][0].career.start_date == null ? '' : array[0][0].career.end_date);
+
+}
 </script>
 
 <template>
@@ -181,7 +189,7 @@ const printAttendance = () => {
 
           <VCardText class=" flex-wrap justify-space-between flex-column flex-sm-row print-row">
 
-            <h3>Attendance {{_attendance.month}}/ {{_attendance.year}}</h3>
+            <h3>Pointage Mois {{('0'+ _attendance.month).slice(-2)}}/ {{_attendance.year}}</h3>
             <div class="align-center flex-wrap gap-4 ">
               <!-- 👉 Search  -->
               <div >
@@ -201,17 +209,17 @@ const printAttendance = () => {
                   </th>
 
                   <th class="text-center" >
-                    Start Date
+                    Date de récrutement
                   </th>
                   <th class="text-center" >
-                    Days
+                    Jours
                   </th>
                   <th class="text-center" >
-                    Number Of Present Days
+                    Jours de travail
                   </th>
 
                   <th class="text-center" >
-                    End Date
+                    Date de fin
                   </th>
                 </tr>
                 </thead>
@@ -222,7 +230,7 @@ const printAttendance = () => {
                     {{employee.employee.name}} {{employee.employee.surname}}
                   </th>
                   <th class="text-center" >
-                    <p class="ma-0 " v-for="(value, key) in employee.result">{{value[0].start_date}}</p>
+                    <p class="ma-0 " >{{getStartDate(employee.result)}}</p>
 
                   </th>
                   <th class="text-center" >
@@ -232,7 +240,7 @@ const printAttendance = () => {
                     {{employee.present_count}}
                   </th>
                   <th class="text-center" >
-                    <p class="ma-0 " v-for="(value, key) in employee.result">{{key === "" ? "Still Working": key}}</p>
+                    <p class="ma-0 " >{{getEndDate(employee.result)}}</p>
                   </th>
                 </tr>
                 </tbody>

@@ -87,24 +87,25 @@ const printInvoice = () => {
         md="9"
       >
         <VCard >
-          <VCardText  class=" print-row pb-0">
+          <VCardText  class=" print-row pb-0 pt-0">
             <div>
               <div ref="html2Pdf" class="text-right" dir="rtl">
                 <div class=" text-center">
-                  <h6 class="header-font-size">EURL SETIFIS DETERGENTS
+                  <h6 class="header-font-size">
+                   <u>EURL SETIFIS DETERGENTS</u>
 
                   </h6>
                   <h4 class="text-left header-font-size">
-                    Adresse : LOTISSEMENT 34 SECT 6 GROUPE N° 51 KASR EL ABTAL
+                    <u>Adresse</u>: LOTISSEMENT 34 SECT 6 GROUPE N° 51 KASR EL ABTAL
 
                   </h4>
                   <h6 class="text-left header-font-size">
-                    Activité : FABRICATION DE PRODUITS DE BLANCHISEMENTS ET PRODUITS DE LA MAINT
+                    <u> Activité</u> : FABRICATION DE PRODUITS DE BLANCHISEMENTS ET PRODUITS DE LA MAINT
 
 
                   </h6>
                   <h6 class="text-left header-font-size" >
-                    Numéro employeur : 1960328646 M.F. : 001319010024074
+                    <u>Numéro employeur</u> : 1960328646 M.F. : 001319010024074
 
                   </h6>
                   <VDivider class="mt-5 mb-5"/>
@@ -116,7 +117,7 @@ const printInvoice = () => {
 
                 <h6 class="text-center underline"><u>تم الاتفاق بين:</u></h6>
                 <h6 class="text-right">
-                   شركة  <b>EURL SETIFIS DETERGENTS</b> الكائن مقرها قطعة رقم 34 تجزئة 06 مجموعة رقم 1 قصر الابطال، عين ولمان، سطيف
+                   شركة  <b>EURL SETIFIS DETERGENTS</b> الكائن مقرها قطعة رقم 34 تجزئة 06 مجموعة رقم 51 قصر الابطال، عين ولمان، سطيف
                 </h6 >
                 <h6 class="text-right"><u>من جهة</u></h6>
 
@@ -150,8 +151,10 @@ const printInvoice = () => {
                 </h2>
                 <h2><u>المادة 11:</u>                <span>الأمور غير الواضحة في هذا العقد يرجع فيها إلى النظام الداخلي الساري المفعول المطلع عليه من طرف العامل، كما يلزم احترام العقد بدقة.</span>
                 </h2>
-                <h2><u>المادة 12:</u></h2>
-                <h6>مكان العمل: عامل داخل مقر الشركة.</h6>
+                <h2><u>المادة 12:</u> <span>                  يتوجب على الموظفين إتمام فترة انتقالية بعد تقديمهم الاستقالتهم تحدد مدتها الشركة ، وذلك لضمان استكمال المهام و تسليم المسؤوليات بشكل منظم و سلس.
+</span></h2>
+
+                <h2><u>المادة 13:</u> <span>مكان العمل: عامل داخل مقر الشركة.</span></h2>
                 <VRow>
                   <VCol cols="6">
                     <h6>
@@ -196,7 +199,7 @@ const printInvoice = () => {
                       <li><h2>طبقا للمادة 10 من قانون العمل.</h2></li>
                       <li><h2>يصرح المسمى  {{ employee.name_ar }} {{employee.surname_ar}} ،المولود بتاريخ: {{employee.birthdate}} ، بـ:{{employee.birthplace}}، {{employee.birth_city.name_ar}}.</h2></li>
                       <li><h2>إبن:{{employee.father_name_ar }}.  و: {{ employee.mother_full_name_ar }}.</h2></li>
-                      <li><h2>الحامل لبطاقة التعريف الوطنية رقم:{{employee.NIN}}. الصادرة بتاريخ: {{employee.card_issue_date}}، عن {{employee.card_issue_place}} الولاية: {{employee.card_issued_city.name_ar}} .</h2></li>
+                      <li><h2>الحامل لبطاقة التعريف الوطنية رقم:{{employee.NCN}}. و رقم التعريف الوطني : {{employee.NIN}} الصادرة بتاريخ: {{employee.card_issue_date}}، عن {{employee.card_issue_place}} الولاية: {{employee.card_issued_city.name_ar}} .</h2></li>
                       <li><h2>أنني إستلمت جميع حقوقي وأمضيته بمحضر إرادتي ودون إكراه من أحد.</h2></li>
                       <li class="text-left"><h2>حرر بسطيف يوم: ………………………. </h2></li>
                       <li><h2>إمضاء وبصمة المعني</h2></li>

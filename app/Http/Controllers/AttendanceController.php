@@ -44,36 +44,49 @@ class AttendanceController extends Controller
         $month = $attendance['month'];
         $year = $attendance['year'];
 
-        $exists = Attendance::where('month',$month)->where('year',$year)->exists();
-        if($exists){
-            throw new BadRequestHttpException('The Selected Month/Year Already Exists');
-        }
-
-        $attendance =  Attendance::create([
-            'month'=>$month,
-            'year'=>$year
-        ]);
-        $firstDayOfMonth = date("Y-m-d", strtotime("$attendance->year-$attendance->month-01"));
-        $lastDayOfMonth = date("Y-m-t", strtotime("$attendance->year-$attendance->month-01"));
-
-        $employees = EmployeeCareer::where('start_date','<=',$lastDayOfMonth)->orwhere('end_date',Null)->orWhere('end_date','>=',$firstDayOfMonth)->get();
-
-        foreach ($employees as $employee) {
-            $dates = $this->getDatesIntervale($employee->start_date, $employee->end_date, $attendance->month,$attendance->year);
-            foreach($dates as $day){
-                $att = EmployeeAttendance::create([
-                    'date'=> $day,
-                    'attendance_id'=> $attendance->id,
-                    'employee_id'=> $employee->employee_id,
-
-                    'present' => false
-                ]);
-
-                $att->end_date = $employee->end_date;
-                $att->start_date = $employee->start_date;
-                $att->save();
+        try{
+            $exists = Attendance::where('month',$month)->where('year',$year)->exists();
+            if($exists){
+                throw new BadRequestHttpException('The Selected Month/Year Already Exists');
             }
+
+            $attendance =  Attendance::create([
+                'month'=>$month,
+                'year'=>$year
+            ]);
+            $firstDayOfMonth = date("Y-m-d", strtotime("$attendance->year-$attendance->month-01"));
+            $lastDayOfMonth = date("Y-m-t", strtotime("$attendance->year-$attendance->month-01"));
+
+            $employees = EmployeeCareer::where('start_date','<=',$lastDayOfMonth)->orwhere('end_date',Null)->orWhere('end_date','>=',$firstDayOfMonth)->get();
+
+            foreach ($employees as $employee) {
+                $dates = $this->getDatesIntervale($employee->start_date, $employee->end_date, $attendance->month,$attendance->year);
+                $employeeRecord = EmployeeCareer::where('employee_id',$employee->employee_id)->where('start_date','<=', $lastDayOfMonth)
+                    ->where(function ($query) use ($lastDayOfMonth, $firstDayOfMonth) {
+                        $query->whereNull('end_date')
+                            ->orWhere('end_date', '>=', $firstDayOfMonth);
+                    })->get()->first();
+
+
+                foreach($dates as $day){
+                    $att = EmployeeAttendance::create([
+                        'date'=> $day,
+                        'attendance_id'=> $attendance->id,
+                        'employee_id'=> $employee->employee_id,
+                        'employee_career_id' => $employeeRecord->id,
+                        'present' => false
+                    ]);
+
+//                    $att->end_date = $employee->end_date;
+//                    $att->date = $employee->start_date;
+                    $att->save();
+                }
+            }
+        }catch (\Exception $e){
+            throw new BadRequestHttpException($e->getMessage());
         }
+
+
 
         return $this->responseMessage("Attendance created Successfully");
     }
@@ -193,12 +206,47 @@ class AttendanceController extends Controller
 
         $firstDayOfMonth = date("Y-m-d", strtotime("$attendance->year-$attendance->month-01"));
 
-        $employees_Id = EmployeeCareer::where('start_date','>=',$firstDayOfMonth)->get()->pluck('employee_id');
+        $employees_Id = EmployeeCareer::where('start_date','<=',$lastDayOfMonth) ->where(function ($query) use ($lastDayOfMonth, $firstDayOfMonth) {
+            $query->whereNull('end_date')
+                ->orWhere('end_date', '>=', $firstDayOfMonth);
+        })->get()->pluck('employee_id');
+
+
+
+        foreach ($employees_Id as $Empid) {
+
+            if(!EmployeeAttendance::where('employee_id', $Empid)->where('attendance_id', $id)->exists()){
+                $employeeRecord = EmployeeCareer::where('employee_id',$Empid)->where('start_date','<=', $lastDayOfMonth)
+                    ->where(function ($query) use ($lastDayOfMonth, $firstDayOfMonth) {
+                        $query->whereNull('end_date')
+                            ->orWhere('end_date', '>=', $firstDayOfMonth);
+                    })->get()->first();
+                $dates_between = $this->get_dates_between($firstDayOfMonth, $lastDayOfMonth);
+                foreach ($dates_between as $date){
+                    EmployeeAttendance::create([
+                        'attendance_id' => $id,
+                        'employee_id' => $Empid,
+                        'present' => 0,
+                        'date'=> $date,
+                        'employee_career_id' => $employeeRecord->id
+                    ]);
+                }
+
+
+            }
+
+        }
+
 
 
         // $attendance_employee = EmployeeAttendance::whereIn('employee_id',$employees_Id)->where('attendance_id',$id)->get();
 
-        $attendance_employee = EmployeeAttendance::with('employee')->where('attendance_id',$id)->whereIn('employee_id',$employees_Id)->orderBy('date')->get()->groupBy('employee_id')->map(function ($items, $employee_id) use ($firstDayOfMonth, $lastDayOfMonth) {
+        $attendance_employee = EmployeeAttendance::with(['employee', 'career'])
+            ->where('attendance_id',$id)
+            ->whereIn('employee_id',$employees_Id)
+            ->orderBy('date')->get()
+            ->groupBy('employee_id')
+            ->map(function ($items, $employee_id) use ($firstDayOfMonth, $lastDayOfMonth) {
             $presentCount = $items->where('present', true)
                 ->where(function ($item) {
                     // Use Carbon to get the day of the week
@@ -232,18 +280,25 @@ class AttendanceController extends Controller
         $employeeId = $request->input('employee');
         $attendanceId = $request->input('attendanceId');
 
+
         $attendance_exists = EmployeeAttendance::where('attendance_id',$attendanceId)->where('employee_id',$employeeId)->exists();
+        $employeeRecord = EmployeeCareer::where('employee_id', $employeeId)->where('start_date','<=', $dates[count($dates)-1])->whereIsNull('end_date')->orwhere('end_date','>=',
+            $dates[0])->get()->first();
+
 
         $employeeAttendance = [];
         if(!$attendance_exists) {
             $attendance = Attendance::find($attendanceId);
             $dates = $this->getDatesOfMonth($attendance->year, $attendance->month);
+            $employeeRecord = EmployeeCareer::where('employee_id', $employeeId)->where('start_date','<=', $dates[count($dates)-1])->whereIsNull('end_date')->orwhere('end_date','>=',
+            $dates[0])->get()->first();
+
             foreach ($dates as $day) {
                 $employeeAttendance[] = EmployeeAttendance::create([
                     'date' => $day,
                     'present' => false,
                     'employee_id' => $employeeId,
-                    'attendance_id' => $attendanceId
+                    'attendance_id' => $attendanceId,
                 ]);
             }
         }
