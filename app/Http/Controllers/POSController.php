@@ -333,6 +333,14 @@ class POSController extends Controller
 
         $id = $payment['id'];
         $payment = Payment::find($id);
+        if($payment->active){
+            if($payment->sale_id){
+                $sale = Sale::find($payment->sale_id);
+                $sale->balance = $sale->balance + $sale->regulation;
+                $sale->regulation = 0;
+                $sale->save();
+            }
+        }
         $payment->delete();
 
         return response()->json('Payment deleted Successfully');
