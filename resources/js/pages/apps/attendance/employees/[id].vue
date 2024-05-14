@@ -14,6 +14,7 @@ const loading2 = ref({
 const route = useRoute()
 const isTyping = ref(true)
 const selectedRole = ref()
+const comptableEmail = ref('mahgounoussama23@gmail.com')
 const selectedPlan = ref()
 const selectedStatus = ref()
 const rowPerPage = ref(10)
@@ -203,6 +204,19 @@ const convertToAlphabet = (number, unit) =>{
     return number + ' ' + unit + (number !== 1 ? 's' : '');
   }
 }
+
+const sendEmployeeFile = (employee) => {
+  console.log(employee);
+  loading2.value.isActive = true;
+  attendanceStore.generateEmail(employee.id, comptableEmail.value).then(response =>{
+    loading2.value.isActive = false;
+    successMiddleware(response.data.message)
+  }).catch(error =>{
+    errorsMiddleware(error.data.message)
+    loading2.value.isActive = false;
+  })
+
+}
 </script>
 
 <template>
@@ -234,6 +248,16 @@ const convertToAlphabet = (number, unit) =>{
                 :items="[10, 20, 30, 50]"
               />
             </div>
+            <div style="width: 12rem;">
+              <VTextField
+
+              @input="isTyping = true"
+              ref="searchField"
+              v-model="comptableEmail"
+              placeholder="Email"
+              density="compact"
+            />
+            </div>
 
             <VSpacer />
 
@@ -256,7 +280,11 @@ const convertToAlphabet = (number, unit) =>{
                   placeholder="Search"
                   density="compact"
                 />
+
+
               </div>
+
+
 
               <!-- 👉 Export button -->
               <VBtn
@@ -298,6 +326,9 @@ const convertToAlphabet = (number, unit) =>{
                   Period
                 </th>
 
+                <th scope="col">
+                  Position
+                </th>
                 <th scope="col">
                   ACTIONS
                 </th>
@@ -353,7 +384,17 @@ const convertToAlphabet = (number, unit) =>{
                     </div>
                   </div>
                 </td>
+                <td>
+                  <div class="d-flex align-center">
 
+
+                    <div class="d-flex flex-column">
+                      <h6 class="text-base">
+                        {{employee.position}}
+                      </h6>
+                    </div>
+                  </div>
+                </td>
                 <!-- 👉 Actions -->
                 <td
                   class="text-center"
@@ -389,6 +430,61 @@ const convertToAlphabet = (number, unit) =>{
                     />
 
 
+                  </VBtn>
+
+                  <VBtn
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-send"
+                      @click="sendEmployeeFile(employee)"
+                    />
+
+
+                  </VBtn>
+
+                  <VBtn
+                    icon
+                    variant="text"
+                    color="default"
+                    size="x-small"
+                  >
+                    <VIcon
+                      :size="22"
+                      icon="tabler-dots-vertical"
+                    />
+                    <VMenu activator="parent">
+                      <VList density="compact">
+                        <VListItem value="BC" :href="employee.BC">
+                          <template #prepend>
+                            <VIcon
+                              size="22"
+                              class="me-3"
+                              icon="tabler-download"
+                            />
+                          </template>
+
+                          <VListItemTitle>Birth Certificate</VListItemTitle>
+                        </VListItem>
+
+                        <VListItem value="NC" :href="employee.NC">
+                          <template #prepend >
+                            <VIcon
+                              size="22"
+                              class="me-3"
+                              icon="tabler-download"
+                            />
+                          </template>
+
+                          <VListItemTitle>National Card</VListItemTitle>
+                        </VListItem>
+
+                      </VList>
+                    </VMenu>
                   </VBtn>
                 </td>
               </tr>

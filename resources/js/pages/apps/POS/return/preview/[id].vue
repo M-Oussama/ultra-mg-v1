@@ -7,9 +7,9 @@ import InvoiceAddPaymentDrawer from '@/views/apps/invoice/InvoiceAddPaymentDrawe
 import InvoiceSendInvoiceDrawer from '@/views/apps/invoice/InvoiceSendInvoiceDrawer.vue'
 
 // Store
-import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
+import {useReturnStore} from "@/views/apps/POS/return/usereturnStore";
 
-const saleStore = useSaleStore()
+const returnStore = useReturnStore()
 const route = useRoute()
 const sale = ref({
   id:1,
@@ -70,9 +70,9 @@ const loading = ref({
   isActive: false
 })
 // 👉 fetchInvoice
-saleStore.fetchSale(Number(route.params.id)).then(response => {
+returnStore.fetchReturn(Number(route.params.id)).then(response => {
 
-  sale.value = response.data.sale
+  sale.value = response.data.product_return
   sold.value = response.data.sold
   defaultClient.value = {...sale.value.client};
   companies = response.data.companies
@@ -183,18 +183,15 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 <div class="mt-4 ma-sm-4">
                   <!-- 👉 Invoice ID -->
                   <h6 class="font-weight-medium text-xl mb-2">
-                    Bon Livraison #{{ sale.id }}
+                    Bon Retour #{{ sale.id }}
                   </h6>
 
                   <!-- 👉 Issue Date -->
                   <h4 class="mb-2">
                     <span>Date : </span>
-                    <span class="font-weight-semibold">{{ sale.sale_date }}</span>
+                    <span class="font-weight-semibold">{{ sale.date }}</span>
                   </h4>
-                  <h4 class="mb-2" v-if="show.price">
-                    <span>Payment: </span>
-                    <span class="font-weight-semibold">{{ show.paymentType }}</span>
-                  </h4>
+
                 </div>
               </VCol>
               <VCol
@@ -384,27 +381,20 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row custom-white-border">
                 <div class=" v-col-md-5 text-sm-subtitle-2 border-right  text-h4 text-weight-bold">
-                  Facture
+                  Bon Retour
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
                   #{{ sale.id }}
                 </div>
               </div>
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
-                  Payment Type
-                </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
-                  {{ show.paymentType }}
-                </div>
-              </div>
+
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
                 <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
                   Date
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
-                  {{ sale.sale_date }}
+                  {{ sale.date }}
                 </div>
               </div>
 
@@ -524,30 +514,9 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                   {{ (sale.total_amount) }} DZD
                 </div>
               </div>
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
-                  Paiement
-                </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
-                  {{ parseFloat(parseFloat(sale.regulation)+parseFloat((sale.total_amount)-sale.balance)).toFixed(2) }} DZD
 
-                </div>
-              </div>
 
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold"  v-if="show.sold">
-                  Nouveau
-                </div>
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-success text-h4 text-weight-bold" v-if="!show.sold">
-                  Nouveau
-                </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-success text-h4 text-weight-bold" v-if="!show.sold">
-                  {{ (parseFloat(sale.balance)).toFixed(2) }} DZD
-                </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold" v-if="show.sold">
-                  {{ (parseFloat(sale.balance)).toFixed(2) }} DZD
-                </div>
-              </div>
+
 
 
 
@@ -603,19 +572,12 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               color="secondary"
               variant="tonal"
               class="mb-2"
-              :to="{ name: 'apps-POS-sale-edit-id', params: { id: route.params.id } }"
+              :to="{ name: 'apps-POS-return-edit-id', params: { id: route.params.id } }"
             >
               Edit Invoice
             </VBtn>
 
-            <VBtn
-              block
-              prepend-icon="tabler-currency-dollar"
-              class="mb-2"
-              @click="isAddPaymentSidebarVisible = true"
-            >
-              Add Payment
-            </VBtn>
+
           </VCardText>
         </VCard>
         <!-- 👉 Payment Terms -->

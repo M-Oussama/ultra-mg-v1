@@ -89,7 +89,8 @@ class POSController extends Controller
         return response()->json(["sale" => $sale, "cities" => $cities,"clients"=>$clients, "products"=> $products, "sale_statues"=>$sale_statues]);
     }
 
-    public function getPriceHistory($clientId, $productId) {
+    public function getPriceHistory($productId, $clientId) {
+
         $products = SaleItem::where('client_id',$clientId)->where('product_id',$productId)->get();
 
         return response()->json(['products'=> $products]);
@@ -134,7 +135,12 @@ class POSController extends Controller
 
         }
 
-
+//        $payment = new Payment();
+//        $payment->payment_date = $data['sale_date'];
+//        $payment->amount_paid = $data['paymentAmount'];
+//        $payment->sale_id = $sale->id;
+//        $payment->client_id = $client['id'];
+//        $payment->save();
 
         $products = $data['sale_items'];
 

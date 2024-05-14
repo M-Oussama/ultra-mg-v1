@@ -129,13 +129,12 @@ watch(clientId, (value, oldValue, onCleanup)=>{
     </v-overlay>
     <VRow>
       <VCol
-        class="printed"
         cols="12"
         md="9"
       >
         <VCard>
           <!-- SECTION Header -->
-          <VCardText  class=" d-flex flex-wrap justify-space-between flex-column flex-sm-row print-row pb-0">
+          <VCardText  class=" d-flex flex-wrap justify-space-between flex-column flex-sm-row print-row">
 
             <VRow>
               <VCol
@@ -143,7 +142,6 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               >
                 <!-- 👉 Left Content -->
                 <div class="ma-sm-3">
-
                   <div class="d-flex align-center mb-6">
                     <!-- 👉 Logo -->
 <!--                    <VNodeRenderer-->
@@ -158,20 +156,19 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                   </div>
 
                   <!-- 👉 Address -->
-
-                  <h4 class="mb-0">
+                  <p class="mb-0">
                     {{ company.address }}
-                  </h4>
-                  <h4 class="mb-0">
+                  </p>
+                  <p class="mb-0">
                     <!--               {{company.address2}}-->
                     KASR EL ABTALE, 19000, SETIF
-                  </h4>
-                  <h4 class="mb-0">
+                  </p>
+                  <p class="mb-0">
                     {{company.email}}
-                  </h4>
-                  <h4 class="mb-0">
+                  </p>
+                  <p class="mb-0">
                     {{ company.phone }}
-                  </h4>
+                  </p>
                 </div>
               </VCol>
 
@@ -187,14 +184,14 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                   </h6>
 
                   <!-- 👉 Issue Date -->
-                  <h4 class="mb-2">
+                  <p class="mb-2">
                     <span>Date : </span>
                     <span class="font-weight-semibold">{{ sale.sale_date }}</span>
-                  </h4>
-                  <h4 class="mb-2" v-if="show.price">
+                  </p>
+                  <p class="mb-2" v-if="show.price">
                     <span>Payment: </span>
                     <span class="font-weight-semibold">{{ show.paymentType }}</span>
-                  </h4>
+                  </p>
                 </div>
               </VCol>
               <VCol
@@ -263,65 +260,65 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               </h6>
             </VCol>
             <VCol cols="4">
-              <h4 class="mb-2 text-sm" v-if="show.price">
+              <p class="mb-2 text-sm" v-if="show.price">
                 <span>Payment: </span>
                 <span class="font-weight-semibold">{{ show.paymentType }}</span>
-              </h4>
+              </p>
             </VCol>
 
             <VCol cols="4">
               <!-- 👉 Issue Date -->
-              <h4 class="mb-2 text-sm">
+              <p class="mb-2 text-sm">
                 <span>Date : </span>
                 <span class="font-weight-semibold">{{ sale.sale_date }}</span>
-              </h4>
+              </p>
             </VCol>
 
 
           </VRow>
 
-
+          <VDivider />
 
           <VCardText class=" invoiceGeneral d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row ">
             <!-- 👉 Left Content -->
             <div class="v-col-md-6">
               <!-- 👉 Invoice ID -->
-              <h4 class="font-weight-bold   text-sm-h6 mb-4 text-color-black  text-center ">
+              <p class="font-weight-bold   text-sm-h6 mb-4 text-color-black  text-center ">
 
-              </h4>
+              </p>
 
               <!-- 👉 Issue Date -->
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right">
                   Client
                 </div>
-                <div    class=" v-col-md-10  border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10  border-left padding-8 data-font">
                   {{ sale.client.name }} {{sale.client.surname}}
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right">
                   Address
                 </div>
-                <div    class=" v-col-md-10 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10 border-left padding-8 data-font">
                   {{ sale.client.address }}
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center  custom-white-border">
-                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right">
                   Phone
                 </div>
-                <div    class=" v-col-md-10 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10 border-left padding-8 data-font">
                   {{ sale.client.phone }}
                 </div>
               </div>
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center  custom-white-border">
-                <div    class=" v-col-md-2 text-sm-subtitle-2  border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-2 text-sm-subtitle-2  border-right">
                   Email
                 </div>
-                <div    class=" v-col-md-10 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10 border-left padding-8 data-font">
                   {{ sale.client.email }}
                 </div>
               </div>
@@ -329,45 +326,45 @@ watch(clientId, (value, oldValue, onCleanup)=>{
             <div class="v-col-md-2"></div>
             <div class="v-col-md-4 " v-if="show.invoice">
               <!-- 👉 Invoice ID -->
-              <h4 class="font-weight-bold text-sm-h6 mb-4 text-color-black text-center text-h4 align-center">
+              <p class="font-weight-bold text-sm-h6 mb-4 text-color-black text-center align-center">
 
-              </h4>
+              </p>
 
               <!-- 👉 Issue Date -->
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row custom-white-border">
-                <div class=" v-col-md-3 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div class=" v-col-md-3 text-sm-subtitle-2 border-right">
                   N°RC
                 </div>
-                <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ sale.client.NRC }}
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-3 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-3 text-sm-subtitle-2 border-right">
                   N°IF
                 </div>
-                <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ sale.client.NIF }}
                 </div>
               </div>
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-3 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-3 text-sm-subtitle-2 border-right ">
                   N°IS
                 </div>
-                <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ sale.client.NIS }}
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-3 text-sm-subtitle-2 border-right padding-right-0 text-h4 text-weight-bold">
+                <div    class=" v-col-md-3 text-sm-subtitle-2 border-right padding-right-0">
                   <span>
                      N°ART
                   </span>
 
                 </div>
-                <div    class=" v-col-md-8 text-sm-subtitle-2 padding-8 border-left data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-8 text-sm-subtitle-2 padding-8 border-left data-font">
                   {{ sale.client.NART }}
                 </div>
               </div>
@@ -376,34 +373,34 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
             <div class="v-col-md-4 " v-if="!show.invoice">
               <!-- 👉 Invoice ID -->
-              <h4 class="font-weight-bold text-sm-h6 mb-4 text-color-black text-center align-center">
+              <p class="font-weight-bold text-sm-h6 mb-4 text-color-black text-center align-center">
 
-              </h4>
+              </p>
 
               <!-- 👉 Issue Date -->
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row custom-white-border">
-                <div class=" v-col-md-5 text-sm-subtitle-2 border-right  text-h4 text-weight-bold">
+                <div class=" v-col-md-5 text-sm-subtitle-2 border-right">
                   Facture
                 </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
                   #{{ sale.id }}
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
                   Payment Type
                 </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ show.paymentType }}
                 </div>
               </div>
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right ">
                   Date
                 </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ sale.sale_date }}
                 </div>
               </div>
@@ -420,31 +417,31 @@ watch(clientId, (value, oldValue, onCleanup)=>{
           <VTable>
             <thead>
               <tr>
-                <th class="text-sm-caption text-h4 text-weight-bold" scope="col">
+                <th class="text-sm-caption" scope="col">
                   ID
                 </th>
-                <th class="text-sm-caption text-h4 text-weight-bold" scope="col" v-if="show.sku">
+                <th class="text-sm-caption" scope="col" v-if="show.sku">
                   SKU
                 </th>
-                <th class="text-sm-caption text-h4 text-weight-bold" scope="col">
+                <th class="text-sm-caption" scope="col">
                   name
                 </th>
                 <th
                   scope="col"
-                  class="text-center text-sm-caption text-h4 text-weight-bold"
+                  class="text-center text-sm-caption"
                   v-if="show.price"
                 >
                   Price
                 </th>
                 <th
                   scope="col"
-                  class="text-center text-sm-caption text-h4 text-weight-bold"
+                  class="text-center text-sm-caption"
                 >
                   QTY
                 </th>
                 <th
                   scope="col"
-                  class="text-center text-sm-caption text-h4 text-weight-bold"
+                  class="text-center text-sm-caption"
                   v-if="show.price"
                 >
                   TOTAL
@@ -457,24 +454,24 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 v-for="(item,index) in sale.sale_items"
                 :key="item.name"
               >
-                <td class="text-no-wrap text-sm-caption text-h4 text-weight-bold">
+                <td class="text-no-wrap text-sm-caption">
                   {{ index+1 }}
                 </td>
-                <td class="text-no-wrap text-sm-caption text-h4 text-weight-bold"  v-if="show.sku">
+                <td class="text-no-wrap text-sm-caption"  v-if="show.sku">
                   {{ item.product.SKU }}
                 </td>
                 <td class="text-no-wrap">
-                  <h4 class="text-sm-caption mb-0 text-h4 text-weight-bold">{{ item.product.name }}</h4>
+                  <p class="text-sm-caption mb-0">{{ item.product.name }}</p>
 
 
                 </td>
-                <td class="text-center text-sm-caption text-h4 text-weight-bold" v-if="show.price">
+                <td class="text-center text-sm-caption" v-if="show.price">
                   {{ item.price }} DZD
                 </td>
-                <td class="text-center text-sm-caption text-h4 text-weight-bold">
+                <td class="text-center text-sm-caption">
                   {{ item.quantity }}
                 </td>
-                <td class="text-center text-sm-caption text-h4 text-weight-bold" v-if="show.price">
+                <td class="text-center text-sm-caption" v-if="show.price">
                   {{ item.total_price }} DZD
                 </td>
               </tr>
@@ -484,31 +481,25 @@ watch(clientId, (value, oldValue, onCleanup)=>{
           <VDivider class="my-2" v-if="show.price"/>
 
           <!-- Total -->
-          <VCardText class="d-flex justify-space-between flex-column flex-sm-row print-row pt-0" v-if="show.price">
+          <VCardText class="d-flex justify-space-between flex-column flex-sm-row print-row " v-if="show.price">
             <div class="my-2 mx-sm-5 v-col-md-6">
 
-              <h5 >La Facture est arretée à la somme de : {{ sale.amount_letter }}</h5>
+              <h5>La Facture est arretée à la somme de : {{ sale.amount_letter }}</h5>
               <div v-if="show.sold" class="mt-10 d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
                   Ancien solde
                 </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ parseFloat(sold).toFixed(2) }} DZD
                 </div>
               </div>
 
 
               <div v-if="show.sold" class=" d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-success text-h4 text-weight-bold" v-if="show.price">
-                  Nouveau
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
+                  Nouveau solde
                 </div>
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold" v-if="!show.price">
-                  Nouveau
-                </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-success text-h4 text-weight-bold" v-if="show.price">
-                  {{ parseFloat(sold) > 0 ? (parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2) : (-parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2)}} DZD
-                </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold" v-if="!show.price">
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ parseFloat(sold) > 0 ? (parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2) : (-parseFloat(sale.total_amount) + parseFloat(sold)).toFixed(2)}} DZD
                 </div>
               </div>
@@ -517,35 +508,28 @@ watch(clientId, (value, oldValue, onCleanup)=>{
             <div class="my-2 mx-sm-4 v-col-md-4">
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
                   Total
                 </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
                   {{ (sale.total_amount) }} DZD
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
                   Paiement
                 </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
-                  {{ parseFloat(parseFloat(sale.regulation)+parseFloat((sale.total_amount)-sale.balance)).toFixed(2) }} DZD
-
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                  {{ sale.payment ? parseFloat(sale.regulation).toFixed(2): 0.00 }} DZD
                 </div>
               </div>
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold"  v-if="show.sold">
-                  Nouveau
+                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right">
+                  Nouveau solde
                 </div>
-                <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-success text-h4 text-weight-bold" v-if="!show.sold">
-                  Nouveau
-                </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-success text-h4 text-weight-bold" v-if="!show.sold">
-                  {{ (parseFloat(sale.balance)).toFixed(2) }} DZD
-                </div>
-                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold" v-if="show.sold">
-                  {{ (parseFloat(sale.balance)).toFixed(2) }} DZD
+                <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font">
+                  {{ (parseFloat(sale.total_amount) - parseFloat(sale.regulation)).toFixed(2) }} DZD
                 </div>
               </div>
 
@@ -704,7 +688,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               />
             </div>
             <div>
-              <VLabel  class="mb-4 mt-1 ">
+              <VLabel  class="mb-4 mt-1">
                 Client
               </VLabel>
 
@@ -741,12 +725,8 @@ watch(clientId, (value, oldValue, onCleanup)=>{
     border-color: rgb(0 0 0 / 30%) !important;
   }
   * {
-    color: black !important;
+    color: rgba(0, 0, 0, 0.8784313725) !important;
   }
-.layout-vertical-nav{
-  display: none !important;
-}
-
   .v-application {
     background: none !important;
   }
@@ -830,6 +810,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
     background-color: white !important;
     border-radius: 10px !important;
     padding: 0px !important;
+    margin: 17px !important;
   }
   .display-center{
     display: inline-grid
@@ -837,6 +818,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
   .custom-border{
     padding: 10px 0 10px 15px;
+
     background-color: #f3f2f4;
     border-radius: 19px;
     margin-right: 6px;
@@ -852,16 +834,9 @@ watch(clientId, (value, oldValue, onCleanup)=>{
   }
   .border-right{
     font-size: 10px !important;
-    height: 22px;
-    padding: 0 8px 0;
+    height: 28px;
+    padding: 4px 8px 8px;
     border-right: solid 1px #dbdbdb ;
-  }
-  .text-sm-caption{
-    font-size: 11px !important;
-    font-weight: bold;
-  }
-  .text-sm-subtitle-2{
-    font-weight: bold;
   }
 
   .padding-8{
@@ -892,8 +867,8 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 .invoiceGeneral{
   background-color: white !important;
   border-radius: 10px !important;
-  padding: 0 !important;
-
+  padding: 0px !important;
+  margin: 17px !important;
 }
 .display-center{
   display: inline-grid
@@ -901,13 +876,14 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
 .custom-border{
   padding: 10px 0 10px 15px;
+
   background-color: #f3f2f4;
   border-radius: 19px;
   margin-right: 6px;
   margin-bottom: 6px;
 }
 .custom-white-border{
-  height: 23px;
+  height: 30px;
   background-color: white;
   border-radius: 19px;
   margin-right: 12px;
@@ -917,17 +893,14 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
 .border-right{
   font-size: 10px !important;
-  height: 22px;
-  padding: 0 8px 0;
+  height: 28px;
+  padding: 4px 8px 8px;
   border-right: solid 1px #dbdbdb;
 }
 .border-left{
 
 }
-.text-success{
-  color:green;
-  font-weight:bold;
-}
+
 .padding-8{
   padding: 1px 8px 0;
 }
@@ -943,10 +916,6 @@ watch(clientId, (value, oldValue, onCleanup)=>{
   font-size: small;
 }
 table > tbody > tr > td, table > thead > tr > th{
-  height: 23px !important;
-}
-.text-weight-bold{
-  font-weight: bold;
-  line-height: 1.5rem;
+  height: 31px !important;
 }
 </style>

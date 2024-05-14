@@ -50,6 +50,7 @@ const totalAmount = () => {
 }
 
 const checkPriceHistory = () => {
+  console.log(props.data)
   emit('priceHistory', props.data)
 }
 watch(totalPrice, () => {

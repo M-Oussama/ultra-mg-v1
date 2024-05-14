@@ -182,11 +182,10 @@ const priceHistory = data => {
 
   if(props.data.client.id !== undefined && props.data.client.id > -1) {
 
-    saleStore.getPriceHistory(data.id,props.data.client.id).then(response => {
-      priceHistoryList.value = response.data.products
-      console.log(priceHistoryList.value)
-      isDialogVisible.value = true
 
+    saleStore.getPriceHistory(data.product_id,props.data.client.id).then(response => {
+      priceHistoryList.value = response.data.products
+      isDialogVisible.value = true
       console.log(response);
     }).catch(err => {
       console.log(err)

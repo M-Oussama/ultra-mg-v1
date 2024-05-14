@@ -30,6 +30,11 @@ const attendance = ref({
   start_date: new Date().getFullYear()+'-'+(new Date().getMonth() +1)+'-'+new Date().getDate(),
   end_date: '',
   end_date_restrict:new Date().getFullYear()+'-'+(new Date().getMonth() +1)+'-'+(new Date().getDate()+1),
+  position:'',
+  real_start_date:'',
+  real_end_date:'',
+  national_card:'',
+  birth_certificate:''
 })
 const isFormValid = ref(false)
 const refForm = ref()
@@ -48,39 +53,59 @@ const closeNavigationDrawer = () => {
     refForm.value?.resetValidation()
   })
 }
+const  getBase64  =(file) =>{
 
-const onSubmit = () => {
+}
+ const onSubmit = () => {
   // update the end Date then close the drawer if any error keep the drawer open
+   var reader = new FileReader();
+   reader.readAsDataURL(attendance.value.birth_certificate[0]);
+   reader.onload = function () {
+     let base64BC =  reader.result;
+     var reader2 = new FileReader();
+     reader2.readAsDataURL(attendance.value.national_card[0]);
+     reader2.onload = function () {
+       let base64NC =  reader.result;
+       callSubmit(base64BC,base64NC)
+     }
 
 
-    if(attendance.value.start_date === ''){
+   };
+   reader.onerror = function (error) {
+     return '';
+   };
+
+
+
+
+}
+const callSubmit = (base64BC,base64NC) => {
+  if(attendance.value.start_date === ''){
+    errorsMiddleware(
+      "Warning",
+      'start date must be selected'
+    )
+  }else{
+    props.loading.isActive = true;
+    console.log(props.loading)
+    attendanceStore.addEmployeeAttendanceRecord(attendance.value.end_date, attendance.value.start_date, Number(route.params.id),attendance.value.position,base64BC, base64NC).then(response => {
+      props.isDrawerOpen.open = false;
+      props.loading.isActive = false;
+
+      successMiddleware(response.data.msg)
+      //location.reload()
+
+
+
+    }).catch(error => {
+
+      props.loading.isActive = false;
       errorsMiddleware(
-        "Warning",
-         'start date must be selected'
+        "Error Occured",
+        error.response.data.message
       )
-    }else{
-      props.loading.isActive = true;
-      console.log(props.loading)
-      attendanceStore.addEmployeeAttendanceRecord(attendance.value.end_date, attendance.value.start_date, Number(route.params.id)).then(response => {
-        props.isDrawerOpen.open = false;
-        props.loading.isActive = false;
-
-        successMiddleware(response.data.msg)
-        location.reload()
-
-
-
-      }).catch(error => {
-
-        props.loading.isActive = false;
-        errorsMiddleware(
-          "Error Occured",
-          error.response.data.message
-        )
-      })
-    }
-
-
+    })
+  }
 
 }
 const handleDrawerModelValueUpdate = val => {
@@ -156,13 +181,58 @@ const onStartDateChanged = () =>{
           >
             <VRow>
               <VCol cols="12">
+                <VLabel>
+                  CNAS START DATE
+                </VLabel>
                 <VueDatePicker v-model="attendance.start_date"  auto-apply  :format="format" @update:model-value="onStartDateChanged" />
               </VCol>
               <!-- 👉  name -->
               <VCol cols="12">
+                <VLabel>
+                  CNAS END DATE
+                </VLabel>
                 <VueDatePicker v-model="attendance.end_date"  auto-apply  :format="format"  :min-date="attendance.end_date_restrict"/>
 
+              </VCol>
 
+              <VCol cols="12">
+                <VLabel>
+                  REAL START DATE
+                </VLabel>
+                <VueDatePicker v-model="attendance.real_start_date"  auto-apply  :format="format" @update:model-value="onStartDateChanged" />
+              </VCol>
+              <!-- 👉  name -->
+              <VCol cols="12">
+                <VLabel>
+                  REAL END DATE
+                </VLabel>
+                <VueDatePicker v-model="attendance.real_end_date"  auto-apply  :format="format"  :min-date="attendance.end_date_restrict"/>
+
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="attendance.position"
+                  :rules="[requiredValidator]"
+                  label="Position"
+                />
+              </VCol>
+              <VCol
+                cols="12"
+              >
+                <VFileInput
+                  v-model="attendance.national_card"
+                  label="National Card"
+                  variant="filled"
+                />
+              </VCol>
+              <VCol
+                cols="12"
+              >
+                <VFileInput
+                  v-model="attendance.birth_certificate"
+                  label="Birth Certificate"
+                  variant="filled"
+                />
               </VCol>
               <VCol cols="12">
                 <VBtn

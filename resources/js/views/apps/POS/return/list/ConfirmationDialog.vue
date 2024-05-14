@@ -4,7 +4,7 @@ const props = defineProps({
     type: Boolean,
     required: true,
   },
-  sale: {
+  product: {
     type: Object,
     required: true,
   },
@@ -14,7 +14,7 @@ const id = ref()
 
 const emit = defineEmits([
   'update:isDrawerOpen',
-  'saleData',
+  'preturnData',
 ])
 // 👉 drawer close
 const closeConfirmationDialog = () => {
@@ -22,14 +22,15 @@ const closeConfirmationDialog = () => {
 
 }
 // 👉 Watch for changes in the user prop and update form fields
-watch(() => props.sale, (sale) => {
-  if (sale) {
-    id.value = sale.id || 0
+watch(() => props.product, (returnP) => {
+  if (returnP) {
+    id.value = returnP.id || 0
   }
 });
 const onSubmit = () => {
-    emit('saleData', {
-      id: props.sale.id,
+  console.log(props.product)
+    emit('preturnData', {
+      id: props.product.id,
     })
     emit('update:isDialogVisible', false)
 }

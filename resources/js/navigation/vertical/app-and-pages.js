@@ -139,6 +139,15 @@ export default [
     icon: { icon: 'tabler-archive' },
   },
   {
+    title: 'Return',
+    children: [
+      { title: 'List', to: 'apps-POS-return-list' },
+      { title: 'Add', to: 'apps-POS-return-add' },
+
+    ],
+    icon: { icon: 'tabler-archive' },
+  },
+  {
     title: 'Payments', to: 'apps-POS-payment-list', icon: { icon: 'tabler-currency-dollar' },
   },
   {

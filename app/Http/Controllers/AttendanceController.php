@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\NewEmployeeMail;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\EmployeeAttendance;
@@ -9,7 +10,12 @@ use App\Models\EmployeeCareer;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
@@ -345,6 +351,13 @@ class AttendanceController extends Controller
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
         $employees = EmployeeCareer::where('employee_id', $Id)->orderBy('start_date','desc')->paginate($perPage, ['*'], 'page', $currentPage);
+
+        foreach ($employees as $employee) {
+            $employee->BC = $employee->getMedia("birth_certificate")[0]->getUrl();
+            $employee->NC = $employee->getMedia("national_card")[0]->getUrl();
+        }
+
+
         $totalEmployees = $employees->total(); // Total number of users matching the query
         $totalPage = ($totalEmployees / $perPage); // Calculate total pages
 
@@ -360,122 +373,202 @@ class AttendanceController extends Controller
     public function updateEndDate(Request $request, $Id){
 
         $employee_career = EmployeeCareer::find($Id);
-        $rules = [
-            'endDate' => 'required|date|after:startDate',
-        ];
         $end_date = $request->input('endDate');
+        $position = $request->input('position');
 
-        if($employee_career->start_date >= $end_date){
+        try {
+            $rules = [
+                'endDate' => 'date|after:startDate',
+            ];
 
-            throw new BadRequestHttpException('End Date must be after the start Date');
+            if($end_date){
+                if($employee_career->start_date >= $end_date){
 
+                    throw new BadRequestHttpException('End Date must be after the start Date');
+
+                }else {
+                    $request->validate($rules);
+
+                    $employee_career->update(['end_date' => $end_date]);
+                }
+            }else {
+                $employee_career->update(['position' => $position]);
+            }
+
+
+
+            return response()->json(['endDate' => $end_date, 'msg' =>'End Date Updated Successfully']);
+        }catch (\Exception $e) {
+            throw new BadRequestHttpException($e->getMessage());
         }
 
-        $request->validate($rules);
 
 
 
-        $employee_career->update(['end_date' => $end_date]);
 
-        return response()->json(['endDate' => $end_date, 'msg' =>'End Date Updated Successfully']);
     }
     public function NewEmployeeAttendanceRecord(Request $request, $Id){
+
         $rules = [
             'startDate' => 'required|date',
         ];
         $request->validate($rules);
         $end_date = $request->input('endDate',null);
         $start_date = $request->input('startDate');
+        $position = $request->input('position');
+        $birth_certificateB64 = $request->input('birth_certificate');
+        $national_cardB64 = $request->input('national_card');
 
+        $employeeData = Employee::find($Id);
 
-        $record = EmployeeCareer::where('employee_id', $Id)->orderBy('created_at', 'desc')->first();
+        try{
+            DB::beginTransaction();
+            $record = EmployeeCareer::where('employee_id', $Id)->orderBy('created_at', 'desc')->first();
 
-        if($end_date != null) {
-            if($record){
-                if($record->end_date) {
-                    if($record->end_date >= $start_date ){
-                        throw new BadRequestHttpException('Start Date must be after the latest end date of the employee');
+            if($end_date != null) {
+                if($record){
+                    if($record->end_date) {
+                        if($record->end_date >= $start_date ){
+                            throw new BadRequestHttpException('Start Date must be after the latest end date of the employee');
+                        }
+
+                    }else{
+                        throw new BadRequestHttpException('You can not add a new record until the previous one is ended');
                     }
-
-                }else{
-                    throw new BadRequestHttpException('You can not add a new record until the previous one is ended');
                 }
-            }
-            // Condition 1: new_start_date < start_date and new_end_date < end_date
-            $condition1 = EmployeeCareer::
-            where('employee_id', $Id)
-                ->where('start_date', '<', $start_date)
-                ->where('end_date', '>', $end_date)
-                ->exists();
+                // Condition 1: new_start_date < start_date and new_end_date < end_date
+                $condition1 = EmployeeCareer::
+                where('employee_id', $Id)
+                    ->where('start_date', '<', $start_date)
+                    ->where('end_date', '>', $end_date)
+                    ->exists();
 // Condition 2: new_start_date < start_date and new_end_date > end_date
-            $condition2 = EmployeeCareer::
-            where('employee_id', $Id)
-                ->where('start_date', '>', $start_date)
-                ->where('end_date', '<', $end_date)
-                ->exists();
+                $condition2 = EmployeeCareer::
+                where('employee_id', $Id)
+                    ->where('start_date', '>', $start_date)
+                    ->where('end_date', '<', $end_date)
+                    ->exists();
 
-            $condition3 = EmployeeCareer::
-            where('employee_id', $Id)
-                ->where('start_date', '>', $start_date)
-                ->where('end_date', '>', $end_date)
-                ->where('start_date', '<=', $end_date)
-                ->exists();
+                $condition3 = EmployeeCareer::
+                where('employee_id', $Id)
+                    ->where('start_date', '>', $start_date)
+                    ->where('end_date', '>', $end_date)
+                    ->where('start_date', '<=', $end_date)
+                    ->exists();
 
 // Condition 4: new_start_date > start_date and new_end_date > end_date
-            $condition4 = EmployeeCareer::
-            where('employee_id', $Id)
-                ->where('start_date', '<', $start_date)
-                ->where('end_date', '>=', $start_date)
-                ->where('end_date', '<', $end_date)
-                ->exists();
+                $condition4 = EmployeeCareer::
+                where('employee_id', $Id)
+                    ->where('start_date', '<', $start_date)
+                    ->where('end_date', '>=', $start_date)
+                    ->where('end_date', '<', $end_date)
+                    ->exists();
 
 
 
-            $overlap = EmployeeCareer::where('employee_id', $Id)
-                ->where(function ($query) use ($start_date, $end_date) {
-                    $query->where(function ($q) use ($start_date, $end_date) {
-                        $q->where('start_date', '<=', $start_date)
-                            ->where(function ($qq) use ($start_date) {
-                                $qq->whereNull('end_date')
-                                    ->orWhere('end_date', '>=', $start_date);
+                $overlap = EmployeeCareer::where('employee_id', $Id)
+                    ->where(function ($query) use ($start_date, $end_date) {
+                        $query->where(function ($q) use ($start_date, $end_date) {
+                            $q->where('start_date', '<=', $start_date)
+                                ->where(function ($qq) use ($start_date) {
+                                    $qq->whereNull('end_date')
+                                        ->orWhere('end_date', '>=', $start_date);
+                                });
+                        })
+                            ->orWhere(function ($q) use ($start_date, $end_date) {
+                                $q->where('start_date', '<=', $end_date)
+                                    ->where(function ($qq) use ($end_date) {
+                                        $qq->whereNull('end_date')
+                                            ->orWhere('end_date', '>=', $end_date);
+                                    });
                             });
                     })
-                        ->orWhere(function ($q) use ($start_date, $end_date) {
-                            $q->where('start_date', '<=', $end_date)
-                                ->where(function ($qq) use ($end_date) {
-                                    $qq->whereNull('end_date')
-                                        ->orWhere('end_date', '>=', $end_date);
-                                });
-                        });
-                })
-                ->exists();
+                    ->exists();
 
 
 
 
-            if($overlap || $condition1 || $condition2 || $condition3 || $condition4) {
-                throw new BadRequestHttpException('The Date Intervale is wrong choose a correct one ');
-
-            }
-
-        }else {
-            if($record){
-                if($record->end_date == null){
-                    throw new BadRequestHttpException('You can not add a new record until the previous one is ended');
+                if($overlap || $condition1 || $condition2 || $condition3 || $condition4) {
+                    throw new BadRequestHttpException('The Date Intervale is wrong choose a correct one ');
 
                 }
+
+            }else {
+                if($record){
+                    if($record->end_date == null){
+                        throw new BadRequestHttpException('You can not add a new record until the previous one is ended');
+
+                    }
+                }
             }
+
+
+
+
+            $carrer =  EmployeeCareer::create([
+                'employee_id'=>$Id,
+                'start_date' => date("Y-m-d", strtotime($start_date)),
+                'end_date' => $end_date ? date("Y-m-d", strtotime($end_date)) : null,
+                'position' => $position
+            ]);
+
+            $birth_certificate_name = 'BC'.$employeeData->name.'-'.$employeeData->surname.'.pdf';
+            $national_card_name = 'NC'.$employeeData->name.'-'.$employeeData->surname.'.pdf';
+
+            list($type, $BCbase64code) = explode(';', $birth_certificateB64);
+            list(,$BCbase64code) = explode(',' , $BCbase64code);
+            $carrer->addMediaFromBase64($BCbase64code)
+                ->usingFileName($birth_certificate_name)
+                ->toMediaCollection('birth_certificate');
+
+
+            list($type, $NCbase64code) = explode(';', $national_cardB64);
+            list(,$NCbase64code) = explode(',' , $NCbase64code);
+            $carrer->addMediaFromBase64($NCbase64code)
+                ->usingFileName($national_card_name)
+                ->toMediaCollection('national_card');
+
+
+            $carrer->save();
+            DB::commit();
+            return response()->json([ 'msg' =>'Record created Successfully']);
+
+        }catch (\Exception $e){
+            DB::rollBack();
+            throw new BadRequestHttpException($e->getMessage());
         }
 
+    }
 
+    /**
+     * Get file content from base64 string.
+     *
+     * @param $data
+     * @return string
+     */
+    private function getBase64Content($data)
+    {
+        list($type, $data) = explode(';', $data);
+        list(, $data) = explode(',', $data);
+        $data = base64_decode($data);
 
-        EmployeeCareer::create([
-            'employee_id'=>$Id,
-            'start_date' => date("Y-m-d", strtotime($start_date)),
-            'end_date' => $end_date ? date("Y-m-d", strtotime($end_date)) : null,
-        ]);
+        return $data;
+    }
 
-        return response()->json([ 'msg' =>'Record created Successfully']);
+    /**
+     * Saves temporary file from base64 string.
+     *
+     * @param $filename
+     * @param $data
+     * @return File
+     */
+    private function saveFileFromBase64($filename, $data)
+    {
+        $data = $this->getBase64Content($data);
+        file_put_contents($filename, $data);
+        $file = new File($filename);
+
+        return $file;
     }
 
     public function deleteEmployeeCareer(Request $request, $Id) {
@@ -485,6 +578,17 @@ class AttendanceController extends Controller
         //$attendance = EmployeeAttendance::
         $career->delete();
         return response()->json(['message' =>'Record deleted Successfully']);
+
+    }
+
+    public function generateEmail(Request $request, $careerId){
+        $email = $request->input('email');
+        $career = EmployeeCareer::with('employee')->where('id',$careerId)->get()->first();
+
+        $career->BC = $career->getMedia("birth_certificate")[0]->getPath();
+        $career->NC = $career->getMedia("national_card")[0]->getPath();
+        Mail::to($email)->send(new NewEmployeeMail($career->employee->name, $career->employee->surname, $career->position, $career->start_date, $career->BC, $career->NC));
+        return $this->fsSuccess('Email Sent Successfully To '.$email);
 
     }
 }

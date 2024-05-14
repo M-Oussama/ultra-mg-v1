@@ -36,7 +36,10 @@ const props = defineProps({
 })
 const attendance = ref({
   start_date: '',
-  end_date: ''
+  end_date: '',
+  real_start_date:'',
+  real_end_date:'',
+  position:'',
 })
 watch(props.isDrawerOpen, ()=>{
   if(props.isDrawerOpen.open){
@@ -44,6 +47,9 @@ console.log(props.employee)
     attendance.value.id = props.employee.id || ""
     attendance.value.start_date = props.employee.start_date || ""
     attendance.value.end_date =  props.employee.end_date || ''
+    attendance.value.real_start_date =  props.employee.real_start_date || ''
+    attendance.value.real_end_date =  props.employee.real_end_date || ''
+    attendance.value.position =  props.employee.position || ''
   }
 })
 const isFormValid = ref(false)
@@ -69,7 +75,7 @@ const onSubmit = () => {
 
   props.loading.isActive = true;
   console.log(props.loading)
-  attendanceStore.updateEndDate(attendance.value.end_date, attendance.value.start_date, attendance.value.id).then(response => {
+  attendanceStore.updateEndDate(attendance.value.end_date, attendance.value.start_date, attendance.value.id, attendance.value.position).then(response => {
     props.isDrawerOpen.open = false;
     props.loading.isActive = false;
 
@@ -155,6 +161,28 @@ const handleDrawerModelValueUpdate = val => {
 
                   ${attendance.start_date}` }"
                   :disabled="disableEndDate"
+                />
+              </VCol>
+
+              <VCol cols="12">
+                <VLabel>
+                  REAL START DATE
+                </VLabel>
+                <VueDatePicker v-model="attendance.real_start_date"  auto-apply  :format="format" @update:model-value="onStartDateChanged" />
+              </VCol>
+              <!-- 👉  name -->
+              <VCol cols="12">
+                <VLabel>
+                  REAL END DATE
+                </VLabel>
+                <VueDatePicker v-model="attendance.real_end_date"  auto-apply  :format="format"  :min-date="attendance.end_date_restrict"/>
+
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="attendance.position"
+                  :rules="[requiredValidator]"
+                  label="Position"
                 />
               </VCol>
               <VCol cols="12">

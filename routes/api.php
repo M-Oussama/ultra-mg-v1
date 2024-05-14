@@ -8,6 +8,7 @@ use App\Http\Controllers\ClientLogController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductReturnController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\POSController;
@@ -111,6 +112,21 @@ Route::post('/clients/log/generate', [PDFController::class, 'generateCustomerLog
         Route::post('/update', [SupplierController::class, 'update']);
         Route::post('/delete', [SupplierController::class, 'delete']);
     });
+
+    Route::group(['prefix' => 'returns'], function () {
+        Route::get('/list', [ProductReturnController::class, 'getReturns']);
+        Route::post('/store', [ProductReturnController::class, 'store']);
+        Route::get('/getData', [ProductReturnController::class, 'getData']);
+        Route::post('/delete', [ProductReturnController::class, 'deleteReturn']);
+        Route::post('/update/{id}', [ProductReturnController::class, 'update']);
+        Route::get('/getReturnData/{id}', [ProductReturnController::class, 'getReturnData']);
+        Route::get('/getReturn/{id}', [ProductReturnController::class, 'getReturn']);
+});
+
+/**
+ * Recruitment
+ */
+Route::post('/recrutement/generateEmail/{id}', [AttendanceController::class, 'generateEmail'])->name('generateEmail');
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
