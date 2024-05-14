@@ -152,12 +152,11 @@ const handleProductChange = (value) => {
 }
 
 const paymentActive = () => {
-
-  // if(props.data.payment) {
-  //   props.data.paymentAmount = totalInvoice.value
-  // } else {
-  //   props.data.paymentAmount = props.data.payment_total
-  // }
+  if(props.data.payment) {
+    props.data.regulation = totalInvoice.value
+  } else {
+    props.data.regulation = 0
+  }
 
 }
 
@@ -569,7 +568,7 @@ const onProductChanged = (item) => {
                   </p>
                   <p class="mb-2 text-sm">
                     {{(props.data.payment ?
-                    (parseFloat(totalInvoice) - parseFloat(props.data.regulation) - parseFloat(props.data.paymentAmount)):
+                    (parseFloat(totalInvoice)  - parseFloat(props.data.paymentAmount)):
                     (parseFloat(totalInvoice) - parseFloat(props.data.paymentAmount))).toFixed(2)
                     }} DZD
                   </p>

@@ -134,13 +134,17 @@ class POSController extends Controller
             ]);
 
         }
+        if(floatval($data['paymentAmount']) > 0) {
+            $payment = new Payment();
+            $payment->payment_date = $data['sale_date'];
+            $payment->amount_paid = $data['paymentAmount'];
+            $payment->sale_id = $sale->id;
+            $payment->client_id = $client['id'];
+            $payment->active = true;
+            $payment->save();
+        }
 
-//        $payment = new Payment();
-//        $payment->payment_date = $data['sale_date'];
-//        $payment->amount_paid = $data['paymentAmount'];
-//        $payment->sale_id = $sale->id;
-//        $payment->client_id = $client['id'];
-//        $payment->save();
+
 
         $products = $data['sale_items'];
 
@@ -164,7 +168,10 @@ class POSController extends Controller
     {
 
         $data = $request->input('data');
+
         $client = $data['client'];
+
+
         $payment = $data['payment'];
         $balance =  $data['total_amount'] - $data['paymentAmount'];
 
@@ -202,6 +209,21 @@ class POSController extends Controller
             $sale->payment = 0;
             $sale->regulation = 0;
             $sale->save();
+        }
+
+        if(floatval($data['regulation']) > 0) {
+
+            $payment = Payment::where('sale_id', $sale->id)->where('active', true)->get()->first();
+
+            if(!$payment){
+                $payment = new Payment();
+            }
+            $payment->payment_date = $data['sale_date'];
+            $payment->amount_paid = floatval($data['regulation']);
+            $payment->sale_id = $sale->id;
+            $payment->client_id = $client['id'];
+            $payment->active = true;
+            $payment->save();
         }
 
         $saleItems = SaleItem::where('sale_id',$sale->id)->get();
@@ -291,6 +313,16 @@ class POSController extends Controller
         $payment->client_id = $client_id;
         $payment->sale_id = $sale_id;
         $payment->save();
+
+        if($payment->active) {
+            if($payment->sale_id){
+                $sale = Sale::find($payment->sale_id);
+                $sale->balance = floatval($sale->balance) - floatval($sale->regulation) +  floatval($amount);
+                $sale->regulation = $amount;
+                $sale->save();
+            }
+
+        }
 
 
         return response()->json('Payment updated Successfully');
