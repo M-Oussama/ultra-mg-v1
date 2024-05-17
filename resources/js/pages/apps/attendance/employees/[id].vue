@@ -459,7 +459,7 @@ const sendEmployeeFile = (employee) => {
                     />
                     <VMenu activator="parent">
                       <VList density="compact">
-                        <VListItem value="BC" :href="employee.BC">
+                        <VListItem v-if="employee.BC" value="BC" :href="employee.BC">
                           <template #prepend>
                             <VIcon
                               size="22"
@@ -471,7 +471,7 @@ const sendEmployeeFile = (employee) => {
                           <VListItemTitle>Birth Certificate</VListItemTitle>
                         </VListItem>
 
-                        <VListItem value="NC" :href="employee.NC">
+                        <VListItem v-if="employee.NC" value="NC" :href="employee.NC">
                           <template #prepend >
                             <VIcon
                               size="22"

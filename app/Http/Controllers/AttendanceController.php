@@ -346,27 +346,35 @@ class AttendanceController extends Controller
     }
 
     public function fetchEmployeesByAttendance(Request $request, $Id){
-        $searchValue = $request->input('searchValue', ''); // search value
-        $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
-        $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
-        $employees = EmployeeCareer::where('employee_id', $Id)->orderBy('start_date','desc')->paginate($perPage, ['*'], 'page', $currentPage);
+        try {
+            $searchValue = $request->input('searchValue', ''); // search value
+            $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
+            $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
-        foreach ($employees as $employee) {
-            $employee->BC = $employee->getMedia("birth_certificate")[0]->getUrl();
-            $employee->NC = $employee->getMedia("national_card")[0]->getUrl();
+            $employees = EmployeeCareer::where('employee_id', $Id)->orderBy('start_date','desc')->paginate($perPage, ['*'], 'page', $currentPage);
+
+            foreach ($employees as $employee) {
+                if(count($employee->getMedia("birth_certificate")) > 0)
+                    $employee->BC = $employee->getMedia("birth_certificate")[0]->getUrl();
+                if(count($employee->getMedia("national_card")) > 0)
+                    $employee->NC = $employee->getMedia("national_card")[0]->getUrl();
+            }
+
+
+            $totalEmployees = $employees->total(); // Total number of users matching the query
+            $totalPage = ($totalEmployees / $perPage); // Calculate total pages
+
+            $latestEmployee = $employees->first();
+            if ($latestEmployee) {
+                $latestEmployee->last = true;
+            }
+
+            return response()->json(['employees' => $employees, 'totalEmployees'=> count($employees), '$totalPage'=>$totalPage]);
+
+        }catch (\Exception $e){
+            throw new BadRequestHttpException($e->getMessage());
         }
-
-
-        $totalEmployees = $employees->total(); // Total number of users matching the query
-        $totalPage = ($totalEmployees / $perPage); // Calculate total pages
-
-        $latestEmployee = $employees->first();
-        if ($latestEmployee) {
-            $latestEmployee->last = true;
-        }
-
-        return response()->json(['employees' => $employees, 'totalEmployees'=> count($employees), '$totalPage'=>$totalPage]);
 
     }
 
@@ -512,21 +520,29 @@ class AttendanceController extends Controller
                 'position' => $position
             ]);
 
-            $birth_certificate_name = 'BC'.$employeeData->name.'-'.$employeeData->surname.'.pdf';
-            $national_card_name = 'NC'.$employeeData->name.'-'.$employeeData->surname.'.pdf';
 
-            list($type, $BCbase64code) = explode(';', $birth_certificateB64);
-            list(,$BCbase64code) = explode(',' , $BCbase64code);
-            $carrer->addMediaFromBase64($BCbase64code)
-                ->usingFileName($birth_certificate_name)
-                ->toMediaCollection('birth_certificate');
+            if($birth_certificateB64){
+                $birth_certificate_name = 'BC'.$employeeData->name.'-'.$employeeData->surname.'.pdf';
+
+                list($type, $BCbase64code) = explode(';', $birth_certificateB64);
+                list(,$BCbase64code) = explode(',' , $BCbase64code);
+                $carrer->addMediaFromBase64($BCbase64code)
+                    ->usingFileName($birth_certificate_name)
+                    ->toMediaCollection('birth_certificate');
+            }
 
 
-            list($type, $NCbase64code) = explode(';', $national_cardB64);
-            list(,$NCbase64code) = explode(',' , $NCbase64code);
-            $carrer->addMediaFromBase64($NCbase64code)
-                ->usingFileName($national_card_name)
-                ->toMediaCollection('national_card');
+
+            if($national_cardB64){
+                $national_card_name = 'NC'.$employeeData->name.'-'.$employeeData->surname.'.pdf';
+
+                list($type, $NCbase64code) = explode(';', $national_cardB64);
+                list(,$NCbase64code) = explode(',' , $NCbase64code);
+                $carrer->addMediaFromBase64($NCbase64code)
+                    ->usingFileName($national_card_name)
+                    ->toMediaCollection('national_card');
+            }
+
 
 
             $carrer->save();

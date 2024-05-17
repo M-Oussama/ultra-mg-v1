@@ -58,27 +58,55 @@ const  getBase64  =(file) =>{
 }
  const onSubmit = () => {
   // update the end Date then close the drawer if any error keep the drawer open
-   var reader = new FileReader();
-   reader.readAsDataURL(attendance.value.birth_certificate[0]);
-   reader.onload = function () {
-     let base64BC =  reader.result;
-     var reader2 = new FileReader();
-     reader2.readAsDataURL(attendance.value.national_card[0]);
-     reader2.onload = function () {
-       let base64NC =  reader.result;
-       callSubmit(base64BC,base64NC)
-     }
 
+   if(attendance.value.birth_certificate[0] === undefined && attendance.value.national_card[0] === undefined) {
+     callSubmit(null,null)
+   }
 
-   };
-   reader.onerror = function (error) {
-     return '';
-   };
+   if(attendance.value.birth_certificate[0] !== undefined && attendance.value.national_card[0] === undefined){
+     var _reader = new FileReader();
+     _reader.readAsDataURL(attendance.value.birth_certificate[0]);
+     _reader.onload = function () {
+       let base64BC =  _reader.result;
+       callSubmit(base64BC,null)
+     };
+     _reader.onerror = function (error) {
+       return '';
+     };
+   }
 
-
-
-
+   if(attendance.value.national_card[0] !== undefined && attendance.value.birth_certificate[0] === undefined) {
+       var reader2 = new FileReader();
+         reader2.readAsDataURL(attendance.value.national_card[0]);
+         reader2.onload = function () {
+           let base64NC =  reader2.result;
+           callSubmit(null,base64NC)
+         }
+     reader2.onerror = function (error) {
+       return '';
+     };
+   }
+   if(attendance.value.birth_certificate[0] !== undefined && attendance.value.national_card[0] !== undefined) {
+     console.log("here")
+       var reader = new FileReader();
+       reader.readAsDataURL(attendance.value.birth_certificate[0]);
+       reader.onload = function () {
+         let base64BC =  reader.result;
+         if(attendance.value.national_card[0] !== undefined) {
+           var reader2 = new FileReader();
+           reader2.readAsDataURL(attendance.value.national_card[0]);
+           reader2.onload = function () {
+             let base64NC =  reader2.result;
+             callSubmit(base64BC,base64NC)
+           }
+         }
+       };
+       reader.onerror = function (error) {
+         return '';
+       };
+   }
 }
+
 const callSubmit = (base64BC,base64NC) => {
   if(attendance.value.start_date === ''){
     errorsMiddleware(
