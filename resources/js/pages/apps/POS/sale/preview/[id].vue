@@ -296,7 +296,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 <div    class=" v-col-md-2 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
                   Client
                 </div>
-                <div    class=" v-col-md-10  border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10  border-left padding-8 data-font  text-weight-bold">
                   {{ sale.client.name }} {{sale.client.surname}}
                 </div>
               </div>
@@ -304,7 +304,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 <div    class=" v-col-md-2 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
                   Address
                 </div>
-                <div    class=" v-col-md-10 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10 border-left padding-8 data-font  text-weight-bold">
                   {{ sale.client.address }}
                 </div>
               </div>
@@ -312,7 +312,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 <div    class=" v-col-md-2 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
                   Phone
                 </div>
-                <div    class=" v-col-md-10 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10 border-left padding-8 data-font  text-weight-bold">
                   {{ sale.client.phone }}
                 </div>
               </div>
@@ -321,7 +321,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 <div    class=" v-col-md-2 text-sm-subtitle-2  border-right text-h4 text-weight-bold">
                   Email
                 </div>
-                <div    class=" v-col-md-10 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10 border-left padding-8 data-font  text-weight-bold">
                   {{ sale.client.email }}
                 </div>
               </div>
@@ -751,7 +751,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
     background: none !important;
   }
 
-  @page { margin: 0; size: auto; }
+  @page { margin: 0; size: B0; }
 
   .layout-page-content,
   .v-row,
