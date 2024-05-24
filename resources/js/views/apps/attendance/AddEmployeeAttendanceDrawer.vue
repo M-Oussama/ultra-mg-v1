@@ -57,6 +57,7 @@ const  getBase64  =(file) =>{
 
 }
  const onSubmit = () => {
+  console.log(attendance)
   // update the end Date then close the drawer if any error keep the drawer open
 
    if(attendance.value.birth_certificate[0] === undefined && attendance.value.national_card[0] === undefined) {
@@ -116,7 +117,7 @@ const callSubmit = (base64BC,base64NC) => {
   }else{
     props.loading.isActive = true;
     console.log(props.loading)
-    attendanceStore.addEmployeeAttendanceRecord(attendance.value.end_date, attendance.value.start_date, Number(route.params.id),attendance.value.position,base64BC, base64NC).then(response => {
+    attendanceStore.addEmployeeAttendanceRecord(convertDate(attendance.value.end_date), convertDate(attendance.value.start_date), Number(route.params.id),attendance.value.position,base64BC, base64NC, convertDate(attendance.value.real_start_date), convertDate(attendance.value.real_end_date)).then(response => {
       props.isDrawerOpen.open = false;
       props.loading.isActive = false;
 
@@ -136,6 +137,7 @@ const callSubmit = (base64BC,base64NC) => {
   }
 
 }
+
 const handleDrawerModelValueUpdate = val => {
 
 
@@ -161,6 +163,25 @@ const onStartDateChanged = () =>{
 
 
  attendance.value.end_date_restrict = new Date(new Date(attendance.value.start_date).getTime() + 24 * 60 * 60 * 2000).toISOString().split('T')[0]
+}
+
+const convertDate = dateString =>{
+  if(dateString != null && dateString !== "" ){
+    console.log(dateString)
+  // Parse the given date string
+  let date = new Date(dateString);
+
+
+
+    // Extract year, month, and day components
+    let year = date.getFullYear();
+    let month = String(date.getMonth() + 1).padStart(2, '0'); // Adding 1 because months are zero-based
+    let day = String(date.getDate()).padStart(2, '0');
+
+    // Format the date as "YYYY-MM-DD"
+    return `${year}-${month}-${day}`;
+  }
+  return dateString;
 }
 
 </script>

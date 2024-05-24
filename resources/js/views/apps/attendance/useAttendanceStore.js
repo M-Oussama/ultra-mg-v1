@@ -107,19 +107,22 @@ export const useAttendanceStore = defineStore('AttendanceStore', {
     fetchEmployeesByAttendance(id){
       return axios.get('/api/attendances/employees/list/'+id)
     },
-    updateEndDate(endDate, startDate, id, position){
+    updateEndDate(endDate, startDate, id, position, real_start_date, real_end_date){
       return new Promise((resolve, reject) => {
-        axios.post('/api/attendances/updateEndDate/'+id,{endDate, startDate, position})
+        axios.post('/api/attendances/updateEndDate/'+id,{endDate, startDate, position, real_start_date, real_end_date})
             .then(response => resolve(response))
             .catch(error => reject(error));
       })
     },
-    addEmployeeAttendanceRecord(endDate, startDate, id,position, birth_certificate, national_card){
+    addEmployeeAttendanceRecord(endDate, startDate, id,position, birth_certificate, national_card, real_start_date, real_end_date){
+     console.log("start date");
+     console.log(startDate);
       return new Promise((resolve, reject) => {
-        axios.post('/api/attendances/addNewEmployeeAttendanceRecord/'+id,{endDate, startDate, position, birth_certificate, national_card})
+        axios.post('/api/attendances/addNewEmployeeAttendanceRecord/'+id,{endDate, startDate, position, birth_certificate, national_card, real_start_date, real_end_date})
             .then(response => resolve(response))
             .catch(error => reject(error));
       })
     }
   },
 })
+

@@ -15,7 +15,9 @@ class EmployeeCareer extends Model implements HasMedia
         'employee_id',
         'start_date',
         'end_date',
-        'position'
+        'position',
+        'real_start_date',
+        'real_end_date'
     ];
 
     public function employee() {

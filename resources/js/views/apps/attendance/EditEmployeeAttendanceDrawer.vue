@@ -75,7 +75,7 @@ const onSubmit = () => {
 
   props.loading.isActive = true;
   console.log(props.loading)
-  attendanceStore.updateEndDate(attendance.value.end_date, attendance.value.start_date, attendance.value.id, attendance.value.position).then(response => {
+  attendanceStore.updateEndDate(convertDate(attendance.value.end_date), convertDate(attendance.value.start_date), attendance.value.id, attendance.value.position, convertDate(attendance.value.real_start_date), convertDate(attendance.value.real_end_date)).then(response => {
     props.isDrawerOpen.open = false;
     props.loading.isActive = false;
 
@@ -97,7 +97,35 @@ const handleDrawerModelValueUpdate = val => {
 
   props.isDrawerOpen.value.open = val
 }
+const convertDate = dateString =>{
+  if(dateString != null && dateString !== "" ){
+    console.log(dateString)
+    // Parse the given date string
+    let date = new Date(dateString);
 
+
+
+    // Extract year, month, and day components
+    let year = date.getFullYear();
+    let month = String(date.getMonth() + 1).padStart(2, '0'); // Adding 1 because months are zero-based
+    let day = String(date.getDate()).padStart(2, '0');
+
+    // Format the date as "YYYY-MM-DD"
+    return `${year}-${month}-${day}`;
+  }
+  return dateString;
+}
+
+const format = (date) => {
+  const day = date.getDate();
+  const month = date.getMonth() + 1;
+  const year = date.getFullYear();
+
+  return `${year}-${leadingZero(month,2)}-${leadingZero(day)}`;
+}
+function leadingZero (str) {
+  return parseInt(str) < 10 ? "0"+str : str;
+}
 </script>
 
 <template>

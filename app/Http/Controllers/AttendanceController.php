@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\EmployeeAttendance;
 use App\Models\EmployeeCareer;
 use Carbon\Carbon;
+use Faker\Provider\DateTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -383,11 +384,23 @@ class AttendanceController extends Controller
         $employee_career = EmployeeCareer::find($Id);
         $end_date = $request->input('endDate');
         $position = $request->input('position');
+        $real_start_date = $request->input('real_start_date');
+        $real_end_date = $request->input('real_end_date');
 
         try {
             $rules = [
                 'endDate' => 'date|after:startDate',
+                'real_end_date' => 'date|after:real_start_date',
             ];
+
+            if($real_end_date) {
+                if(!$real_start_date){
+                    throw new BadRequestHttpException('Real start date is missing');
+                }
+                if($real_start_date >= $real_end_date){
+                    throw new BadRequestHttpException('Real end Date must be after the Real start Date');
+                }
+            }
 
             if($end_date){
                 if($employee_career->start_date >= $end_date){
@@ -397,10 +410,10 @@ class AttendanceController extends Controller
                 }else {
                     $request->validate($rules);
 
-                    $employee_career->update(['end_date' => $end_date]);
+                   $employee_career->update(['end_date' => $end_date , "real_end_date" => $real_end_date, "real_start_date"=> $real_start_date, "position" => $position]);
                 }
             }else {
-                $employee_career->update(['position' => $position]);
+                $employee_career->update(['position' => $position, 'end_date' => null, "real_end_date" => $real_end_date, "real_start_date"=> $real_start_date]);
             }
 
 
@@ -426,6 +439,8 @@ class AttendanceController extends Controller
         $position = $request->input('position');
         $birth_certificateB64 = $request->input('birth_certificate');
         $national_cardB64 = $request->input('national_card');
+        $real_start_date= $request->input('real_start_date');
+        $real_end_date = $request->input('real_end_date');
 
         $employeeData = Employee::find($Id);
 
@@ -515,9 +530,11 @@ class AttendanceController extends Controller
 
             $carrer =  EmployeeCareer::create([
                 'employee_id'=>$Id,
-                'start_date' => date("Y-m-d", strtotime($start_date)),
-                'end_date' => $end_date ? date("Y-m-d", strtotime($end_date)) : null,
-                'position' => $position
+                'start_date' => $start_date,
+                'end_date' => $end_date ? $end_date : null,
+                'position' => $position,
+                'real_start_date' => $real_start_date ? $real_start_date: null,
+                'real_end_date' => $real_end_date ? $real_end_date: null
             ]);
 
 
