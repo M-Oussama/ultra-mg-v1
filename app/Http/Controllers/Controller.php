@@ -71,10 +71,10 @@ class Controller extends BaseController
     /**
      * Returns a json response with success true and the message.
      *
-     * @param string|null $message
+     * @param string $message
      * @return JsonResponse
      */
-    public function fsSuccess(?string $message): JsonResponse
+    public function fsSuccess(string $message): JsonResponse
     {
         return response()->json([
             "success" => true,

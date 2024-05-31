@@ -107,18 +107,17 @@ export const useAttendanceStore = defineStore('AttendanceStore', {
     fetchEmployeesByAttendance(id){
       return axios.get('/api/attendances/employees/list/'+id)
     },
-    updateEndDate(endDate, startDate, id, position, real_start_date, real_end_date){
+    updateEndDate(endDate, startDate, id, position, real_start_date, real_end_date, position_ar){
       return new Promise((resolve, reject) => {
-        axios.post('/api/attendances/updateEndDate/'+id,{endDate, startDate, position, real_start_date, real_end_date})
+        axios.post('/api/attendances/updateEndDate/'+id,{endDate, startDate, position, real_start_date, real_end_date, position_ar})
             .then(response => resolve(response))
             .catch(error => reject(error));
       })
     },
-    addEmployeeAttendanceRecord(endDate, startDate, id,position, birth_certificate, national_card, real_start_date, real_end_date){
-     console.log("start date");
-     console.log(startDate);
+    addEmployeeAttendanceRecord(endDate, startDate, id,position, birth_certificate, national_card, real_start_date, real_end_date, position_ar){
+
       return new Promise((resolve, reject) => {
-        axios.post('/api/attendances/addNewEmployeeAttendanceRecord/'+id,{endDate, startDate, position, birth_certificate, national_card, real_start_date, real_end_date})
+        axios.post('/api/attendances/addNewEmployeeAttendanceRecord/'+id,{endDate, startDate, position, birth_certificate, national_card, real_start_date, real_end_date, position_ar})
             .then(response => resolve(response))
             .catch(error => reject(error));
       })

@@ -10,6 +10,11 @@ import { ModelListSelect } from 'vue-search-select'
 const route = useRoute()
 const router = useRouter()
 const articles = ref([])
+const _benefit = ref({
+  raw_material_price : 0,
+  total_profit: 0
+})
+const total_profits = ref(0)
 
 const saleStore = useSaleStore()
 const loading = ref({
@@ -17,15 +22,21 @@ const loading = ref({
 })
 const invoice_id = ref(null)
 
-// 👉 fetchInvoice
-saleStore.getArticlesBenefit(Number(route.params.id)).then(response => {
-  loading.isActive = false;
-  articles.value = response.data.articles
+const fetchList = () => {
+  saleStore.getArticlesBenefit(Number(route.params.id)).then(response => {
+    loading.isActive = false;
+    articles.value = response.data.articles
+    _benefit.value = response.data.benefit
+    console.log(_benefit.value.benefit)
+    _benefit.value.total_profit = _benefit.value.benefit
 
-}).catch(error => {
-  loading.isActive = false;
-  console.log(error)
-})
+  }).catch(error => {
+    loading.isActive = false;
+    console.log(error)
+  })
+}
+// 👉 fetchInvoice
+watchEffect(fetchList)
 
 const isSendSidebarActive = ref(false)
 const isAddPaymentSidebarActive = ref(false)
@@ -33,6 +44,7 @@ const paymentTerms = ref(true)
 const clientNotes = ref(false)
 const paymentStub = ref(false)
 const saved = ref(false)
+const raw_material_price = ref(0)
 
 const statusName = item => {
   return `${item.name}`
@@ -89,13 +101,65 @@ const saveInvoice = () => {
 }
 
 const ondataChanged = (article)=> {
- var jerryCan =  parseFloat(article.weight) * (parseFloat(article.raw_material_price) /1000);
+ var jerryCan =  parseFloat(article.weight) * (parseFloat(_benefit.value.raw_material_price) /1000);
+
   var benefit = jerryCan > 0 ? jerryCan + 5+1: 0;
 
-   article.benefit =   parseFloat(article.price) - benefit;
+   article.benefit =   parseFloat(article.product_price) - benefit;
+
+   article.total_profit = parseFloat(article.total_amount) - (parseFloat(article.benefit) * parseFloat(article.quantity))
+
+  calculateTotalProfits()
+}
+const updateRawMaterial = ()=> {
+  for (let i = 0; i <articles.value.length ; i++) {
+    var jerryCan =  parseFloat(articles.value[i].weight) * (parseFloat(_benefit.value.raw_material_price) /1000);
+
+    var benefit = jerryCan > 0 ? jerryCan + 5+1: 0;
+
+    articles.value[i].benefit =   parseFloat(articles.value[i].product_price) - benefit;
+    articles.value[i].total_profit = parseFloat(articles.value[i].total_amount) - (parseFloat(articles.value[i].benefit) * parseFloat(articles.value[i].quantity))
+  }
+  calculateTotalProfits()
 
 }
+const calculateTotalProfits = () =>{
+  total_profits.value = 0;
+  for (let i = 0; i <articles.value.length ; i++) {
+    total_profits.value += parseFloat(articles.value[i].total_profit)
+  }
+  _benefit.value.total_profit = parseFloat(total_profits.value).toFixed(2)
 
+
+}
+const submitForm = () => {
+
+  loading.value.isActive = true;
+  saleStore.updateProfit(articles.value, _benefit.value, Number(route.params.id)).then(response => {
+    loading.value.isActive = false;
+    successMiddleware(response.data.message)
+    router.push('/apps/pos/benefit/list')
+
+  }).catch(error => {
+    loading.value.isActive = false;
+    console.log(error)
+  })
+}
+const refreshData = () => {
+
+  loading.value.isActive = true;
+  saleStore.refreshData(Number(route.params.id)).then(response => {
+    console.log(response)
+    loading.value.isActive = false;
+    fetchList()
+    successMiddleware(response.data.message)
+
+
+  }).catch(error => {
+    loading.value.isActive = false;
+    console.log(error)
+  })
+}
 </script>
 
 <template>
@@ -122,47 +186,84 @@ const ondataChanged = (article)=> {
             ref="refForm"
             @submit.prevent
           >
+            <VRow>
+              <VCol
+                cols="6"
+                md="4"
+                class="mb-5 text-center"
+              >
+                <VLabel title="Raw material price per KG " class="mb-5"></VLabel>
+                <VTextField
+                  v-model="_benefit.raw_material_price"
+                  type="number"
+
+                  label="RM price KG"
+                  placeholder="price of the raw material per KG"
+                  @update:modelValue="updateRawMaterial()"
+
+                />
+              </VCol>
+              <VCol
+                cols="6"
+                md="4"
+                class="mb-5 text-center"
+              >
+                <VLabel title="Raw material price per KG " class="mb-5"></VLabel>
+                <VTextField
+                  v-model="_benefit.total_profit"
+                  type="number"
+
+                  readonly
+                  label="TOTAL PROFIT"
+                  placeholder="TOTAL PROFIT"
+
+
+                />
+              </VCol>
+
+
+
+                    <VCol  cols="4"    md="1" class="mt-7">
+                      <VBtn
+
+                        @click="submitForm()"
+                      >
+                        Submit
+                      </VBtn>
+                    </VCol>
+                    <VCol  cols="4"    md="1" class="mt-7">
+                      <VBtn
+                        color="success"
+                        @click="refreshData()"
+                      >
+                        Refresh
+                      </VBtn>
+                    </VCol>
+
+
+
+
+
+
+
+
+
+            </VRow>
+
             <VRow v-for="article in articles">
               <VCol
                 cols="12"
-                md="4"
+                md="2"
               >
                 <VTextField
                   v-model="article.product.name"
                   label="Name of the product"
                   placeholder="Name of the product"
+                  readonly
 
                 />
               </VCol>
 
-              <VCol
-                cols="12"
-                md="2"
-              >
-                <VTextField
-                  type="number"
-                  v-model="article.weight"
-
-                  label="Product's Weight"
-                  placeholder="Weight of the product"
-
-                  @update:modelValue="ondataChanged(article)"
-                />
-              </VCol>
-              <VCol
-                cols="12"
-                md="2"
-              >
-                <VTextField
-                  v-model="article.raw_material_price"
-                  type="number"
-
-                  label="RM price KG"
-                  placeholder="price of the raw material per KG"
-
-                  @update:modelValue="ondataChanged(article)"
-                />
-              </VCol>
               <VCol
                 cols="12"
                 md="2"
@@ -184,20 +285,52 @@ const ondataChanged = (article)=> {
                   v-model="article.benefit"
                   label="Product's Benefit"
                   placeholder="Benefit of the product"
+                  readonly
+
+                />
+              </VCol>
+              <VCol
+                cols="12"
+                md="2"
+              >
+                <VTextField
+                  type="number"
+                  v-model="article.quantity"
+                  label="Product's Quantity"
+                  placeholder="quantity of the product this month"
+                  readonly
+
+                />
+              </VCol>
+              <VCol
+                cols="12"
+                md="2"
+              >
+                <VTextField
+                  type="number"
+                  v-model="article.total_amount"
+                  label="Product's total amount"
+                  placeholder="total amount of the product"
+                  readonly
+
+                />
+              </VCol>
+              <VCol
+                cols="12"
+                md="2"
+              >
+                <VTextField
+                  type="number"
+                  v-model="article.total_profit"
+                  label="Product's total profit"
+                  placeholder="total profit of the product"
+                  readonly
 
                 />
               </VCol>
 
-
             </VRow>
-            <VCol cols="12">
-              <VBtn
-                type="submit"
-                @click="refForm?.validate()"
-              >
-                Submit
-              </VBtn>
-            </VCol>
+
           </VForm>
         </VCardText>
       </VCard>
@@ -318,4 +451,10 @@ const ondataChanged = (article)=> {
 <!--    <InvoiceAddPaymentDrawer v-model:isDrawerOpen="isAddPaymentSidebarActive" />-->
   </VRow>
 </template>
+
+<style>
+.color-black{
+  color:black !important;
+}
+</style>
 

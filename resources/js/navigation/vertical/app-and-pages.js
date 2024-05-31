@@ -156,6 +156,8 @@ export default [
   {
     title: 'Management',
     children: [
+      { title: 'Vacation', to: 'apps-employee-vacation-list' },
+
       { title: 'Attendance', to: 'apps-attendance-list' },
     ],
     icon: { icon: 'tabler-archive' },

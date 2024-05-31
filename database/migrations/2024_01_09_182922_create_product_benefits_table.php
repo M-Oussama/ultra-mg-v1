@@ -19,7 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('product_id');
             $table->decimal('raw_material_price');
             $table->decimal('weight');
-            $table->decimal('benefit');
+            $table->double('benefit');
             $table->decimal('product_price');
             $table->timestamps();
         });

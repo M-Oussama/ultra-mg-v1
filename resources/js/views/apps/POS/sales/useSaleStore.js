@@ -170,12 +170,59 @@ export const useSaleStore = defineStore('SaleStore', {
             })
       })
     },
+
     storeBenefit(data) {
       const { month, year} = data;
       return new Promise((resolve, reject) => {
         axios.post('/api/pos/benefits/store', {
           data,
         }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
+    updateProfit(data , benefit, id) {
+      return new Promise((resolve, reject) => {
+        axios.post('/api/pos/benefits/update/'+id, {
+          data,
+          benefit
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
+    refreshData(id) {
+      return new Promise((resolve, reject) => {
+        axios.get('/api/pos/benefits/refresh/'+id, {
+
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
+
+    deleteBenefit(id){
+
+      return new Promise((resolve, reject) => {
+        axios.delete('/api/pos/benefits/delete/'+id).then(response => {
 
           resolve(response)
         })

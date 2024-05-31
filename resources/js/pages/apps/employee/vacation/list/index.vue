@@ -1,12 +1,13 @@
 <script setup>
 import {successMiddleware} from "@/middlewares/successMiddleware";
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
-import {useAttendanceStore} from "@/views/apps/attendance/useAttendanceStore";
+import {useVacationStore} from "@/views/apps/employee/vacation/useVacationStore";
 import EditEmployeeAttendanceDrawer from "@/views/apps/attendance/EditEmployeeAttendanceDrawer.vue";
-import AddEmployeeAttendanceDrawer from "@/views/apps/attendance/AddEmployeeAttendanceDrawer.vue";
+import AddNewVacation from "@/views/apps/employee/vacation/AddNewVacation.vue";
 
-const attendanceStore = useAttendanceStore()
+const store = useVacationStore()
 const searchQuery = ref('')
+const title = ref('Employees')
 const loading = ref(false)
 const loading2 = ref({
   isActive:true
@@ -14,14 +15,14 @@ const loading2 = ref({
 const route = useRoute()
 const isTyping = ref(true)
 const selectedRole = ref()
-const comptableEmail = ref('mahgounoussama23@gmail.com')
+const email = ref('mahgounoussama23@gmail.com')
 const selectedPlan = ref()
 const selectedStatus = ref()
 const rowPerPage = ref(10)
 const currentPage = ref(1)
 const totalPage = ref(1)
-const totalEmployees = ref(0)
-let employees = ref([])
+const totalRecords = ref(0)
+let list = ref([])
 let isEditDrawerVisible = ref({
   open : false
 })
@@ -34,41 +35,40 @@ let isAddDrawerOpen = ref({
 let disableEndDate = ref(false)
 let disableStartDate = ref(true)
 
-// 👉 Fetching Employees
-const fetchEmployees = () => {
+// 👉 Fetching List
+const fetchList = () => {
   loading2.value.isActive = true;
-  attendanceStore.fetchEmployeesByAttendance(Number(route.params.id)).then(response => {
-    employees.value = response.data.employees.data
+  store.fetchListRecord(Number(route.params.id)).then(response => {
+    list.value = response.data.employees.data
      totalPage.value = response.data.totalPage
-     totalEmployees.value = response.data.totalEmployees
+     totalRecords.value = response.data.totalVacation
      loading.value = false;
     loading2.value.isActive = false;
     console.log(response);
   }).catch(error => {
-    console.error(error)
     loading2.value.isActive = false;
   })
 }
 
 
 
-watchEffect(fetchEmployees)
+watchEffect(fetchList)
 
 // 👉 watching current page
 watchEffect(() => {
   if (currentPage.value > totalPage.value)
     currentPage.value = totalPage.value
 })
-// 👉 Watching changes in searchQuery and executing fetchEmployees
+// 👉 Watching changes in searchQuery and executing fetchList
 watch(searchQuery, () => {
 
   //loading.value = true;
-  fetchEmployees();
+  fetchList();
 });
 
 
 const isDialogVisible = ref(false)
-let selectedEmployee = ref(null)
+let selectedValue = ref(null)
 
 // 👉 watching current page
 watchEffect(() => {
@@ -78,19 +78,19 @@ watchEffect(() => {
 
 // 👉 Computing pagination data
 const paginationData = computed(() => {
-  const firstIndex = employees.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
-  const lastIndex = employees.value.length + (currentPage.value - 1) * rowPerPage.value
+  const firstIndex = list.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
+  const lastIndex = list.value.length + (currentPage.value - 1) * rowPerPage.value
   
-  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalEmployees.value } entries`
+  return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalRecords.value } entries`
 })
 
-const addNewEmployee = employeeData => {
+const addNewEmployee = data => {
   loading2.value.isActive = true;
-  employeeStore.addEmployee(employeeData).then(response =>{
+  employeeStore.addEmployee(data).then(response =>{
     successMiddleware(response.data.message)
     loading2.value.isActive = false;
     // refetch User
-    fetchEmployees()
+    fetchList()
   }).catch(error => {
     errorsMiddleware(error.data.message)
     loading2.value.isActive = false;
@@ -99,14 +99,14 @@ const addNewEmployee = employeeData => {
 
 }
 
-const updateEmployee = employeeData => {
+const updateEmployee = data => {
   loading2.value.isActive = true;
-  employeeStore.updateEmployee(employeeData).then(response =>{
+  employeeStore.updateEmployee(data).then(response =>{
     successMiddleware(response.data.message)
 
     loading2.value.isActive = false;
     // refetch User
-    fetchEmployees()
+    fetchList()
   }).catch(error =>{
     errorsMiddleware(error.data.message)
     loading2.value.isActive = false;
@@ -115,9 +115,9 @@ const updateEmployee = employeeData => {
 
 }
 
-const deleteEmployee = employeeData =>  {
+const deleteEmployee = data =>  {
   loading2.value.isActive = true;
-  employeeStore.deleteEmployee(employeeData).then(response =>{
+  employeeStore.deleteEmployee(data).then(response =>{
     loading2.value.isActive = false;
     successMiddleware(response.data.message)
   }).catch(error =>{
@@ -126,34 +126,35 @@ const deleteEmployee = employeeData =>  {
   })
 
   // refetch Employee
-  fetchEmployees()
+  fetchList()
 }
 
-const openConfirmationDialog = (employee) => {
-  selectedEmployee.value = employee;
+const openConfirmationDialog = (data) => {
+  selectedValue.value = data;
   isEditDrawerVisible.value.open = true;
 }
-const openDeleteDialog = (employee) => {
-  selectedEmployee.value = employee;
+
+const openDeleteDialog = (data) => {
+  selectedValue.value = data;
   isDeleteDialogVisible.value.open = true;
 }
-const openAddRecord = () => {
 
+const openAddDrawer = () => {
   isAddDrawerOpen.value.open = true;
 }
 const onDelete = () => {
-
-  loading2.value.isActive = true;
-  isDeleteDialogVisible.value.open = false;
-  attendanceStore.deleteCareer(selectedEmployee.value.id).then(response =>{
-    loading2.value.isActive = false;
-    successMiddleware(response.data.message)
-    // refetch Employee
-    fetchEmployees()
-  }).catch(error =>{
-    errorsMiddleware(error.data.message)
-    loading2.value.isActive = false;
-  })
+  //
+  // loading2.value.isActive = true;
+  // isDeleteDialogVisible.value.open = false;
+  // attendanceStore.deleteCareer(selectedValue.value.id).then(response =>{
+  //   loading2.value.isActive = false;
+  //   successMiddleware(response.data.message)
+  //   // refetch Employee
+  //   fetchList()
+  // }).catch(error =>{
+  //   errorsMiddleware(error.data.message)
+  //   loading2.value.isActive = false;
+  // })
 
 
 }
@@ -205,16 +206,16 @@ const convertToAlphabet = (number, unit) =>{
   }
 }
 
-const sendEmployeeFile = (employee) => {
-  console.log(employee);
-  loading2.value.isActive = true;
-  attendanceStore.generateEmail(employee.id, comptableEmail.value).then(response =>{
-    loading2.value.isActive = false;
-    successMiddleware(response.data.message)
-  }).catch(error =>{
-    errorsMiddleware(error.data.message)
-    loading2.value.isActive = false;
-  })
+const sendFile = (employee) => {
+  // console.log(employee);
+  // loading2.value.isActive = true;
+  // attendanceStore.generateEmail(employee.id, email.value).then(response =>{
+  //   loading2.value.isActive = false;
+  //   successMiddleware(response.data.message)
+  // }).catch(error =>{
+  //   errorsMiddleware(error.data.message)
+  //   loading2.value.isActive = false;
+  // })
 
 }
 </script>
@@ -233,7 +234,7 @@ const sendEmployeeFile = (employee) => {
         ></v-progress-circular>
       </v-overlay>
       <VCol cols="12">
-        <VCard title="Employees">
+        <VCard :title="title">
           <VDivider />
 
           <VCardText class="d-flex flex-wrap py-4 gap-4">
@@ -248,16 +249,7 @@ const sendEmployeeFile = (employee) => {
                 :items="[10, 20, 30, 50]"
               />
             </div>
-            <div style="width: 12rem;">
-              <VTextField
 
-              @input="isTyping = true"
-              ref="searchField"
-              v-model="comptableEmail"
-              placeholder="Email"
-              density="compact"
-            />
-            </div>
 
             <VSpacer />
 
@@ -298,11 +290,11 @@ const sendEmployeeFile = (employee) => {
 
                 color="primary"
                 prepend-icon="tabler-plus"
-                @click="openAddRecord()"
+                @click="openAddDrawer()"
               >
-                New Record
+                New Vacation
               </VBtn>
-              <!-- 👉 Add Employee button -->
+              <!-- 👉 Add record button -->
             </div>
           </VCardText>
 
@@ -337,7 +329,7 @@ const sendEmployeeFile = (employee) => {
             <!-- 👉 table body -->
             <tbody>
               <tr
-                v-for="employee in employees"
+                v-for="employee in list"
                 :key="employee.id"
                 style="height: 3.75rem;"
               >
@@ -453,7 +445,7 @@ const sendEmployeeFile = (employee) => {
                     <VIcon
                       size="22"
                       icon="tabler-send"
-                      @click="sendEmployeeFile(employee)"
+                      @click="sendFile(employee)"
                     />
 
 
@@ -503,7 +495,7 @@ const sendEmployeeFile = (employee) => {
             </tbody>
 
             <!-- 👉 table footer  -->
-            <tfoot v-show="!employees.length">
+            <tfoot v-show="!list.length">
               <tr>
                 <td
                   colspan="7"
@@ -534,16 +526,16 @@ const sendEmployeeFile = (employee) => {
     </VRow>
     <EditEmployeeAttendanceDrawer
       v-model:isDrawerOpen="isEditDrawerVisible"
-      v-model:employee="selectedEmployee"
+      v-model:employee="selectedValue"
       v-model:disable-end-date="disableEndDate"
       v-model:loading = "loading2"
       v-model:disable-start-date = "disableStartDate"
 
     />
 
-    <AddEmployeeAttendanceDrawer
+    <AddNewVacation
       v-model:isDrawerOpen="isAddDrawerOpen"
-      v-model:employees="employees"
+      v-model:employees="list"
       v-model:loading = "loading2"
 
 

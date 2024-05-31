@@ -12,6 +12,7 @@ use App\Http\Controllers\ProductReturnController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\POSController;
+use App\Http\Controllers\VacationController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -71,6 +72,9 @@ Route::post('/pos/sales/payment/delete', [POSController::class, 'deletePayment']
 Route::get('/pos/benefits/list', [BenefitController::class, 'getBenefits'])->name('getBenefits');
 Route::post('/pos/benefits/store', [BenefitController::class, 'store'])->name('store');
 Route::get('/pos/benefits/{id}', [BenefitController::class, 'getArticlesBenefit'])->name('getArticlesBenefit');
+Route::delete('/pos/benefits/delete/{id}', [BenefitController::class, 'destroyBenefit'])->name('destroyBenefit');
+Route::post('/pos/benefits/update/{id}', [BenefitController::class, 'updateBenefit'])->name('updateBenefit');
+Route::get('/pos/benefits/refresh/{id}', [BenefitController::class, 'refreshBenefitData'])->name('refreshBenefitData');
 
 /** EMPLOYEES */
 Route::get('/employees/list', [EmployeeController::class, 'getEmployees'])->name('getEmployees');
@@ -122,7 +126,14 @@ Route::post('/clients/log/generate', [PDFController::class, 'generateCustomerLog
         Route::get('/getReturnData/{id}', [ProductReturnController::class, 'getReturnData']);
         Route::get('/getReturn/{id}', [ProductReturnController::class, 'getReturn']);
 });
-
+    Route::group(['prefix' => '/employees/vacation'], function () {
+        Route::post('/store/{id}', [VacationController::class, 'store']);
+        Route::post('/update/{id}', [VacationController::class, 'update']);
+        Route::get('/list/{id}', [VacationController::class, 'getVacationsByEmployee']);
+        Route::get('/list', [VacationController::class, 'getVacations']);
+        Route::delete('/delete/{id}', [VacationController::class, 'destroy']);
+        Route::get('/{id}', [VacationController::class, 'getVacation']);
+    });
 /**
  * Recruitment
  */

@@ -31,6 +31,7 @@ const attendance = ref({
   end_date: '',
   end_date_restrict:new Date().getFullYear()+'-'+(new Date().getMonth() +1)+'-'+(new Date().getDate()+1),
   position:'',
+  position_ar:'',
   real_start_date:'',
   real_end_date:'',
   national_card:'',
@@ -117,12 +118,12 @@ const callSubmit = (base64BC,base64NC) => {
   }else{
     props.loading.isActive = true;
     console.log(props.loading)
-    attendanceStore.addEmployeeAttendanceRecord(convertDate(attendance.value.end_date), convertDate(attendance.value.start_date), Number(route.params.id),attendance.value.position,base64BC, base64NC, convertDate(attendance.value.real_start_date), convertDate(attendance.value.real_end_date)).then(response => {
+    attendanceStore.addEmployeeAttendanceRecord(convertDate(attendance.value.end_date), convertDate(attendance.value.start_date), Number(route.params.id),attendance.value.position,base64BC, base64NC, convertDate(attendance.value.real_start_date), convertDate(attendance.value.real_end_date), attendance.value.position_ar).then(response => {
       props.isDrawerOpen.open = false;
       props.loading.isActive = false;
 
       successMiddleware(response.data.msg)
-      //location.reload()
+      location.reload()
 
 
 
@@ -263,6 +264,13 @@ const convertDate = dateString =>{
                   v-model="attendance.position"
                   :rules="[requiredValidator]"
                   label="Position"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="attendance.position_ar"
+                  :rules="[requiredValidator]"
+                  label="Position Arabic"
                 />
               </VCol>
               <VCol

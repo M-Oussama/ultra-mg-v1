@@ -384,9 +384,11 @@ class AttendanceController extends Controller
         $employee_career = EmployeeCareer::find($Id);
         $end_date = $request->input('endDate');
         $position = $request->input('position');
+        $position_ar = $request->input('position_ar');
         $real_start_date = $request->input('real_start_date');
         $real_end_date = $request->input('real_end_date');
-
+        $birth_certificateB64 = $request->input('birth_certificate');
+        $national_cardB64 = $request->input('national_card');
         try {
             $rules = [
                 'endDate' => 'date|after:startDate',
@@ -410,13 +412,33 @@ class AttendanceController extends Controller
                 }else {
                     $request->validate($rules);
 
-                   $employee_career->update(['end_date' => $end_date , "real_end_date" => $real_end_date, "real_start_date"=> $real_start_date, "position" => $position]);
+                   $employee_career->update(['end_date' => $end_date , "real_end_date" => $real_end_date, "real_start_date"=> $real_start_date, "position" => $position , "position_ar" => $position_ar]);
                 }
             }else {
-                $employee_career->update(['position' => $position, 'end_date' => null, "real_end_date" => $real_end_date, "real_start_date"=> $real_start_date]);
+                $employee_career->update(['position' => $position, 'end_date' => null, "real_end_date" => $real_end_date, "real_start_date"=> $real_start_date, "position_ar" => $position_ar]);
             }
 
-
+//            if($birth_certificateB64){
+//                $birth_certificate_name = 'BC'.$employeeData->name.'-'.$employeeData->surname.'.pdf';
+//
+//                list($type, $BCbase64code) = explode(';', $birth_certificateB64);
+//                list(,$BCbase64code) = explode(',' , $BCbase64code);
+//                $carrer->addMediaFromBase64($BCbase64code)
+//                    ->usingFileName($birth_certificate_name)
+//                    ->toMediaCollection('birth_certificate');
+//            }
+//
+//
+//
+//            if($national_cardB64){
+//                $national_card_name = 'NC'.$employeeData->name.'-'.$employeeData->surname.'.pdf';
+//
+//                list($type, $NCbase64code) = explode(';', $national_cardB64);
+//                list(,$NCbase64code) = explode(',' , $NCbase64code);
+//                $carrer->addMediaFromBase64($NCbase64code)
+//                    ->usingFileName($national_card_name)
+//                    ->toMediaCollection('national_card');
+//            }
 
             return response()->json(['endDate' => $end_date, 'msg' =>'End Date Updated Successfully']);
         }catch (\Exception $e) {
@@ -437,6 +459,7 @@ class AttendanceController extends Controller
         $end_date = $request->input('endDate',null);
         $start_date = $request->input('startDate');
         $position = $request->input('position');
+        $position_ar = $request->input('position_ar');
         $birth_certificateB64 = $request->input('birth_certificate');
         $national_cardB64 = $request->input('national_card');
         $real_start_date= $request->input('real_start_date');
@@ -533,6 +556,7 @@ class AttendanceController extends Controller
                 'start_date' => $start_date,
                 'end_date' => $end_date ? $end_date : null,
                 'position' => $position,
+                'position_ar' => $position_ar,
                 'real_start_date' => $real_start_date ? $real_start_date: null,
                 'real_end_date' => $real_end_date ? $real_end_date: null
             ]);

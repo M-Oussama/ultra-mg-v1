@@ -15,7 +15,10 @@ class ProductBenefit extends Model
         'raw_material_price',
         'weight',
         'benefit',
-        'product_price'
+        'product_price',
+        'quantity',
+        'total_amount',
+        'total_profit',
     ];
 
     public function product(){

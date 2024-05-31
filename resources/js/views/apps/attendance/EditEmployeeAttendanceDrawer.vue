@@ -40,6 +40,7 @@ const attendance = ref({
   real_start_date:'',
   real_end_date:'',
   position:'',
+  position_ar:'',
 })
 watch(props.isDrawerOpen, ()=>{
   if(props.isDrawerOpen.open){
@@ -50,6 +51,7 @@ console.log(props.employee)
     attendance.value.real_start_date =  props.employee.real_start_date || ''
     attendance.value.real_end_date =  props.employee.real_end_date || ''
     attendance.value.position =  props.employee.position || ''
+    attendance.value.position_ar =  props.employee.position_ar || ''
   }
 })
 const isFormValid = ref(false)
@@ -75,14 +77,14 @@ const onSubmit = () => {
 
   props.loading.isActive = true;
   console.log(props.loading)
-  attendanceStore.updateEndDate(convertDate(attendance.value.end_date), convertDate(attendance.value.start_date), attendance.value.id, attendance.value.position, convertDate(attendance.value.real_start_date), convertDate(attendance.value.real_end_date)).then(response => {
+  attendanceStore.updateEndDate(convertDate(attendance.value.end_date), convertDate(attendance.value.start_date), attendance.value.id, attendance.value.position, convertDate(attendance.value.real_start_date), convertDate(attendance.value.real_end_date), attendance.value.position_ar).then(response => {
     props.isDrawerOpen.open = false;
     props.loading.isActive = false;
 
     props.employee.end_date = response.data.endDate;
 
     successMiddleware(response.data.msg)
-
+    location.reload()
   }).catch(error => {
 
     props.loading.isActive = false;
@@ -211,6 +213,13 @@ function leadingZero (str) {
                   v-model="attendance.position"
                   :rules="[requiredValidator]"
                   label="Position"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="attendance.position_ar"
+                  :rules="[requiredValidator]"
+                  label="Position Arabic"
                 />
               </VCol>
               <VCol cols="12">

@@ -161,6 +161,12 @@ class POSController extends Controller
             $object->save();
         }
 
+//        $benefit = Benefit::where('month', date("m", strtotime($data['sale_date'])))->where('year', date("Y", strtotime($data['sale_date'])))->get();
+//        if(count($benefit) > 0) {
+//            $benefitController = new BenefitController();
+//            $benefitController->refreshBenefitColumns($benefit->first()->id);
+//        }
+
         return response()->json(['message' => 'Product created successfully', "id"=>$sale->id]);
     }
 
@@ -246,6 +252,12 @@ class POSController extends Controller
             $object->price = floatval($product['price']);
             $object->save();
         }
+
+//        $benefit = Benefit::where('month', date("m", strtotime($data['sale_date'])))->where('year', date("Y", strtotime($data['sale_date'])))->get();
+//        if(count($benefit) > 0) {
+//            $benefitController = new BenefitController();
+//            $benefitController->refreshBenefitColumns($benefit->first()->id);
+//        }
 
         return response()->json(['message' => 'Product updated successfully', "id"=>$sale->id]);
     }

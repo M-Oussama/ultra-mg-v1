@@ -3,6 +3,8 @@ import AddNewBenefitDrawer from '@/views/apps/POS/benefit/AddNewBenefitDrawer.vu
 import EditBenefitDrawer from '@/views/apps/POS/benefit/EditBenefitDrawer.vue';
 import ConfirmationDialog from '@/views/apps/POS/benefit/ConfirmationDialog.vue';
 import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
+import {successMiddleware} from "@/middlewares/successMiddleware";
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 
 const saleStore = useSaleStore()
 const searchQuery = ref('')
@@ -115,7 +117,7 @@ const openUpdateDrawer = (benefit) => {
 
 
   selectedBenefit.value = benefit;
-  console.log(benefit)
+
    isEditBenefitDrawerVisible.value.open = true;
 
 
@@ -124,6 +126,29 @@ const openUpdateDrawer = (benefit) => {
 const openConfirmationDialog = (benefit) => {
   isDialogVisible.value.open = true;
   selectedBenefit.value = benefit;
+
+}
+
+const closeConfirmationDialog= () => {
+  isDialogVisible.value.open = false;
+
+}
+
+const onDelete = () => {
+
+
+  loading2.value.isActive = true;
+  isDialogVisible.value.open = false;
+  saleStore.deleteBenefit(selectedBenefit.value.id).then(response =>{
+    loading2.value.isActive = false;
+    successMiddleware(response.data.message)
+    // refetch
+    fetchBenefits()
+  }).catch(error =>{
+    errorsMiddleware(error.data.message)
+    loading2.value.isActive = false;
+  })
+
 
 }
 
@@ -346,14 +371,36 @@ const openConfirmationDialog = (benefit) => {
       @benefit-data="updateBenefit"
     />
 
-    <ConfirmationDialog
-      v-model:isDialogVisible="isDialogVisible"
-      v-model:benefit="selectedBenefit"
-      v-model:loading="loading2"
-      v-model:benefits="benefits"
-      @benefit-data="deleteBenefit"
-      v-if="isDialogVisible.open"
-      />
+    <VDialog
+      v-model="isDialogVisible.open"
+      persistent
+      class="v-dialog-sm"
+
+    >
+
+      <!-- Dialog close btn -->
+      <DialogCloseBtn @click="closeConfirmationDialog()" />
+
+      <!-- Dialog Content -->
+      <VCard title="Confirmation">
+        <VCardText>
+          Are you sure you want to delete this record ?
+        </VCardText>
+
+        <VCardText class="d-flex justify-end gap-3 flex-wrap">
+          <VBtn
+            color="secondary"
+            variant="tonal"
+            @click="closeConfirmationDialog()"
+          >
+            Disagree
+          </VBtn>
+          <VBtn @click="onDelete">
+            Agree
+          </VBtn>
+        </VCardText>
+      </VCard>
+    </VDialog>
 
   </section>
 </template>
