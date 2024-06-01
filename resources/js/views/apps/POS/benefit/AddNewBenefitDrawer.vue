@@ -35,6 +35,9 @@ const saleStore = useSaleStore()
 const benefit = ref({
   month:null,
   year:null,
+  electricity:0,
+  other_charges:0,
+  employee_salary:0
 
 })
 const data = ref();
@@ -161,9 +164,31 @@ const handleDrawerModelValueUpdate = val => {
                     v-model="benefit.year"
                     :items="props.years"
 
+
                     label="Year"
                   />
                 </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="benefit.electricity"
+                  type="number"
+                  label="Electricity"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="benefit.employee_salary"
+                  type="number"
+                  label="employee salary"
+                />
+              </VCol>
+              <VCol cols="12">
+                <VTextField
+                  v-model="benefit.other_charges"
+                  type="number"
+                  label="other charges"
+                />
+              </VCol>
               <VCol cols="12">
                 <VBtn
                   type="submit"

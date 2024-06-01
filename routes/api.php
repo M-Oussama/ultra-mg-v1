@@ -74,6 +74,7 @@ Route::post('/pos/benefits/store', [BenefitController::class, 'store'])->name('s
 Route::get('/pos/benefits/{id}', [BenefitController::class, 'getArticlesBenefit'])->name('getArticlesBenefit');
 Route::delete('/pos/benefits/delete/{id}', [BenefitController::class, 'destroyBenefit'])->name('destroyBenefit');
 Route::post('/pos/benefits/update/{id}', [BenefitController::class, 'updateBenefit'])->name('updateBenefit');
+Route::post('/pos/benefits/charges/update/{id}', [BenefitController::class, 'updateBenefitCharges'])->name('updateBenefitCharges');
 Route::get('/pos/benefits/refresh/{id}', [BenefitController::class, 'refreshBenefitData'])->name('refreshBenefitData');
 
 /** EMPLOYEES */

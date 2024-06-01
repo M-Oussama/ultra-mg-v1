@@ -12,7 +12,8 @@ const router = useRouter()
 const articles = ref([])
 const _benefit = ref({
   raw_material_price : 0,
-  total_profit: 0
+  total_profit: 0,
+  total_amount: 0,
 })
 const total_profits = ref(0)
 
@@ -27,7 +28,6 @@ const fetchList = () => {
     loading.isActive = false;
     articles.value = response.data.articles
     _benefit.value = response.data.benefit
-    console.log(_benefit.value.benefit)
     _benefit.value.total_profit = _benefit.value.benefit
 
   }).catch(error => {
@@ -107,7 +107,7 @@ const ondataChanged = (article)=> {
 
    article.benefit =   parseFloat(article.product_price) - benefit;
 
-   article.total_profit = parseFloat(article.total_amount) - (parseFloat(article.benefit) * parseFloat(article.quantity))
+   article.total_profit = parseFloat(article.benefit) * parseFloat(article.quantity)
 
   calculateTotalProfits()
 }
@@ -118,15 +118,17 @@ const updateRawMaterial = ()=> {
     var benefit = jerryCan > 0 ? jerryCan + 5+1: 0;
 
     articles.value[i].benefit =   parseFloat(articles.value[i].product_price) - benefit;
-    articles.value[i].total_profit = parseFloat(articles.value[i].total_amount) - (parseFloat(articles.value[i].benefit) * parseFloat(articles.value[i].quantity))
+    articles.value[i].total_profit = parseFloat(articles.value[i].benefit) * parseFloat(articles.value[i].quantity)
   }
   calculateTotalProfits()
 
 }
 const calculateTotalProfits = () =>{
   total_profits.value = 0;
+  _benefit.value.total_amount = 0
   for (let i = 0; i <articles.value.length ; i++) {
     total_profits.value += parseFloat(articles.value[i].total_profit)
+    _benefit.value.total_amount += parseFloat(articles.value[i].total_amount)
   }
   _benefit.value.total_profit = parseFloat(total_profits.value).toFixed(2)
 
@@ -189,7 +191,7 @@ const refreshData = () => {
             <VRow>
               <VCol
                 cols="6"
-                md="4"
+                md="3"
                 class="mb-5 text-center"
               >
                 <VLabel title="Raw material price per KG " class="mb-5"></VLabel>
@@ -205,7 +207,25 @@ const refreshData = () => {
               </VCol>
               <VCol
                 cols="6"
-                md="4"
+                md="3"
+                class="mb-5 text-center"
+              >
+                <VLabel title="Raw material price per KG " class="mb-5"></VLabel>
+                <VTextField
+                  v-model="_benefit.total_amount"
+                  type="number"
+
+                  readonly
+                  label="TOTAL AMOUNT"
+                  placeholder="TOTAL AMOUNT"
+
+
+                />
+              </VCol>
+
+              <VCol
+                cols="6"
+                md="3"
                 class="mb-5 text-center"
               >
                 <VLabel title="Raw material price per KG " class="mb-5"></VLabel>
@@ -220,8 +240,6 @@ const refreshData = () => {
 
                 />
               </VCol>
-
-
 
                     <VCol  cols="4"    md="1" class="mt-7">
                       <VBtn

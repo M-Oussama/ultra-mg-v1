@@ -187,6 +187,21 @@ export const useSaleStore = defineStore('SaleStore', {
             })
       })
     },
+    updateBenefit(benefit) {
+      return new Promise((resolve, reject) => {
+        axios.post('/api/pos/benefits/charges/update/'+benefit.id, {
+          benefit
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
     updateProfit(data , benefit, id) {
       return new Promise((resolve, reject) => {
         axios.post('/api/pos/benefits/update/'+id, {

@@ -93,8 +93,7 @@ const paginationData = computed(() => {
   return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalBenefits.value } entries`
 })
 
-const addBenefit= paymentData => {
- // saleStore.addPayment(paymentData)
+const addNewBenefit= benefitData => {
 
   // refetch User
   fetchBenefits()
@@ -233,13 +232,19 @@ const onDelete = () => {
                   ID
                 </th>
                 <th scope="col">
-                  AMOUNT
-                </th>
-                <th scope="col">
                   MONTH/YEAR
                 </th>
+                <th scope="col">
+                  AMOUNT
+                </th>
 
 
+                <th scope="col">
+                  NET BENEFIT
+                </th>
+                <th scope="col">
+                  Quantity
+                </th>
 
                 <th scope="col">
                   ACTIONS
@@ -260,16 +265,21 @@ const onDelete = () => {
 
                 <!-- 👉 User -->
                 <td>
-                  <span class="text-capitalize text-base font-weight-semibold">{{ parseFloat(benefit.benefit).toFixed(2) }} DZD</span>
+                  <span class="text-capitalize text-base font-weight-semibold">{{ months[benefit.month-1].name }} / {{benefit.year}} </span>
+                </td>
+                <td>
+                  <span class="text-capitalize text-base font-weight-semibold">{{ parseFloat(benefit.total_amount).toFixed(2) }} DZD</span>
                 </td>
 
                 <!-- 👉 email -->
+
+
                 <td>
-                  <span class="text-capitalize text-base font-weight-semibold">{{ months[benefit.month-1].name }} / {{benefit.year}} </span>
+                  <span class="text-capitalize text-base font-weight-semibold">{{ parseFloat(benefit.netBenefit).toFixed(2) }} DZD</span>
                 </td>
-
-
-
+                <td>
+                  <span class="text-capitalize text-base font-weight-semibold">{{ parseFloat(benefit.total_articles)}} </span>
+                </td>
                 <!-- 👉 Actions -->
                 <td
                   class="text-center"
@@ -280,12 +290,27 @@ const onDelete = () => {
                     size="x-small"
                     color="default"
                     variant="text"
-                    :to="{ name: 'apps-POS-benefit-edit-id', params: { id: benefit.id } }"
+                    @click="openUpdateDrawer(benefit)"
 
                   >
                     <VIcon
                       size="22"
                       icon="tabler-edit"
+
+                    />
+                  </VBtn>
+
+                  <VBtn
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
+                    :to="{ name: 'apps-POS-benefit-edit-id', params: { id: benefit.id } }"
+
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-currency-dollar"
 
                     />
                   </VBtn>
@@ -366,7 +391,6 @@ const onDelete = () => {
     <EditBenefitDrawer
       v-model:isDrawerOpen="isEditBenefitDrawerVisible"
       v-model:benefit = "selectedBenefit"
-      v-model:clients="clients"
       v-model:loading="loading2"
       @benefit-data="updateBenefit"
     />

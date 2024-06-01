@@ -43,7 +43,11 @@ class BenefitController extends Controller
         $data = $request->input('data');
         $month = $data['month'];
         $year = $data['year'];
+        $electricity = $data['electricity'];
+        $employee_salary = $data['employee_salary'];
+        $other_charges = $data['other_charges'];
         $raw_material_price = 0;
+
 
         $salesSummary = DB::table('sale_items')
             ->select('product_id', DB::raw('SUM(quantity) as total_quantity'), DB::raw('SUM(total_price) as total_amount'), DB::raw('AVG(price) as avg_price'))
@@ -60,9 +64,19 @@ class BenefitController extends Controller
             throw new BadRequestHttpException('This Benefit Already Exists');
         }
 
-        $Newbenefit = Benefit::create(['month'=>$month, 'year'=>$year, 'benefit'=>0, 'raw_material_price'=>$raw_material_price]);
+        $Newbenefit = Benefit::create([
+            'month'=>$month,
+            'year'=>$year,
+            'benefit'=>0,
+            'raw_material_price'=>$raw_material_price,
+            'electricity' => floatval($electricity),
+            'employee_salary' => floatval($employee_salary),
+            'other_charges' => floatval($other_charges),
+            'netBenefit' => 0
+            ]);
 
 //        $products = SaleItem::whereMonth('sale_date',$month)->whereYear('sale_date',$year)->pluck('product_id')->unique();
+        $quantity = 0;
         foreach ($salesSummary as $product) {
             $_product =  Product::find($product->product_id);
             ProductBenefit::create([
@@ -75,8 +89,10 @@ class BenefitController extends Controller
                 'quantity' => $product->total_quantity,
                 'total_amount' => $product->total_amount,
             ]);
+            $quantity += $product->total_quantity;
         }
 
+        $Newbenefit->update(['total_articles' => $quantity]);
 
 
         return response()->json(['message' => 'Benefit created successfully']);
@@ -89,7 +105,10 @@ class BenefitController extends Controller
         $benefitObject = $request->input('benefit');
         $raw_material_price = $benefitObject['raw_material_price'];
         $total_profit =$benefitObject['total_profit'];
+        $total_amount =$benefitObject['total_amount'];
 
+
+        $quantity = 0;
         foreach ($items as $item) {
             $productBenefit = ProductBenefit::find($item['id']);
 
@@ -99,18 +118,45 @@ class BenefitController extends Controller
                 'product_price' => floatval($item['product_price']),
                 'total_profit' => floatval($item['total_profit']),
             ]);
+            $quantity += floatval($item['quantity']);
         }
         $benefit = Benefit::find($id);
+
+        $netBenefit = floatval($total_profit) - (floatval($benefit->electricity)+ floatval($benefit->employee_salary) + floatval($benefit->other_charges));
 
         $benefit->update([
             'raw_material_price' => floatval($raw_material_price),
             'benefit' => floatval($total_profit),
+            'netBenefit' => $netBenefit,
+            'total_amount' => $total_amount,
+            'total_articles' => $quantity,
         ]);
 
 
         return response()->json(['message' => 'Benefit updated successfully']);
     }
 
+    public function updateBenefitCharges(Request $request, $id) {
+        $benefitObject = $request->input('benefit');
+
+        $electricity = $benefitObject['electricity'];
+        $employee_salary = $benefitObject['employee_salary'];
+        $other_charges = $benefitObject['other_charges'];
+
+        $benefit = Benefit::find($id);
+
+        $netBenefit = floatval($benefit->benefit) - (floatval($electricity)+ floatval($employee_salary) + floatval($other_charges));
+
+        $benefit->update([
+            'electricity' => floatval($electricity),
+            'employee_salary' => floatval($employee_salary),
+            'other_charges' => floatval($other_charges),
+            'netBenefit' => $netBenefit,
+        ]);
+        return response()->json(['message' => 'Benefit updated successfully']);
+
+
+    }
     public function destroyBenefit($id){
         $benefit = Benefit::find($id);
 
