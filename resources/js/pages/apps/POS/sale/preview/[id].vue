@@ -529,7 +529,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                   Paiement
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
-                  {{ parseFloat(parseFloat(sale.regulation)+parseFloat((sale.total_amount)-sale.balance)).toFixed(2) }} DZD
+                  {{ (parseFloat((sale.total_amount)-sale.balance)).toFixed(2) }} DZD
 
                 </div>
               </div>

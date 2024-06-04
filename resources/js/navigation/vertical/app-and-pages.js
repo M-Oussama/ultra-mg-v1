@@ -154,6 +154,9 @@ export default [
     title: 'Benefits', to: 'apps-POS-benefit-list', icon: { icon: 'tabler-help' },
   },
   {
+    title: 'Benefits Ultra', to: 'apps-POS-benefitUltra-list', icon: { icon: 'tabler-help' },
+  },
+  {
     title: 'Management',
     children: [
       { title: 'Vacation', to: 'apps-employee-vacation-list' },

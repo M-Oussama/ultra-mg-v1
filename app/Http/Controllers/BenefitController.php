@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Benefit;
+use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductBenefit;
 use App\Models\SaleItem;
@@ -18,13 +19,22 @@ class BenefitController extends Controller
         $searchValue = $request->input('searchValue', ''); // search value
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
+        // Subquery to calculate total payments per month and year
+        $benefits = Benefit::select('benefits.*', DB::raw('
+            (SELECT SUM(amount_paid)
+             FROM payments
+             WHERE MONTH(payment_date) = benefits.month
+             AND YEAR(payment_date) = benefits.year) as totalPayments
+        '))
+            ->paginate($perPage, ['*'], 'page', $currentPage);
 
-
-        $benefits = Benefit::paginate($perPage, ['*'], 'page', $currentPage);
+//        $benefits = Benefit::paginate($perPage, ['*'], 'page', $currentPage);
         $totalBenefits = $benefits->total(); // Total number of payments matching the query
         $totalPage = ceil($totalBenefits / $perPage); // Calculate total pages
         $months = $this->months(1);
         $years = $this->years(2000);
+
+
 
         return response()->json(["benefits" => $benefits, "totalPage" => $totalPage, "totalBenefits"=>$totalBenefits, "months"=>$months, "years"=>$years]);
 
