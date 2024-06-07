@@ -40,6 +40,7 @@ return array(
     'App\\Models\\CertifyInvoices' => $baseDir . '/app/Models/CertifyInvoices.php',
     'App\\Models\\City' => $baseDir . '/app/Models/City.php',
     'App\\Models\\Client' => $baseDir . '/app/Models/Client.php',
+    'App\\Models\\ClientBalance' => $baseDir . '/app/Models/ClientBalance.php',
     'App\\Models\\Company' => $baseDir . '/app/Models/Company.php',
     'App\\Models\\Employee' => $baseDir . '/app/Models/Employee.php',
     'App\\Models\\EmployeeAttendance' => $baseDir . '/app/Models/EmployeeAttendance.php',

@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Helpers\NumberToLetter;
+use App\Models\ClientBalance;
+use App\Models\Payment;
+use App\Models\Sale;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
@@ -138,6 +141,24 @@ class Controller extends BaseController
         return $dates;
     }
 
+    function calculateClientBalance($client){
 
+        $sales = Sale::where('client_id', $client->id)->sum('total_amount');
+        $payment = Payment::where('client_id', $client->id)->sum('amount_paid');
 
+        $balance = $sales - $payment;
+
+        $clientBalance = ClientBalance::where('client_id', $client->id)->get();
+
+        if(count($clientBalance) > 0) {
+
+            $clientBalance->first()->update(['balance' => $balance]);
+        } else {
+            ClientBalance::create([
+                'client_id' => $client->id,
+                'balance' => $balance,
+            ]);
+        }
+
+    }
 }

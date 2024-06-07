@@ -295,6 +295,9 @@ const exportList = () => {
                 <th scope="col">
                   Phone
                 </th>
+                <th scope="col">
+                  Balance
+                </th>
 
 
                 <th scope="col">
@@ -350,6 +353,9 @@ const exportList = () => {
                 </td>
                 <td>
                   <span class="text-capitalize text-base font-weight-semibold">{{ client.phone }}</span>
+                </td>
+                <td>
+                  <span class="text-capitalize text-base font-weight-semibold">{{ parseFloat(client.balance.balance).toFixed(2) }} DZD</span>
                 </td>
 
 

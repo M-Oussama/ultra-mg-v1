@@ -104,7 +104,7 @@ Route::get('/attendances/career/delete/{id}', [AttendanceController::class, 'del
  * logs
  */
 Route::post('/clients/log', [ClientLogController::class, 'getLog'])->name('getLog');
-Route::post('/clients/log/generate', [PDFController::class, 'generateCustomerLog'])->name('generateCustomerLog');
+Route::post('/clients/log/generate', [ClientLogController::class, 'getALLLog'])->name('getLog');
 
 /**
  *  supplier

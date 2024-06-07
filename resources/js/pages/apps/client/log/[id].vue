@@ -26,8 +26,8 @@ let currentTab = ref('Appetizers')
 let loading2 = ref({
   isActive: false,
 })
-const FromDate = ref();
-const ToDate = ref();
+const FromDate = ref(new Date(`01-01-${new Date().getFullYear()}`));
+const ToDate = ref(new Date());
 const heading = ref("Sample PDF Generator")
 const  moreText = ref( [
   "This is another few sentences of text to look at it.",
@@ -225,8 +225,13 @@ const getBalance = (log) => {
   return log.total_balance;
 
 }
+
+const exportLog =()=>{
+  generateLogPDF(logs);
+}
 const exportAllLog = () => {
 
+  let allLog = ref()
     loading2.value.isActive = true;
     clientListStore.exportAllLog({
       client_id: Number(route.params.id),
@@ -235,21 +240,25 @@ const exportAllLog = () => {
 
     }).then(response => {
       loading2.value.isActive = false;
+      allLog.value = response.data.logs
+      generateLogPDF(allLog)
     }).catch(error => {
       console.error(error)
       loading2.value.isActive = false;
     })
 
 }
-const exportLog = () => {
+
+const generateLogPDF = (_logs) => {
   var array = [];
   var counter = 1;
   array.push(['ID', 'Date', 'Sale', 'Payment', 'Balance'])
-  for (let i = 0; i <logs._rawValue.length ; i++) {
-    if(logs._rawValue[i].type === "sale") {
-      array.push([counter,logs._rawValue[i].date,  logs._rawValue[i].amount, logs._rawValue[i].regulation > 0 ? logs._rawValue[i].regulation : '' , logs._rawValue[i].total_balance])
+  for (let i = 0; i <_logs._rawValue.length ; i++) {
+    getBalance(_logs._rawValue[i])
+    if(_logs._rawValue[i].type === "sale") {
+      array.push([counter,_logs._rawValue[i].date,  _logs._rawValue[i].amount, _logs._rawValue[i].regulation > 0 ? _logs._rawValue[i].regulation : '' , _logs._rawValue[i].total_balance])
     } else {
-      array.push([counter,logs._rawValue[i].date,  '', logs._rawValue[i].amount, logs._rawValue[i].total_balance])
+      array.push([counter,_logs._rawValue[i].date,  '', _logs._rawValue[i].amount, _logs._rawValue[i].total_balance])
 
     }
     counter++;
@@ -257,10 +266,9 @@ const exportLog = () => {
   console.log(array);
 
 
-  array.push([counter,'','','',logs._rawValue[logs._rawValue.length-1].total_balance])
+  array.push([counter,'','','',_logs._rawValue[_logs._rawValue.length-1].total_balance])
   const doc = new jsPDF({
       orientation: "portrait",
-
       format: "letter"
     }
   );
@@ -285,7 +293,7 @@ const exportLog = () => {
     ,
   })
 
-  doc.save('table.pdf');
+  doc.save(client.value.name+ '_'+ client.value.surname+'_log.pdf');
 }
   // const columns = [
   //   { title: "Title", dataKey: "title" },

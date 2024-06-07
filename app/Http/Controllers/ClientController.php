@@ -39,7 +39,7 @@ class ClientController extends Controller
 
 
 
-        $clients = Client::with(['sales','payments'])->when($searchValue, function ($queryBuilder) use ($searchValue) {
+        $clients = Client::with(['balance', 'sales','payments'])->when($searchValue, function ($queryBuilder) use ($searchValue) {
             // Search for users with matching name or email
             $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
                 ->orWhere('surname', 'LIKE', '%' . $searchValue . '%');
@@ -109,6 +109,8 @@ class ClientController extends Controller
 
         $client->full_name = $client->surname ? $client->name.' '.$client->surname : $client->name;
         $client->save();
+
+        //$this->calculateClientBalance($client);
 
         // Optionally, you can return a response, redirect the user, or perform any other actions here
         return response()->json(['message' => 'Client created successfully', 'client' => $client]);

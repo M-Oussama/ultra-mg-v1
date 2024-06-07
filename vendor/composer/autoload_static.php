@@ -632,6 +632,7 @@ class ComposerStaticInit18ad950bf924c0ef4937dbbd1f808e3e
         'App\\Models\\CertifyInvoices' => __DIR__ . '/../..' . '/app/Models/CertifyInvoices.php',
         'App\\Models\\City' => __DIR__ . '/../..' . '/app/Models/City.php',
         'App\\Models\\Client' => __DIR__ . '/../..' . '/app/Models/Client.php',
+        'App\\Models\\ClientBalance' => __DIR__ . '/../..' . '/app/Models/ClientBalance.php',
         'App\\Models\\Company' => __DIR__ . '/../..' . '/app/Models/Company.php',
         'App\\Models\\Employee' => __DIR__ . '/../..' . '/app/Models/Employee.php',
         'App\\Models\\EmployeeAttendance' => __DIR__ . '/../..' . '/app/Models/EmployeeAttendance.php',

@@ -283,6 +283,9 @@ class POSController extends Controller
         $_sale->balance = $_sale->balance - $amount;
         $_sale->save();
 
+        $client = Client::find($sale['client']['id']);
+        $this->calculateClientBalance($client);
+
         return response()->json('Payment Added Successfully');
     }
 
