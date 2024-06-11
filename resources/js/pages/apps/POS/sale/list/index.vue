@@ -12,21 +12,38 @@ const currentPage = ref(1)
 const totalPage = ref(1)
 const totalSales = ref(0)
 const sales = ref([])
+const clients = ref([])
+const selectedClient = ref('')
 const selectedRows = ref([])
+const date = ref('')
 const isAddPaymentSidebarActive = ref(false)
 
 const isDialogVisible = ref(false)
 let selectedSale = ref()
+const statusItems = ref([
+  {
+    id:1,
+    name:"Paid"
+  },
+  {
+    id:2,
+    name:"Not Paid"
+  }
+])
 
 const fetchSale = () =>{
+
   saleStore.fetchSales({
     searchValue: searchQuery.value,
     status: selectedStatus.value,
     perPage: rowPerPage.value,
     currentPage: currentPage.value,
+    client_id: selectedClient.value,
+    date: date.value
   }).then(response => {
     loading.value.isActive = false;
-    sales.value = response.data.sales.data
+   sales.value = response.data.sales
+    clients.value = response.data.clients
     totalPage.value = response.data.totalPage
     totalSales.value = response.data.totalSales
   }).catch(error => {
@@ -34,6 +51,7 @@ const fetchSale = () =>{
     console.log(error)
   })
 }
+
 // 👉 Fetch Invoices
 watchEffect(() => {
   fetchSale()
@@ -132,6 +150,12 @@ const deleteSale = saleData =>  {
 
 }
 
+const onDataChanged = () =>{
+  loading.value.isActive = true;
+  fetchSale()
+
+}
+
 </script>
 
 <template>
@@ -153,6 +177,10 @@ const deleteSale = saleData =>  {
         >
           <VCardText class="d-flex align-center flex-wrap gap-4">
             <!-- 👉 Rows per page -->
+
+
+
+
             <div
               class="d-flex align-center"
               style="width: 135px;"
@@ -165,20 +193,32 @@ const deleteSale = saleData =>  {
               />
             </div>
 
-            <div class="me-3">
-              <!-- 👉 Create invoice -->
-              <VBtn
-                prepend-icon="tabler-plus"
-                :to="{ name: 'apps-POS-sale-add' }"
-              >
-                Create Sale
-              </VBtn>
-            </div>
+            <div
+              class="d-flex align-center"
+              style="width: 30%;"
+            >
+              <VAutocomplete
+                clearable
+                v-model="selectedClient"
+                :items="clients"
+                item-value="id"
+                item-title="name"
+                label="Client"
+                placeholder="Client"
+                @update:modelValue="onDataChanged"
+              />
 
-            <VSpacer />
+            </div>
 
             <div class="d-flex align-center flex-wrap gap-4">
               <!-- 👉 Search  -->
+              <div class="invoice-list-filter">
+                <AppDateTimePicker
+                  v-model="date"
+                  label="Invoice Date"
+                  @update:modelValue="onDataChanged"
+                />
+              </div>
               <div class="invoice-list-filter">
                 <VTextField
                   v-model="searchQuery"
@@ -187,18 +227,37 @@ const deleteSale = saleData =>  {
                 />
               </div>
 
+
+
               <!-- 👉 Select status -->
               <div class="invoice-list-filter">
                 <VSelect
                   v-model="selectedStatus"
                   label="Select Status"
                   clearable
+                  item-value="id"
+                  item-title="name"
                   clear-icon="tabler-x"
                   single-line
-                  :items="['Downloaded', 'Draft', 'Sent', 'Paid', 'Partial Payment', 'Past Due']"
+                  :items=statusItems
+                  @update:modelValue="onDataChanged"
                 />
               </div>
+              <div class="me-3 ">
+                <!-- 👉 Create invoice -->
+                <VBtn
+                  prepend-icon="tabler-plus"
+                  :to="{ name: 'apps-POS-sale-add' }"
+                >
+                  Create
+                </VBtn>
+              </div>
             </div>
+
+
+
+
+
           </VCardText>
 
           <VDivider />

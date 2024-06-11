@@ -22,13 +22,37 @@ class POSController extends Controller
         $searchValue = $request->input('searchValue', ''); // search value
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
+        $client_id = $request->input('client_id',  ''); // Default current page value is 1 if not provided
+        $status = $request->input('status',  '');
+        $date = $request->input('date',  '');
 
 
-        $sales = Sale::orderBy('sale_date', 'desc')->paginate($perPage, ['*'], 'page', $currentPage);
-        $totalSales = $sales->total(); // Total number of invoices matching the query
+        $sales = Sale::query();
+
+
+        if($client_id !='') {
+            $sales->where('client_id', $client_id);
+        }
+        if(intval($status) == 1) {
+            $sales->where('balance', 0);
+        }
+        if(intval($status) == 2) {
+            $sales->where('balance', '>',0);
+        }
+        if($date != '') {
+            $sales->where('sale_date', $date);
+        }
+        $sales->orderBy('sale_date', 'desc');
+
+        $paginatedResult = $sales->paginate($perPage, ['*'], 'page', $currentPage);
+
+        $items = $paginatedResult->items();
+        $totalSales = $paginatedResult->total(); // Total number of invoices matching the query
         $totalPage = ceil($totalSales / $perPage); // Calculate total pages
 
-        return response()->json(["sales" => $sales, "totalPage" => $totalPage, "totalSales"=>$totalSales]);
+        $clients = Client::all();
+
+        return response()->json(["sales" => $items, "totalPage" => $totalPage, "totalSales"=>$totalSales, 'clients' => $clients]);
     }
 
     public function getData() {
