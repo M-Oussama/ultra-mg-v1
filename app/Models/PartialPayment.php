@@ -13,17 +13,12 @@ class PartialPayment extends Model
     protected $fillable = [
         'payment_id',
         'sale_id',
-        'client_id',
         'amount'
     ];
 
     public function payment(){
         return $this->belongsTo(Payment::class);
     }
-    public function client(){
-        return $this->belongsTo(Client::class);
-    }
-
     public function sale(){
         return $this->belongsTo(Sale::class);
     }
