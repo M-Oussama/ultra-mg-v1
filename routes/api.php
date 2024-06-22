@@ -76,6 +76,8 @@ Route::delete('/pos/benefits/delete/{id}', [BenefitController::class, 'destroyBe
 Route::post('/pos/benefits/update/{id}', [BenefitController::class, 'updateBenefit'])->name('updateBenefit');
 Route::post('/pos/benefits/charges/update/{id}', [BenefitController::class, 'updateBenefitCharges'])->name('updateBenefitCharges');
 Route::get('/pos/benefits/refresh/{id}', [BenefitController::class, 'refreshBenefitData'])->name('refreshBenefitData');
+Route::get('/pos/client/{id}/sales', [POSController::class, 'getClientInvoices'])->name('getClientInvoices');
+Route::get('/pos/client/{id}/sales/{paymentId}/paid', [POSController::class, 'getPaidInvoices'])->name('getClientInvoices');
 
 /** EMPLOYEES */
 Route::get('/employees/list', [EmployeeController::class, 'getEmployees'])->name('getEmployees');

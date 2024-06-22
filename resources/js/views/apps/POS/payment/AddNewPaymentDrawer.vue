@@ -4,9 +4,11 @@ import { PerfectScrollbar } from 'vue3-perfect-scrollbar'
 import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
 import {successMiddleware} from "@/middlewares/successMiddleware";
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
+import  ListDualBox from '@/plugins/vue-list-dual-box/list-dual-box.vue'
 
 import "vue-search-select/dist/VueSearchSelect.css"
 import { ModelListSelect } from 'vue-search-select'
+import {reactive} from "vue";
 const props = defineProps({
   isDrawerOpen: {
     type: null,
@@ -20,13 +22,21 @@ const props = defineProps({
     type: null,
     required:true
   },
+  invoicesNotPaid:{
+    type:null,
+    required:true
+  },
   loading:{
     type:null,
     required: true
   }
 })
+
+const paidInvoices = reactive([])
+
 const isFormValid = ref(false)
 const refForm = ref()
+
 const saleStore = useSaleStore()
 const payment = ref({
   balance:0,
@@ -37,7 +47,10 @@ const payment = ref({
     id:-1
   }
 })
+const source = ref()
+const destination = ref()
 const data = ref();
+const notPaidInvoices = ref([]);
 const client = ref({
   id:-1,
 })
@@ -84,7 +97,7 @@ const onSubmit = () => {
     console.log(payment)
     handleDrawerModelValueUpdate()
       props.loading.isActive = true;
-      saleStore.storePayment(payment.value).then(response => {
+      saleStore.storePaymentWithInvoices(payment.value, notPaidInvoices.value, paidInvoices).then(response => {
        props.loading.isActive = false;
        payment.value.amount = 0;
        payment.value.date = '';
@@ -108,7 +121,7 @@ const onSubmit = () => {
 }
 
 const fullName = item => {
-  return `${item.name}  ${item.surname}`
+  return `${item.name}  ${item.surname? item.surname : ''}`
 }
 
 const handleDrawerModelValueUpdate = val => {
@@ -116,7 +129,40 @@ const handleDrawerModelValueUpdate = val => {
   console.log(val);
   props.isDrawerOpen.open = false;
 }
+const onChangeList  = ({ s, d }) => {
+  source.value = s;
+  destination.value = d;
+}
+const selectedClient = ref()
 
+const clientChanged = (client)=> {
+  if(selectedClient.value === undefined) {
+    selectedClient.value = {...client};
+    getInvoices(selectedClient.value.id)
+  } else {
+    if(client.id !== selectedClient.value.id) {
+      selectedClient.value = {...client};
+      getInvoices(selectedClient.value.id)
+    }
+  }
+
+}
+const getInvoices = (id) => {
+  props.loading.isActive = true
+  saleStore.getClientInvoices(id).then(response => {
+    notPaidInvoices.value = response.data.notPaidInvoices
+
+
+    props.loading.isActive = false;
+  }).catch(error => {
+    console.log(error)
+    props.loading.isActive = false;
+    errorsMiddleware(
+      "Error Occured",
+      "Oops! Looks like the payment has not been submited "
+    )
+  })
+}
 </script>
 
 <template>
@@ -169,6 +215,7 @@ const handleDrawerModelValueUpdate = val => {
                   option-value="id"
                   :custom-text="fullName"
                   :hideSelectedOptions="true"
+                  @update:model-value="clientChanged"
                   placeholder="Select Client">
                 </model-list-select>
               </VCol>
@@ -182,6 +229,14 @@ const handleDrawerModelValueUpdate = val => {
 
                 />
               </VCol>
+              <VCol cols="12">
+                <list-dual-box
+                  :amount="payment.amount"
+                  :left="notPaidInvoices"
+                  :right="paidInvoices"
+                ></list-dual-box>
+              </VCol>
+
               <!-- 👉 surname -->
               <VCol cols="12">
                 <AppDateTimePicker

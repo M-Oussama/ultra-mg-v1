@@ -136,12 +136,45 @@ export const useSaleStore = defineStore('SaleStore', {
             })
       })
     },
+    storePaymentWithInvoices(payment, notpaidInvoices, paidInvoices){
+
+      return new Promise((resolve, reject) => {
+        axios.post('/api/pos/sales/payment/create', {
+          payment,notpaidInvoices,paidInvoices
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
 
     updatePayment(payment){
 
       return new Promise((resolve, reject) => {
         axios.post('/api/pos/sales/payment/update', {
           payment,
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
+    updatePaymentWithInvoices(payment, paidInvoices){
+
+      return new Promise((resolve, reject) => {
+        axios.post('/api/pos/sales/payment/update', {
+          payment,
+          paidInvoices
         }).then(response => {
 
           resolve(response)
@@ -248,6 +281,9 @@ export const useSaleStore = defineStore('SaleStore', {
             })
       })
     },
+    getClientInvoices(id){ return axios.get('/api/pos/client/'+id+'/sales') },
+
+    getPaidInvoices(id, payment_id){ return axios.get('/api/pos/client/'+id+'/sales/'+payment_id+'/paid') },
   },
 
 

@@ -5,6 +5,7 @@ import { ModelListSelect } from 'vue-search-select'
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 import {successMiddleware} from "@/middlewares/successMiddleware";
 import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
+import  ListDualBox from '@/plugins/vue-list-dual-box/update-list-dual-box.vue'
 
 const props = defineProps({
   isDrawerOpen: {
@@ -69,6 +70,9 @@ const payment = ref({
 
 const isFormValid = ref(false)
 const refForm = ref()
+const notPaidInvoices = ref([])
+const notPaidInvoicesTemp = ref([])
+const paidInvoices = ref([])
 
 
 // 👉 drawer close
@@ -109,7 +113,7 @@ const onSubmit = () => {
     }
   } else {
     props.loading.isActive = true;
-    saleStore.updatePayment(payment.value).then(response => {
+    saleStore.updatePaymentWithInvoices(payment.value, paidInvoices.value).then(response => {
       props.isDrawerOpen.open = false;
       props.loading.isActive = false;
       emit('paymentData',1)
@@ -129,7 +133,50 @@ const onSubmit = () => {
 }
 
 const fullName = item => {
-  return `${item.name}  ${item.surname}`
+  return `${item.name}  ${item.surname? item.surname : ''}`
+}
+
+const selectedClient = ref()
+const toggleSwitch = ref(false)
+
+const clientChanged = (client)=> {
+  if(selectedClient.value === undefined) {
+    selectedClient.value = {...client};
+    getInvoices(selectedClient.value.id)
+  } else {
+    if(client.id !== selectedClient.value.id) {
+      selectedClient.value = {...client};
+      getInvoices(selectedClient.value.id)
+    }
+  }
+
+}
+const getInvoices = (id) => {
+  props.loading.isActive = true
+  saleStore.getPaidInvoices(id, payment.value.id).then(response => {
+    notPaidInvoices.value = response.data.notPaidInvoices
+    notPaidInvoicesTemp.value = response.data.notPaidInvoices
+    paidInvoices.value = response.data.paidInvoices
+    props.loading.isActive = false;
+  }).catch(error => {
+    console.log(error)
+    props.loading.isActive = false;
+    errorsMiddleware(
+      "Error Occured",
+      "Oops! Looks like the payment has not been submited "
+    )
+  })
+}
+const capitalizedLabel = label => {
+  const convertLabelText = label.toString()
+
+  return convertLabelText.charAt(0).toUpperCase() + convertLabelText.slice(1)
+}
+const activateDualBox = value => {
+   if(payment.value.client_id > 0) {
+      getInvoices(payment.value.client_id)
+   }
+
 }
 
 </script>
@@ -177,16 +224,17 @@ const fullName = item => {
             @submit.prevent="onSubmit"
           >
             <VRow>
-              <VCol cols="12">
-                <model-list-select
-                  :list="props.clients"
-                  v-model="payment.client_id"
-                  option-value="id"
-                  :custom-text="fullName"
-                  :hideSelectedOptions="true"
-                  placeholder="Select Client">
-                </model-list-select>
-              </VCol>
+<!--              <VCol cols="12">-->
+<!--                <model-list-select-->
+<!--                  :list="props.clients"-->
+<!--                  v-model="payment.client_id"-->
+<!--                  option-value="id"-->
+<!--                  :custom-text="fullName"-->
+<!--                  :hideSelectedOptions="true"-->
+<!--                  @update:modelValue="clientChanged"-->
+<!--                  placeholder="Select Client">-->
+<!--                </model-list-select>-->
+<!--              </VCol>-->
               <!-- 👉  name -->
               <VCol cols="12">
                 <VTextField
@@ -196,6 +244,26 @@ const fullName = item => {
                   label="Payment Amount"
 
                 />
+              </VCol>
+
+
+              <VCol cols="12" class="align-content-normal">
+                <Label>Activate DualBox
+
+                </Label>
+                <VSwitch
+                  v-model="toggleSwitch"
+                  color="success"
+                  @update:modelValue="activateDualBox"
+                />
+              </VCol>
+                <VCol cols="12" v-if="toggleSwitch">
+                <list-dual-box
+                  :amount="payment.amount_paid"
+                  :left="notPaidInvoices"
+                  :leftTemp="notPaidInvoicesTemp"
+                  :right="paidInvoices"
+                ></list-dual-box>
               </VCol>
               <!-- 👉 surname -->
               <VCol cols="12">
@@ -234,3 +302,16 @@ const fullName = item => {
     </PerfectScrollbar>
   </VNavigationDrawer>
 </template>
+
+<style lang="scss">
+.align-content-normal{
+  display: flex;
+  justify-content: normal;
+
+  & > Label {
+    margin-top: 2%;
+    margin-right: 4%;
+    }
+}
+
+</style>

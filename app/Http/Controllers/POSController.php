@@ -6,6 +6,7 @@ use App\Models\Benefit;
 use App\Models\City;
 use App\Models\Client;
 use App\Models\Company;
+use App\Models\PartialPayment;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Sale;
@@ -315,7 +316,9 @@ class POSController extends Controller
 
     public function createPayment(Request $request) {
 
+
         $payment = $request->input('payment');
+        $paidInvoices = $request->input('paidInvoices');
 
         $date = $payment['date'];
         $amount = $payment['amount'];
@@ -330,6 +333,22 @@ class POSController extends Controller
         $payment->client_id = $client_id;
         $payment->save();
 
+        foreach ($paidInvoices as $paidInvoice) {
+            $invoice = Sale::find($paidInvoice['id']);
+
+            $amount = (floatval($invoice->balance) - floatval($paidInvoice['balance']));
+
+            $invoice->update(['balance' => $amount ]);
+            PartialPayment::create([
+               'payment_id' => $payment->id,
+               'sale_id' => $invoice->id,
+               'amount' => $paidInvoice['balance'],
+            ]);
+
+        }
+
+        $client = Client::find($client_id);
+        $this->calculateClientBalance($client);
 
         return response()->json('Payment Added Successfully');
     }
@@ -337,6 +356,8 @@ class POSController extends Controller
     public function updatePayment(Request $request) {
 
         $payment = $request->input('payment');
+        $paidInvoices = $request->input('paidInvoices');
+
 
         $date = $payment['payment_date'];
         $amount = $payment['amount_paid'];
@@ -353,15 +374,44 @@ class POSController extends Controller
         $payment->sale_id = $sale_id;
         $payment->save();
 
-        if($payment->active) {
-            if($payment->sale_id){
-                $sale = Sale::find($payment->sale_id);
-                $sale->balance = floatval($sale->balance) - floatval($sale->regulation) +  floatval($amount);
-                $sale->regulation = $amount;
-                $sale->save();
-            }
+        $partialPayments = PartialPayment::where('payment_id', $payment->id)->get();
+
+
+
+        foreach ($partialPayments as $partialPayment) {
+            $invoice = Sale::find($partialPayment->sale_id);
+
+            $newBalance = floatval($invoice->balance) + floatval($partialPayment->amount);
+            $invoice->update(['balance' => $newBalance]);
+        }
+
+        PartialPayment::where('payment_id', $payment->id)->delete();
+
+
+        foreach ($paidInvoices as $paidInvoice) {
+            $invoice = Sale::find($paidInvoice['sale_id']);
+
+            $amount = (floatval($invoice->balance) - floatval($paidInvoice['balance']));
+
+            $invoice->update(['balance' => $amount ]);
+            PartialPayment::create([
+                'payment_id' => $payment->id,
+                'sale_id' => $invoice->id,
+                'amount' => $paidInvoice['balance'],
+            ]);
 
         }
+        $client = Client::find($client_id);
+        $this->calculateClientBalance($client);
+//        if($payment->active) {
+//            if($payment->sale_id){
+//                $sale = Sale::find($payment->sale_id);
+//                $sale->balance = floatval($sale->balance) - floatval($sale->regulation) +  floatval($amount);
+//                $sale->regulation = $amount;
+//                $sale->save();
+//            }
+//
+//        }
 
 
         return response()->json('Payment updated Successfully');
@@ -391,7 +441,7 @@ class POSController extends Controller
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
 
-        $payments = Payment::paginate($perPage, ['*'], 'page', $currentPage);
+        $payments = Payment::orderBy('payment_date', 'desc')->paginate($perPage, ['*'], 'page', $currentPage);
         $totalSales = $payments->total(); // Total number of payments matching the query
         $totalPage = ceil($totalSales / $perPage); // Calculate total pages
         $clients = Client::all();
@@ -410,6 +460,22 @@ class POSController extends Controller
         $sale->delete();
 
         return response()->json('Sale deleted Successfully');
+
+    }
+
+    public function getClientInvoices($id){
+        $notPaidInvoices = Sale::where('balance', '>', 0)->where('client_id', $id)->get();
+        return response()->json(["notPaidInvoices" => $notPaidInvoices]);
+
+    }
+    public function getPaidInvoices($id, $payment_id){
+
+        $notPaidInvoices = Sale::where('balance', '>', 0)->where('client_id', $id)->get();
+
+        $paidInvoices = PartialPayment::where('payment_id', $payment_id)->get();
+
+        return response()->json(["notPaidInvoices" => $notPaidInvoices, "paidInvoices" => $paidInvoices]);
+
 
     }
 

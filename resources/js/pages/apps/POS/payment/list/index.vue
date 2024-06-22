@@ -20,6 +20,7 @@ const totalPage = ref(1)
 const totalPayments = ref(0)
 let payments = ref([])
 let clients = ref([])
+let invoicesNotPaid = ref([])
 
 // 👉 Fetching payments
 const fetchPayments = () => {
@@ -30,6 +31,8 @@ const fetchPayments = () => {
      currentPage: currentPage.value,
   }).then(response => {
      payments.value = response.data.payments.data
+  //   invoicesNotPaid.value = response.data.invoicesNotPaid
+
      clients.value = response.data.clients
 
      totalPage.value = response.data.totalPage
@@ -109,11 +112,8 @@ const deletePayment =paymentData =>  {
 }
 
 const openUpdateDrawer = (payment) => {
-  console.log("payment")
-  console.log(payment)
+
   selectedPayment.value = payment;
-  console.log("selectedPayment")
-  console.log(selectedPayment)
    isEditPaymentDrawerVisible.value.open = true;
 
 
@@ -370,6 +370,7 @@ const openConfirmationDialog = (payment) => {
       v-model:isDrawerOpen="isAddNewPaymentDrawerVisible"
       v-model:clients="clients"
       v-model:loading="loading2"
+      v-model:invoicesNotPaid="invoicesNotPaid"
       @payment-data="addNewPayment"
     />
 
