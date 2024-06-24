@@ -1,5 +1,5 @@
 <script setup>
-import InvoiceEditable from '@/views/apps/POS/sales/add/InvoiceEditable.vue'
+import InvoiceEditable from '@/views/apps/POS/return/add/InvoiceEditable.vue'
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 import {successMiddleware} from "@/middlewares/successMiddleware";
 import {useReturnStore} from "@/views/apps/POS/return/usereturnStore";

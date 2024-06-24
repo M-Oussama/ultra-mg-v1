@@ -13,7 +13,8 @@ class ProductReturn extends Model
     protected $fillable = [
         'total_amount',
         'client_id',
-        'date'
+        'date',
+        'paid'
     ];
 
     protected $with = ['client'];

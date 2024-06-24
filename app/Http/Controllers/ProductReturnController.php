@@ -18,13 +18,38 @@ class ProductReturnController extends Controller
     $searchValue = $request->input('searchValue', ''); // search value
     $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
     $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
+    $client_id = $request->input('client_id', '');
+    $from = $request->input('from',  '');
+    $to = $request->input('to',  '');
+    $status = $request->input('status',  '');
 
+    $returns = ProductReturn::query();
 
-    $returns = ProductReturn::orderBy('date', 'desc')->paginate($perPage, ['*'], 'page', $currentPage);
-    $totalReturns = $returns->total(); // Total number of invoices matching the query
+    if($client_id !='') {
+        $returns->where('client_id', $client_id);
+    }
+
+    if($from != '' && $to!='') {
+        $returns->whereBetween('sale_date', [$from, $to]);
+    }else {
+        if($from != ''){
+            $returns->whereBetween('sale_date', [$from, date('Y-m-d')]);
+        }
+    }
+
+    if($status !=''){
+        $returns->where('paid', $status);
+    }
+
+    $paginatedResult = $returns->orderBy('date','desc')->paginate($perPage, ['*'], 'page', $currentPage);
+    $items = $paginatedResult->items();
+
+    $totalReturns = $paginatedResult->total(); // Total number of invoices matching the query
     $totalPage = ceil($totalReturns / $perPage); // Calculate total pages
 
-    return response()->json(["returns" => $returns, "totalPage" => $totalPage, "totalReturns"=>$totalReturns]);
+    $clients = Client::all();
+
+    return response()->json(["returns" => $items, "clients" => $clients, "totalPage" => $totalPage, "totalReturns"=>$totalReturns]);
 }
 
     public function getData() {
@@ -56,6 +81,7 @@ class ProductReturnController extends Controller
                 'date' => $data['sale_date'],
                 'client_id' => $client['id'],
                 'total_amount' => $data['total_amount'],
+                 'paid' => $data['payment']
             ]);
 
 
@@ -106,6 +132,7 @@ class ProductReturnController extends Controller
                 'date' => $data['sale_date'],
                 'client_id' => $client['id'],
                 'total_amount' => $data['total_amount'],
+                'paid' => $data['paid']
             ]);
         $items = $return->ProductReturnList;
 

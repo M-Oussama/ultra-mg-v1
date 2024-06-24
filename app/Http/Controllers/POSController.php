@@ -14,6 +14,7 @@ use App\Models\SaleItem;
 use App\Models\SaleStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Date;
 
 class POSController extends Controller
 {
@@ -25,7 +26,8 @@ class POSController extends Controller
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
         $client_id = $request->input('client_id',  ''); // Default current page value is 1 if not provided
         $status = $request->input('status',  '');
-        $date = $request->input('date',  '');
+        $from = $request->input('from',  '');
+        $to = $request->input('to',  '');
 
 
         $sales = Sale::query();
@@ -40,8 +42,13 @@ class POSController extends Controller
         if(intval($status) == 2) {
             $sales->where('balance', '>',0);
         }
-        if($date != '') {
-            $sales->where('sale_date', $date);
+
+        if($from != '' && $to!='') {
+            $sales->whereBetween('sale_date', [$from, $to]);
+        }else {
+            if($from != ''){
+                $sales->whereBetween('sale_date', [$from, date('Y-m-d')]);
+            }
         }
         $sales->orderBy('sale_date', 'desc');
 

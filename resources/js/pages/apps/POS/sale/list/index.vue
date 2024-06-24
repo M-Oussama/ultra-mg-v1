@@ -15,7 +15,8 @@ const sales = ref([])
 const clients = ref([])
 const selectedClient = ref('')
 const selectedRows = ref([])
-const date = ref('')
+const from = ref('')
+const to = ref('')
 const isAddPaymentSidebarActive = ref(false)
 
 const isDialogVisible = ref(false)
@@ -39,10 +40,11 @@ const fetchSale = () =>{
     perPage: rowPerPage.value,
     currentPage: currentPage.value,
     client_id: selectedClient.value,
-    date: date.value
+    from: from.value,
+    to: to.value
   }).then(response => {
     loading.value.isActive = false;
-   sales.value = response.data.sales
+    sales.value = response.data.sales
     clients.value = response.data.clients
     totalPage.value = response.data.totalPage
     totalSales.value = response.data.totalSales
@@ -91,7 +93,6 @@ const resolveInvoiceBalanceVariant = (balance, total) => {
 }
 
 const resolveInvoiceStatusVariantAndIcon = sale => {
-
   if(sale.balance > 0) {
 
     if(sale.balance == sale.total_amount) {
@@ -189,7 +190,7 @@ const onDataChanged = () =>{
               <VSelect
                 v-model="rowPerPage"
                 density="compact"
-                :items="[10, 20, 30, 50, 100]"
+                :items="[10, 20, 30, 50, 100,500, 1000 ,5000]"
               />
             </div>
 
@@ -214,16 +215,16 @@ const onDataChanged = () =>{
               <!-- 👉 Search  -->
               <div class="invoice-list-filter">
                 <AppDateTimePicker
-                  v-model="date"
-                  label="Invoice Date"
+                  v-model="from"
+                  label="From Date"
                   @update:modelValue="onDataChanged"
                 />
               </div>
               <div class="invoice-list-filter">
-                <VTextField
-                  v-model="searchQuery"
-                  placeholder="Search Sale"
-                  density="compact"
+                <AppDateTimePicker
+                  v-model="to"
+                  label="To Date"
+                  @update:modelValue="onDataChanged"
                 />
               </div>
 

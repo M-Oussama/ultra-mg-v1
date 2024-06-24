@@ -14,20 +14,35 @@ const totalReturns = ref(0)
 const returns = ref([])
 const selectedRows = ref([])
 const isAddPaymentSidebarActive = ref(false)
-
+const clients = ref([])
+const from = ref('')
+const to = ref('')
 const isDialogVisible = ref(false)
 let selectedReturn = ref()
-
+const selectedClient = ref('')
+const statusItems = ref([
+  {
+    id:1,
+    name:"PAID"
+  },
+  {
+    id:0,
+    name:"ON HOLD"
+  }
+])
 const fetchReturn = () =>{
   returnStore.fetchReturns({
     searchValue: searchQuery.value,
     status: selectedStatus.value,
     perPage: rowPerPage.value,
     currentPage: currentPage.value,
+    client_id: selectedClient.value,
+    from: from.value,
+    to: to.value
   }).then(response => {
     loading.value.isActive = false;
-
-    returns.value = response.data.returns.data
+    returns.value = response.data.returns
+    clients.value = response.data.clients
     totalPage.value = response.data.totalPage
     totalReturns.value = response.data.totalReturns
   }).catch(error => {
@@ -74,39 +89,19 @@ const resolveInvoiceBalanceVariant = (balance, total) => {
 }
 
 const resolveInvoiceStatusVariantAndIcon = _product_return => {
-
-  if(_product_return.balance > 0) {
-
-    if(_product_return.balance == _product_return.total_amount) {
-      return {
-        variant: 'error',
-        icon: 'tabler-x',
-      }
-    } else {
-      return {
-        variant: 'info',
-        icon: 'tabler-circle-half-2',
-      }
-    }
-
-  } else {
-    if(_product_return.balance < 0) {
-      return {
-        variant: 'warning',
-        icon: 'tabler-alert-circle',
-      }
-    }
-    if(_product_return.balance == 0) {
+  if(_product_return !== undefined){
+    if(_product_return.paid) {
       return {
         variant: 'success',
         icon: 'tabler-circle-check',
       }
     }
   }
-  return {
-    variant: 'error',
-    icon: 'tabler-chart-pie',
-  }
+    return {
+      variant: 'error',
+      icon: 'tabler-x',
+    }
+
 }
 const _product_return = ref();
 const openPaymentDrawer = (item) => {
@@ -130,6 +125,13 @@ const deleteReturn = data =>  {
     console.log(error)
   })
 
+
+}
+
+
+const onDataChanged = () =>{
+  loading.value.isActive = true;
+  fetchReturn()
 
 }
 
@@ -162,29 +164,40 @@ const deleteReturn = data =>  {
               <VSelect
                 v-model="rowPerPage"
                 density="compact"
-                :items="[10, 20, 30, 50, 100]"
+                :items="[10, 20, 30, 50, 100,500, 1000 ,5000]"
               />
             </div>
+            <div
+              class="d-flex align-center"
+              style="width: 30%;"
+            >
+              <VAutocomplete
+                clearable
+                v-model="selectedClient"
+                :items="clients"
+                item-value="id"
+                item-title="name"
+                label="Client"
+                placeholder="Client"
+                @update:modelValue="onDataChanged"
+              />
 
-            <div class="me-3">
-              <!-- 👉 Create invoice -->
-              <VBtn
-                prepend-icon="tabler-plus"
-                :to="{ name: 'apps-POS-return-add' }"
-              >
-                Create return
-              </VBtn>
             </div>
 
-            <VSpacer />
-
             <div class="d-flex align-center flex-wrap gap-4">
+              <div class="invoice-list-filter">
+                <AppDateTimePicker
+                  v-model="from"
+                  label="From Date"
+                  @update:modelValue="onDataChanged"
+                />
+              </div>
               <!-- 👉 Search  -->
               <div class="invoice-list-filter">
-                <VTextField
-                  v-model="searchQuery"
-                  placeholder="Search return"
-                  density="compact"
+                <AppDateTimePicker
+                  v-model="to"
+                  label="To Date"
+                  @update:modelValue="onDataChanged"
                 />
               </div>
 
@@ -194,10 +207,22 @@ const deleteReturn = data =>  {
                   v-model="selectedStatus"
                   label="Select Status"
                   clearable
+                  item-value="id"
+                  item-title="name"
                   clear-icon="tabler-x"
                   single-line
-                  :items="['Downloaded', 'Draft', 'Sent', 'Paid', 'Partial Payment', 'Past Due']"
+                  :items=statusItems
+                  @update:modelValue="onDataChanged"
                 />
+              </div>
+              <div class="me-3">
+                <!-- 👉 Create invoice -->
+                <VBtn
+                  prepend-icon="tabler-plus"
+                  :to="{ name: 'apps-POS-return-add' }"
+                >
+                  Create
+                </VBtn>
               </div>
             </div>
           </VCardText>
@@ -212,7 +237,12 @@ const deleteReturn = data =>  {
               <th scope="col">
                 #ID
               </th>
-
+              <th
+                scope="col"
+                class="text-center"
+              >
+                <VIcon icon="tabler-trending-up" />
+              </th>
 
               <th scope="col">
                 CLIENT
@@ -251,7 +281,34 @@ const deleteReturn = data =>  {
                 </RouterLink>
               </td>
 
+              <td class="text-center">
+                <VTooltip>
+                  <template #activator="{ props }">
+                    <VAvatar
+                      :size="30"
+                      v-bind="props"
+                      :color="resolveInvoiceStatusVariantAndIcon(_product_return).variant"
+                      variant="tonal"
+                    >
+                      <VIcon
+                        :size="20"
+                        :icon="resolveInvoiceStatusVariantAndIcon(_product_return).icon"
+                      />
+                    </VAvatar>
+                  </template>
 
+                  <p class="mb-0">
+                    {{ _product_return.invoiceStatus }}
+                  </p>
+                  <p class="mb-0" v-if="_product_return.paid">
+                    Delivered
+                  </p>
+                  <p class="mb-0" v-else>
+                    ON HOLD
+                  </p>
+
+                </VTooltip>
+              </td>
 
 
               <!-- 👉 Client Avatar and Email -->

@@ -358,6 +358,7 @@ class AttendanceController extends Controller
             foreach ($employees as $employee) {
                 if(count($employee->getMedia("birth_certificate")) > 0)
                     $employee->BC = $employee->getMedia("birth_certificate")[0]->getUrl();
+
                 if(count($employee->getMedia("national_card")) > 0)
                     $employee->NC = $employee->getMedia("national_card")[0]->getUrl();
             }

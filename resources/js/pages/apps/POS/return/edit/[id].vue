@@ -1,7 +1,7 @@
 <script setup>
 import InvoiceAddPaymentDrawer from '@/views/apps/invoice/InvoiceAddPaymentDrawer.vue'
 import InvoiceSendInvoiceDrawer from '@/views/apps/invoice/InvoiceSendInvoiceDrawer.vue'
-import InvoiceEditable from '@/views/apps/POS/sales/InvoiceEditable.vue'
+import InvoiceEditable from '@/views/apps/POS/return/edit/InvoiceEditable.vue'
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 import {successMiddleware} from "@/middlewares/successMiddleware";
 import {useReturnStore} from "@/views/apps/POS/return/usereturnStore";

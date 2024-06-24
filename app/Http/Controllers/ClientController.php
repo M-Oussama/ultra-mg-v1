@@ -52,6 +52,10 @@ class ClientController extends Controller
 
         $cities = City::all();
 
+        foreach ($clientsAll as $client){
+            $this->calculateClientBalance($client);
+        }
+
         return response()->json(["clients" => $clientsPage, 'clientsAll' => $clientsAll, "totalPage" => $totalPage, "totalClients"=>$totalUsers, 'cities'=>$cities]);
     }
 

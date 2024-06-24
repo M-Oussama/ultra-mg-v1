@@ -37,6 +37,31 @@ const sale = ref({
   },
   sale_items:[],
 })
+function numberToFrenchWords(n) {
+  const units = ['zéro', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
+  const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
+  const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix'];
+
+  if (n < 10) return units[n];
+  if (n < 20) return teens[n - 10];
+  if (n < 100) {
+    if (n % 10 === 0) return tens[Math.floor(n / 10)];
+    if (n < 70) return tens[Math.floor(n / 10)] + '-' + units[n % 10];
+    if (n < 80) return 'soixante-' + teens[n % 20];
+    return 'quatre-vingt-' + (n % 20 === 0 ? '' : teens[n % 20]);
+  }
+  if (n < 1000) {
+    if (n === 100) return 'cent';
+    if (n % 100 === 0) return units[Math.floor(n / 100)] + ' cent';
+    return units[Math.floor(n / 100)] + ' cent ' + numberToFrenchWords(n % 100);
+  }
+  if (n < 1000000) {
+    if (n === 1000) return 'mille';
+    if (n % 1000 === 0) return numberToFrenchWords(Math.floor(n / 1000)) + ' mille';
+    return numberToFrenchWords(Math.floor(n / 1000)) + ' mille ' + numberToFrenchWords(n % 1000);
+  }
+  return n.toString();  // for simplicity, handle numbers above 999999 as strings
+}
 const show = ref({
   sku:false,
   invoice:false,
@@ -44,6 +69,7 @@ const show = ref({
   paymentType:'Espece',
   sold: false
 })
+const invoiceID =ref(12)
 const sold = ref(0)
 const defaultClient = ref();
 let clients = ref([])
@@ -96,7 +122,7 @@ watch(companyVal, (value, oldValue, onCleanup)=>{
   console.log(company)
 })
 const printClientName = value =>{
-  return value.name+' '+value.surname
+  return value.name+' '+ (value.surname ? value.surname : '')
 }
 const invoiceType = ref("Facture Proforma")
 const clientId = ref()
@@ -166,10 +192,10 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                     <!--               {{company.address2}}-->
                     KASR EL ABTALE, 19000, SETIF
                   </h4>
-                  <h4 class="mb-0">
+                  <h4 class="mb-0" v-if="!show.invoice">
                     {{company.email}}
                   </h4>
-                  <h4 class="mb-0">
+                  <h4 class="mb-0" v-if="!show.invoice">
                     {{ company.phone }}
                   </h4>
                 </div>
@@ -203,7 +229,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               v-if="show.invoice"
               >
                 <!-- 👉 Right Content -->
-                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row custom-white-border">
+                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row custom-white-border" v-if="company.NRC">
                   <div class=" v-col-md-3 text-sm-subtitle-2 border-right">
                     N°RC
                   </div>
@@ -211,7 +237,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                     {{ company.NRC }}
                   </div>
                 </div>
-                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border" v-if="company.NIF">
                   <div    class=" v-col-md-3 text-sm-subtitle-2 border-right">
                     N°IF
                   </div>
@@ -220,7 +246,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                   </div>
                 </div>
 
-                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border" v-if="company.NIS">
                   <div    class=" v-col-md-3 text-sm-subtitle-2 border-right ">
                     N°IS
                   </div>
@@ -228,7 +254,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                     {{ company.NIS }}
                   </div>
                 </div>
-                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border" v-if="company.NART">
                   <div    class=" v-col-md-3 text-sm-subtitle-2 border-right padding-right-0">
                   <span>
                      N°ART
@@ -255,26 +281,49 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
 
 
-          <VRow class="ma-3 text-center" v-if="show.invoice">
+          <VRow class="ma-3 mb-0 text-center" v-if="show.invoice">
             <VCol cols="4">
-              <!-- 👉 Issue Date -->
-              <h6 class="font-weight-medium text-sm mb-2">
-                {{ invoiceType }} #{{ sale.id }}
-              </h6>
+
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-4 text-sm-subtitle-2 border-right padding-right-0">
+                  <span>
+                        {{ invoiceType }}
+                  </span>
+
+                </div>
+                <div    class=" v-col-md-6 text-sm-subtitle-2 padding-8 border-left data-font">
+                  #{{ invoiceID }}
+                </div>
+              </div>
             </VCol>
             <VCol cols="4">
-              <h4 class="mb-2 text-sm" v-if="show.price">
-                <span>Payment: </span>
-                <span class="font-weight-semibold">{{ show.paymentType }}</span>
-              </h4>
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-3 text-sm-subtitle-2 border-right padding-right-0">
+                  <span>
+                        Payment:
+                  </span>
+
+                </div>
+                <div    class=" v-col-md-8 text-sm-subtitle-2 padding-8 border-left data-font">
+                  {{ show.paymentType }}
+                </div>
+              </div>
+
             </VCol>
 
             <VCol cols="4">
-              <!-- 👉 Issue Date -->
-              <h4 class="mb-2 text-sm">
-                <span>Date : </span>
-                <span class="font-weight-semibold">{{ sale.sale_date }}</span>
-              </h4>
+
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+                <div    class=" v-col-md-3 text-sm-subtitle-2 border-right padding-right-0">
+                  <span>
+                        Date :
+                  </span>
+
+                </div>
+                <div    class=" v-col-md-8 text-sm-subtitle-2 padding-8 border-left data-font">
+                  {{ sale.sale_date }}
+                </div>
+              </div>
             </VCol>
 
 
@@ -335,15 +384,15 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
               <!-- 👉 Issue Date -->
 
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row custom-white-border">
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row custom-white-border" v-if="sale.client.NRC">
                 <div class=" v-col-md-3 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
                   N°RC
                 </div>
-                <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-8 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold" >
                   {{ sale.client.NRC }}
                 </div>
               </div>
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border" v-if="sale.client.NIF">
                 <div    class=" v-col-md-3 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
                   N°IF
                 </div>
@@ -352,7 +401,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 </div>
               </div>
 
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border" v-if="sale.client.NIS">
                 <div    class=" v-col-md-3 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
                   N°IS
                 </div>
@@ -360,7 +409,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                   {{ sale.client.NIS }}
                 </div>
               </div>
-              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
+              <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border" v-if="sale.client.NART">
                 <div    class=" v-col-md-3 text-sm-subtitle-2 border-right padding-right-0 text-h4 text-weight-bold">
                   <span>
                      N°ART
@@ -487,7 +536,8 @@ watch(clientId, (value, oldValue, onCleanup)=>{
           <VCardText class="d-flex justify-space-between flex-column flex-sm-row print-row pt-0" v-if="show.price">
             <div class="my-2 mx-sm-5 v-col-md-6">
 
-              <h5 >La Facture est arretée à la somme de : {{ sale.amount_letter }}</h5>
+              <h5 v-if="!show.invoice">La Facture est arretée à la somme de : {{numberToFrenchWords(sale.total_amount) }}</h5>
+              <h5 v-else>La Facture est arretée à la somme de : {{numberToFrenchWords(sale.total_amount*1.19) }}</h5>
               <div v-if="show.sold" class="mt-10 d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
                 <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
                   Ancien solde
@@ -518,7 +568,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
                 <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
-                  Total
+                   {{show.invoice? 'MONTANT HT' : 'TOTAL '}}
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
                   {{ (sale.total_amount) }} DZD
@@ -526,26 +576,26 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
                 <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
-                  Paiement
+                  {{show.invoice? 'TVA 19% ': 'Paiement'}}
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold">
-                  {{ (parseFloat((sale.total_amount)-sale.balance)).toFixed(2) }} DZD
+                  {{ show.invoice? (parseFloat((sale.total_amount)*0.19)).toFixed(2): (parseFloat((sale.total_amount)-sale.balance)).toFixed(2) }} DZD
 
                 </div>
               </div>
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
                 <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-h4 text-weight-bold"  v-if="show.sold">
-                  Nouveau
+                  {{show.invoice? 'MONTANT TTC': 'NOUVEAU'}}
                 </div>
                 <div    class=" v-col-md-5 text-sm-subtitle-2 border-right text-success text-h4 text-weight-bold" v-if="!show.sold">
-                  Nouveau
+                  {{show.invoice? 'MONTANT TTC ': 'NOUVEAU'}}
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-success text-h4 text-weight-bold" v-if="!show.sold">
-                  {{ (parseFloat(sale.balance)).toFixed(2) }} DZD
+                  {{ show.invoice?(parseFloat(sale.total_amount * 1.19)).toFixed(2):  (parseFloat(sale.balance)).toFixed(2) }} DZD
                 </div>
                 <div    class=" v-col-md-7 text-sm-subtitle-2 border-left padding-8 data-font text-h4 text-weight-bold" v-if="show.sold">
-                  {{ (parseFloat(sale.balance)).toFixed(2) }} DZD
+                  {{ show.invoice? (parseFloat(sale.total_amount * 1.19)).toFixed(2): (parseFloat(sale.balance)).toFixed(2) }} DZD
                 </div>
               </div>
 
@@ -570,6 +620,8 @@ watch(clientId, (value, oldValue, onCleanup)=>{
           </VCardText>
 
         </VCard>
+
+
       </VCol>
 
       <VCol
@@ -666,22 +718,10 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 />
               </div>
             </div>
-            <div >
-              <VLabel  class="mb-4 mt-1">
-                Company
-              </VLabel>
 
-              <VAutocomplete
-                v-model="companyVal"
-                :items="companies"
-                item-value="id"
-                class="text-sm-subtitle-2"
-                item-title="name"
-                label="Company"
 
-              />
 
-            </div>
+
             <div >
 
               <div>
@@ -703,6 +743,79 @@ watch(clientId, (value, oldValue, onCleanup)=>{
                 placeholder="Put the Invoice Type"
               />
             </div>
+            <div v-if="show.invoice">
+              <VLabel for="payment-terms" class="mb-1 mt-1">
+                Invoice ID
+              </VLabel>
+              <VTextField
+                v-model="invoiceID"
+                type="number"
+                placeholder="Put the Invoice ID"
+              />
+            </div>
+
+            <!--  Company --->
+            <div >
+              <VLabel  class="mb-4 mt-1">
+                Company
+              </VLabel>
+
+              <VAutocomplete
+                v-model="companyVal"
+                :items="companies"
+                item-value="id"
+                class="text-sm-subtitle-2"
+                item-title="name"
+                label="Company"
+
+              />
+
+            </div>
+            <div v-if="show.invoice">
+              <VLabel for="payment-terms" class="mb-1 mt-1">
+                Company NRC
+              </VLabel>
+              <VTextField
+                v-model="company.NRC"
+
+                placeholder="Put the company NRC"
+              />
+            </div>
+
+
+            <div v-if="show.invoice">
+              <VLabel for="payment-terms" class="mb-1 mt-1">
+                Company NIF
+              </VLabel>
+              <VTextField
+                v-model="company.NIF"
+
+                placeholder="Put the company NIF"
+              />
+            </div>
+
+            <div v-if="show.invoice">
+              <VLabel for="payment-terms" class="mb-1 mt-1">
+                Company NIS
+              </VLabel>
+              <VTextField
+                v-model="company.NIS"
+
+                placeholder="Put the company NIS"
+              />
+            </div>
+
+            <div v-if="show.invoice">
+              <VLabel for="payment-terms" class="mb-1 mt-1">
+                Company NART
+              </VLabel>
+              <VTextField
+                v-model="company.NART"
+
+                placeholder="Put the company NART"
+              />
+            </div>
+            <!--  CLIENT --->
             <div>
               <VLabel  class="mb-4 mt-1 ">
                 Client
@@ -718,6 +831,50 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               />
 
             </div>
+            <div v-if="show.invoice">
+              <VLabel for="payment-terms" class="mb-1 mt-1">
+                Client NRC
+              </VLabel>
+              <VTextField
+                v-model="sale.client.NRC"
+
+                placeholder="Put the Client NRC"
+              />
+            </div>
+
+
+            <div v-if="show.invoice">
+              <VLabel for="payment-terms" class="mb-1 mt-1">
+                Client NIF
+              </VLabel>
+              <VTextField
+                v-model="sale.client.NIF"
+
+                placeholder="Put the Client NIF"
+              />
+            </div>
+
+            <div v-if="show.invoice">
+              <VLabel for="payment-terms" class="mb-1 mt-1">
+                Client NIS
+              </VLabel>
+              <VTextField
+                v-model="sale.client.NIS"
+
+                placeholder="Put the Client NIS"
+              />
+            </div>
+
+            <div v-if="show.invoice">
+              <VLabel for="payment-terms" class="mb-1 mt-1">
+                Client NART
+              </VLabel>
+              <VTextField
+                v-model="sale.client.NART"
+
+                placeholder="Put the Client NART"
+              />
+            </div>
           </VCardText>
 
         </VCard>
@@ -725,6 +882,7 @@ watch(clientId, (value, oldValue, onCleanup)=>{
 
       </VCol>
     </VRow>
+
 
     <!-- 👉 Add Payment Sidebar -->
     <InvoiceAddPaymentDrawer :data="sale" :loading="loading" v-model:isDrawerOpen="isAddPaymentSidebarVisible" />
