@@ -290,35 +290,35 @@ watch(clientId, (value, oldValue, onCleanup)=>{
               <!-- 👉 Issue Date -->
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right  text-weight-bold">
                   Client
                 </div>
-                <div    class=" v-col-md-10  border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10  border-left padding-8 data-font  text-weight-bold">
                   {{ sale.client.name }} {{sale.client.surname}}
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center custom-white-border">
-                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right  text-weight-bold">
                   Address
                 </div>
-                <div    class=" v-col-md-10 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10 border-left padding-8 data-font  text-weight-bold">
                   {{ sale.client.address }}
                 </div>
               </div>
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center  custom-white-border">
-                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-2 text-sm-subtitle-2 border-right  text-weight-bold">
                   Phone
                 </div>
-                <div    class=" v-col-md-10 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10 border-left padding-8 data-font  text-weight-bold">
                   {{ sale.client.phone }}
                 </div>
               </div>
 
               <div class="d-flex flex-wrap justify-md-start flex-column flex-sm-row print-row align-center  custom-white-border">
-                <div    class=" v-col-md-2 text-sm-subtitle-2  border-right text-h4 text-weight-bold">
+                <div    class=" v-col-md-2 text-sm-subtitle-2  border-right  text-weight-bold">
                   Email
                 </div>
-                <div    class=" v-col-md-10 border-left padding-8 data-font text-h4 text-weight-bold">
+                <div    class=" v-col-md-10 border-left padding-8 data-font  text-weight-bold">
                   {{ sale.client.email }}
                 </div>
               </div>
