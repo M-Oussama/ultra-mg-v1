@@ -911,7 +911,7 @@ table > tbody > tr > td, table > thead > tr > th{
   font-weight: bold;
   line-height: 1.5rem;
 }
-.text-h4{
+.text-weight-bold{
   font-weight: bold !important;
   line-height: 1.5rem !important;
   font-size: x-small !important;
