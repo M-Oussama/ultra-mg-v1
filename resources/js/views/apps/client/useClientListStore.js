@@ -71,7 +71,9 @@ export const useClientListStore = defineStore('ClientListStore', {
 
 
 
-      return axios.get('/api/client-log/' + client_id+'/download')
+      return axios.get('/api/client-log/' + client_id+'/download',{
+        responseType: 'blob'
+      })
     }
 
   },
