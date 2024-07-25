@@ -4,7 +4,7 @@
   <title>Client Log</title>
 </head>
 <body>
-<h1 style="text-align: center">ETAT DU CLIENT</h1>
+<h1>ETAT DU CLIENT</h1>
 
 
 {{--<table border="1" width="100%">--}}
