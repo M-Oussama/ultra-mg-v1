@@ -162,14 +162,14 @@ const closeConfirmationDialog= () => {
 
 }
 
-const periodInAlphabet = (employee)=> {
-  let endDate = new Date(employee.end_date);
+const periodInAlphabet = (start_date, end_date)=> {
+  let endDate = new Date(end_date);
 
-  if (!employee.end_date) {
+  if (!end_date) {
     endDate = new Date(); // Use today's date if end date is null
   }
 
-  const diffInMs = endDate - new Date(employee.start_date);
+  const diffInMs = endDate - new Date(start_date);
   const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
   const years = Math.floor(diffInDays / 365);
   const months = Math.floor((diffInDays % 365) / 30);
@@ -325,6 +325,16 @@ const sendEmployeeFile = (employee) => {
                 <th scope="col">
                   Period
                 </th>
+                <th scope="col">
+                  REAL Start Date
+                </th>
+                <th scope="col">
+                  REAL  End Date
+                </th>
+
+                <th scope="col">
+                  REAL Period
+                </th>
 
                 <th scope="col">
                   Position
@@ -379,7 +389,44 @@ const sendEmployeeFile = (employee) => {
 
                     <div class="d-flex flex-column">
                       <h6 class="text-base">
-                        {{ periodInAlphabet(employee)}}
+                        {{ periodInAlphabet(employee.start_date, employee.end_date)}}
+                      </h6>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="d-flex align-center">
+
+
+                    <div class="d-flex flex-column">
+                      <h6 class="text-base">
+                        {{ employee.real_start_date }}
+                      </h6>
+
+                    </div>
+
+
+                  </div>
+                </td>
+
+                <td>
+                  <div class="d-flex align-center">
+
+
+                    <div class="d-flex flex-column">
+                      <h6 class="text-base">
+                        {{ employee.real_end_date }}
+                      </h6>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="d-flex align-center">
+
+
+                    <div class="d-flex flex-column">
+                      <h6 class="text-base">
+                        {{ periodInAlphabet(employee.real_start_date, employee.real_end_date)}}
                       </h6>
                     </div>
                   </div>

@@ -141,6 +141,7 @@ Route::post('/clients/log/generate', [ClientLogController::class, 'getALLLog'])-
  * Recruitment
  */
 Route::post('/recrutement/generateEmail/{id}', [AttendanceController::class, 'generateEmail'])->name('generateEmail');
+Route::get('/client-log/{id}/download', [ClientController::class, 'exportClientLog'])->name('generateEmail');
 
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {

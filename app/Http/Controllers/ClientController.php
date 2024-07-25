@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\City;
 use App\Models\Client;
+use App\Models\Payment;
 use App\Models\Sale;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ClientController extends Controller
 {
@@ -210,5 +212,33 @@ class ClientController extends Controller
         $clients = Client::all();
         return response()->json(['clients'=>$clients]);
 
+    }
+
+    public function exportClientLog($clientId){
+        $client = Client::find($clientId);
+
+        // Normalizing the date field and adding a type field
+        $invoices = Sale::where('client_id', $clientId)
+            ->get()
+            ->map(function ($item) {
+                $item->date = $item->sale_date; // Normalize to 'date'
+                $item->type = 'Invoice';
+                return $item;
+            });
+
+        $payments = Payment::where('client_id', $clientId)
+            ->get()
+            ->map(function ($item) {
+                $item->date = $item->payment_date; // Normalize to 'date'
+                $item->type = 'Payment';
+                return $item;
+            });
+
+        $logEntries = collect([$invoices, $payments])->flatten()->sortBy('date');
+
+
+        $pdf = Pdf::loadView('client_log_pdf', compact('client', 'logEntries'));
+
+        return $pdf->download('client_log.pdf');
     }
 }

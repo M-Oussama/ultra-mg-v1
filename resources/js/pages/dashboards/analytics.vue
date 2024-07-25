@@ -2,7 +2,6 @@
 import { useTheme } from 'vuetify'
 import AnalyticsEarningReportsWeeklyOverview from '@/views/dashboards/analytics/AnalyticsEarningReportsWeeklyOverview.vue'
 import AnalyticsMonthlyCampaignState from '@/views/dashboards/analytics/AnalyticsMonthlyCampaignState.vue'
-import AnalyticsProjectTable from '@/views/dashboards/analytics/AnalyticsProjectTable.vue'
 import AnalyticsSalesByCountries from '@/views/dashboards/analytics/AnalyticsSalesByCountries.vue'
 import AnalyticsSalesOverview from '@/views/dashboards/analytics/AnalyticsSalesOverview.vue'
 import AnalyticsSourceVisits from '@/views/dashboards/analytics/AnalyticsSourceVisits.vue'
@@ -10,6 +9,7 @@ import AnalyticsSupportTracker from '@/views/dashboards/analytics/AnalyticsSuppo
 import AnalyticsTotalEarning from '@/views/dashboards/analytics/AnalyticsTotalEarning.vue'
 import AnalyticsWebsiteAnalytics from '@/views/dashboards/analytics/AnalyticsWebsiteAnalytics.vue'
 import CardStatisticsVertical from '@core/components/CardStatisticsVertical.vue'
+import AnalyticsVacationTable from "@/views/dashboards/analytics/AnalyticsVacationTable.vue";
 
 const vuetifyTheme = useTheme()
 const currentTheme = vuetifyTheme.current.value.colors
@@ -115,7 +115,10 @@ const statisticsVertical = {
       cols="12"
       md="6"
     >
-      <AnalyticsSupportTracker />
+      <!-- -->
+      <AnalyticsVacationTable />
+
+
     </VCol>
 
     <!-- 👉 Sales by Countries -->
@@ -142,7 +145,8 @@ const statisticsVertical = {
       sm="6"
       lg="4"
     >
-      <AnalyticsMonthlyCampaignState />
+      <AnalyticsSupportTracker />
+
     </VCol>
 
     <!-- 👉 Source Visits -->
@@ -159,7 +163,8 @@ const statisticsVertical = {
       cols="12"
       lg="8"
     >
-      <AnalyticsProjectTable />
+      <AnalyticsMonthlyCampaignState />
+
     </VCol>
   </VRow>
 </template>
