@@ -238,6 +238,11 @@ class ClientController extends Controller
 
 
         $pdf = Pdf::loadView('client_log_pdf', compact('client', 'logEntries'));
+        $pdf->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isFontSubsettingEnabled' => true,
+            ]);
         return $pdf->download('client_log.pdf');
     }
 }
