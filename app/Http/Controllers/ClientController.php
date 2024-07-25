@@ -238,7 +238,6 @@ class ClientController extends Controller
 
 
         $pdf = Pdf::loadView('client_log_pdf', compact('client', 'logEntries'));
-        $pdf->isHtml5ParserEnabled(false);
         return $pdf->download('client_log.pdf');
     }
 }
