@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <title>Client Log</title>
+  <style>
+    body {
+      font-family: 'DejaVu Sans', sans-serif;
+    }
+  </style>
 </head>
 <body>
 <h1>ETAT DU CLIENT</h1>
