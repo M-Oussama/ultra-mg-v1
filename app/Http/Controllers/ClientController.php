@@ -238,7 +238,7 @@ class ClientController extends Controller
 
 
         $pdf = Pdf::loadView('client_log_pdf', compact('client', 'logEntries'));
-
+        $pdf->save(storage_path().'client_log_pdf.pdf');
         return $pdf->download('client_log.pdf');
     }
 }
