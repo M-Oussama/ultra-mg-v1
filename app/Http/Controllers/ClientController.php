@@ -234,7 +234,7 @@ class ClientController extends Controller
                 return $item;
             });
 
-        $logEntries = collect([$invoices, $payments])->flatten()->sortBy('date');
+        $logEntries = collect([$payments, $invoices])->flatten()->sortBy('date');
 
 
         $pdf = Pdf::loadView('client_log_pdf', compact('client', 'logEntries'));
