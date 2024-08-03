@@ -10,6 +10,8 @@ import AnalyticsTotalEarning from '@/views/dashboards/analytics/AnalyticsTotalEa
 import AnalyticsWebsiteAnalytics from '@/views/dashboards/analytics/AnalyticsWebsiteAnalytics.vue'
 import CardStatisticsVertical from '@core/components/CardStatisticsVertical.vue'
 import AnalyticsVacationTable from "@/views/dashboards/analytics/AnalyticsVacationTable.vue";
+import {useDashboardStore} from "@/views/dashboards/analytics/useDashboardStore";
+import AnalyticsIncomingVacationTable from "@/views/dashboards/analytics/AnalyticsIncomingVacationTable.vue";
 
 const vuetifyTheme = useTheme()
 const currentTheme = vuetifyTheme.current.value.colors
@@ -72,6 +74,10 @@ const statisticsVertical = {
     },
   },
 }
+
+const dashboard = useDashboardStore()
+
+
 </script>
 
 <template>
@@ -107,7 +113,9 @@ const statisticsVertical = {
       cols="12"
       md="6"
     >
-      <AnalyticsEarningReportsWeeklyOverview />
+      <AnalyticsIncomingVacationTable  />
+
+      <!--      <AnalyticsEarningReportsWeeklyOverview />-->
     </VCol>
 
     <!-- 👉 Support Tracker -->

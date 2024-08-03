@@ -5,6 +5,7 @@ use App\Http\Controllers\BenefitController;
 use App\Http\Controllers\CertifyInvoiceController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientLogController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\ProductController;
@@ -143,6 +144,12 @@ Route::post('/clients/log/generate', [ClientLogController::class, 'getALLLog'])-
 Route::post('/recrutement/generateEmail/{id}', [AttendanceController::class, 'generateEmail'])->name('generateEmail');
 Route::get('/client-log/{id}/download', [ClientController::class, 'exportClientLog'])->name('generateEmail');
 
+
+Route::group(['prefix' => '/dashboard'], function () {
+    Route::get('/vacations', [DashboardController::class, 'getEmployeeInVacation']);
+    Route::get('/incoming-vacations', [DashboardController::class, 'getIncomingVacations'])->name('incoming-vacations');
+
+});
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

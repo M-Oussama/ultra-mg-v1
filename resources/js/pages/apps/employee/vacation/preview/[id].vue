@@ -213,8 +213,8 @@ const getNextDate = (date) =>{
                   </h1>
 
                   <div class="text-right center-text">
-                    <h4 class="text-font-size">الاســـــــــــــم و اللقــــــب :{{object.employee.name_ar}} {{object.employee.surname_ar}}. </h4>
-                    <h4 class="text-font-size">الوظيفــــــــــــــة :{{object.employee_career.position_ar}}. </h4>
+                    <h4 class="text-font-size">الاســـــــــــــم و اللقــــــب :{{object.employee['name_ar']}} {{object.employee['surname_ar']}}. </h4>
+                    <h4 class="text-font-size">الوظيفــــــــــــــة :{{object.employee_career['position_ar']}}. </h4>
                     <h4 class="text-font-size">يستفيد من عطلة :
 
                       <span class="text-font-size">{{getFullYear(object.start_date)}}</span>

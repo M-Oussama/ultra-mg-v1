@@ -147,12 +147,8 @@ const computeNewEndDate = () => {
     let start = new Date(object.value.start_date);
 
     // Add the number of days (converted to milliseconds)
-    object.value.end_date = new Date(start.getTime() + object.value.count * 24 * 60 * 60 * 1000);
+    object.value.end_date = new Date(start.getTime() + (object.value.count -1) * 24 * 60 * 60 * 1000);
   }
-  console.log(object.value.end_date)
-
-
-
 }
 
 </script>

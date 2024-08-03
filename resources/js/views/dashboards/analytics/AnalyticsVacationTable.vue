@@ -1,30 +1,38 @@
 <script setup>
 import { useProjectStore } from '@/views/dashboards/analytics/useProjectStore'
 import { avatarText } from '@core/utils/formatters'
+import {useDashboardStore} from "@/views/dashboards/analytics/useDashboardStore";
 
 const projectStore = useProjectStore()
 const searchQuery = ref('')
-const rowPerPage = ref(5)
-const currentPage = ref(1)
+
 const totalPage = ref(1)
 const totalProjects = ref(0)
 const projects = ref([])
 const selectedRows = ref([])
 const selectAllProject = ref(false)
 
-// 👉 Fetch Projects
-watchEffect(() => {
-  projectStore.fetchProjects({
-    q: searchQuery.value,
+const dashboard = useDashboardStore()
+
+const rowPerPage = ref(5)
+const currentPage = ref(1)
+const vacationsList = ref([])
+const getEmployeeInVacation = () => {
+  //loading2.value.isActive = true;
+  dashboard.getEmployeeInVacation({
     perPage: rowPerPage.value,
     currentPage: currentPage.value,
   }).then(response => {
-    projects.value = response.data.projects
-    totalPage.value = response.data.totalPage
-    totalProjects.value = response.data.totalProjects
+    vacationsList.value = response.data.vacations.data
+    // loading2.value.isActive = false;
+   // console.log(response.data);
   }).catch(error => {
-    console.log(error)
+    // loading2.value.isActive = false;
   })
+}
+// 👉 Fetch Projects
+watchEffect(() => {
+  getEmployeeInVacation()
 })
 
 // 👉 Fetch Projects
@@ -35,8 +43,8 @@ watchEffect(() => {
 
 // 👉 Computing pagination data
 const paginationData = computed(() => {
-  const firstIndex = projects.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
-  const lastIndex = projects.value.length + (currentPage.value - 1) * rowPerPage.value
+  const firstIndex = vacationsList.value.length ? (currentPage.value - 1) * rowPerPage.value + 1 : 0
+  const lastIndex = vacationsList.value.length + (currentPage.value - 1) * rowPerPage.value
   
   return `Showing ${ firstIndex } to ${ lastIndex } of ${ totalProjects.value } entries`
 })
@@ -70,13 +78,56 @@ const addRemoveIndividualCheckbox = checkID => {
     selectAllProject.value = true
   }
 }
+
+const daysLeft = (endDate) => {
+  // Get the current date
+  const currentDate = new Date();
+
+  // Get the target date
+
+  const target =  new Date(addDay(endDate,1));
+
+  // Calculate the difference in time
+  const differenceInTime = target.getTime() - currentDate.getTime();
+
+  // Calculate the difference in days
+  return Math.ceil(differenceInTime / (1000 * 3600 * 24));
+}
+
+const addDay = (targetDate, number) => {
+  // Create a new Date object from the given date
+  const newDate = new Date(targetDate);
+
+  // Add one day
+  newDate.setDate(newDate.getDate() + number);
+
+  //console.log(newDate);
+  return formatDate(newDate);
+}
+function formatDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
 </script>
 
 <template>
   <VCard v-if="projects">
     <VCardItem class="project-header d-flex flex-wrap justify-space-between py-4 gap-4">
       <VCardTitle>Vacations</VCardTitle>
-
+      <div
+        class="me-3"
+        style="width: 80px;"
+      >
+        <VSelect
+          v-model="rowPerPage"
+          density="compact"
+          variant="outlined"
+          :items="[5,10, 20, 30, 50]"
+        />
+      </div>
       <template #append>
         <div
           class="d-flex align-center gap-2"
@@ -104,11 +155,12 @@ const addRemoveIndividualCheckbox = checkID => {
             class="text-center"
           >
             <div style="width: 1rem;">
-              <VCheckbox
-                :model-value="selectAllProject"
-                :indeterminate="(projects.length !== selectedRows.length) && !!selectedRows.length"
-                @click="selectUnselectAll"
-              />
+<!--              <VCheckbox-->
+<!--                :model-value="selectAllProject"-->
+<!--                :indeterminate="(projects.length !== selectedRows.length) && !!selectedRows.length"-->
+<!--                @click="selectUnselectAll"-->
+<!--              />-->
+              ID
             </div>
           </th>
 
@@ -122,14 +174,14 @@ const addRemoveIndividualCheckbox = checkID => {
             scope="col"
             class="font-weight-semibold"
           >
-            POSITION
+            RETURN DATE
           </th>
 
           <th
             scope="col"
             class="font-weight-semibold"
           >
-            STATUS
+            REST
           </th>
           <th
             scope="col"
@@ -143,18 +195,19 @@ const addRemoveIndividualCheckbox = checkID => {
       <!-- 👉 Table Body -->
       <tbody>
         <tr
-          v-for="project in projects"
-          :key="project.name"
+          v-for="vacation in vacationsList"
+          :key="vacation.id"
           style="height: 3.5rem;"
         >
           <!-- 👉 Individual checkbox -->
           <td>
             <div style="width: 1rem;">
-              <VCheckbox
-                :id="`check${project.status}`"
-                :model-value="selectedRows.includes(`check${project.status}`)"
-                @click="addRemoveIndividualCheckbox(`check${project.status}`)"
-              />
+<!--              <VCheckbox-->
+<!--                :id="`check${vacation.id}`"-->
+<!--                :model-value="selectedRows.includes(`check${project.id}`)"-->
+<!--                @click="addRemoveIndividualCheckbox(`check${project.id}`)"-->
+<!--              />-->
+               {{vacation.id}}
             </div>
           </td>
 
@@ -166,35 +219,35 @@ const addRemoveIndividualCheckbox = checkID => {
                 color="primary"
                 size="38"
               >
-                <VImg
-                  v-if="project.logo.length"
-                  :src="project.logo"
-                />
-                <span
-                  v-else
-                  class="font-weight-semibold"
-                >{{ avatarText(project.name) }}</span>
+<!--                <VImg-->
+<!--                  v-if="vacation.logo.length"-->
+<!--                  :src="vacation.logo"-->
+<!--                />-->
+<!--                <span-->
+<!--                  v-else-->
+<!--                  class="font-weight-semibold"-->
+<!--                >{{ avatarText(vacation.count) }}</span>-->
               </VAvatar>
 
               <div>
-                <h6 class="text-base text-medium-emphasis font-weight-semibold">
-                  {{ project.name }}
+                <h6 class="text-sm-subtitle-2 text-medium-emphasis font-weight-semibold">
+                  {{ vacation.employee.name }} {{vacation.employee.surname}}
                 </h6>
-                <span class="text-disabled">{{ project.date }}</span>
+                <span class="text-disabled">{{ vacation.start_date }}</span>
               </div>
             </div>
           </td>
 
           <!-- 👉 Leader -->
           <td class="text-medium-emphasis">
-            {{ project.leader }}
+            {{ addDay(vacation.end_date, 1) }}
           </td>
 
 
 
           <!-- 👉 Progress -->
           <td class="text-center">
-            26 DAYS
+            {{ daysLeft(vacation.end_date) }} DAYS
           </td>
 
           <!-- 👉 Actions -->
@@ -231,7 +284,7 @@ const addRemoveIndividualCheckbox = checkID => {
       </tbody>
 
       <!-- 👉 table footer  -->
-      <tfoot v-show="!projects.length">
+      <tfoot v-show="!vacationsList.length">
         <tr>
           <td
             colspan="8"

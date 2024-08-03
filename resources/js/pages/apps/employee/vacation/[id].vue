@@ -371,7 +371,7 @@ const convertToAlphabet = (number, unit) =>{
 
                     <div class="d-flex flex-column">
                       <h6 class="text-base">
-                        {{ periodInAlphabet(object)}}
+                        {{ object.count}} days
                       </h6>
                     </div>
                   </div>
