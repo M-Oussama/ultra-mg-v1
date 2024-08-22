@@ -10,5 +10,8 @@ export const useDashboardStore = defineStore('DashboardStore', {
     getIncomingVacations(params) {
       return axios.get('/api/dashboard/incoming-vacations', {params})
     },
+    getAdminDashboard() {
+      return axios.get('/api/dashboard/admin')
+    },
   },
 })

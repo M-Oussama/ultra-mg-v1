@@ -7,20 +7,15 @@ const ability = useAppAbility()
 const userData = JSON.parse(localStorage.getItem('userData') || 'null')
 
 const logout = () => {
-
   // Remove "userData" from localStorage
-  localStorage.removeItem('userData')
+  localStorage.clear()
+  // Remove "userAbilities" from localStorage
+  localStorage.removeItem('userAbilities')
 
-  // Remove "accessToken" from localStorage
-  localStorage.removeItem('accessToken')
-  router.push('/login').then(() => {
+  // Reset ability to initial ability
+  ability.update(initialAbility)
 
-    // Remove "userAbilities" from localStorage
-    localStorage.removeItem('userAbilities')
-
-    // Reset ability to initial ability
-    ability.update(initialAbility)
-  })
+  router.push('/login')
 }
 </script>
 
@@ -84,9 +79,9 @@ const logout = () => {
             </template>
 
             <VListItemTitle class="font-weight-semibold">
-              {{ userData.fullName }}
+              {{ userData.name }}
             </VListItemTitle>
-            <VListItemSubtitle>{{ userData.role }}</VListItemSubtitle>
+            <VListItemSubtitle>{{ userData.role.name }}</VListItemSubtitle>
           </VListItem>
 
           <VDivider class="my-2" />

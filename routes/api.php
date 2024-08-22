@@ -1,15 +1,21 @@
 <?php
 
+use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BenefitController;
 use App\Http\Controllers\CertifyInvoiceController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientLogController;
+use App\Http\Controllers\ComponentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\PDFController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReturnController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\POSController;
@@ -27,6 +33,7 @@ use Illuminate\Support\Facades\Route;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
+
 /** USERS  */
 Route::get('/users/list', [UserController::class, 'getUsers'])->name('getUsers');
 Route::post('/users/store', [UserController::class, 'store'])->name('storeUser');
@@ -148,8 +155,54 @@ Route::get('/client-log/{id}/download', [ClientController::class, 'exportClientL
 Route::group(['prefix' => '/dashboard'], function () {
     Route::get('/vacations', [DashboardController::class, 'getEmployeeInVacation']);
     Route::get('/incoming-vacations', [DashboardController::class, 'getIncomingVacations'])->name('incoming-vacations');
+    Route::get('/maintenances/incoming', [DashboardController::class, 'getIncoming']);
+    Route::get('/maintenances/recent', [DashboardController::class, 'getRecent']);
+    Route::get('/maintenances', [DashboardController::class, 'getMaintenance']);
+    Route::get('/admin', [DashboardController::class, 'getAdminDashboard']);
 
 });
+Route::group(['prefix' => '/auth'], function () {
+    Route::post('/login', [AuthController::class, 'Login']);
+
+})->middleware('auth:sanctum');
+
+Route::group(['prefix' => '/roles'], function () {
+    Route::get('/list', [RoleController::class, 'list']);
+    Route::post('/store', [RoleController::class, 'store']);
+    Route::post('/update/{id}', [RoleController::class, 'update']);
+    Route::delete('/delete/{id}', [RoleController::class, 'delete']);
+
+
+});
+Route::group(['prefix' => '/permissions'], function () {
+    Route::get('/list', [PermissionController::class, 'list']);
+    Route::post('/store', [PermissionController::class, 'store']);
+    Route::post('/update/{id}', [PermissionController::class, 'update']);
+    Route::delete('/delete/{id}', [PermissionController::class, 'delete']);
+});
+
+Route::group(['prefix' => '/assets'], function () {
+    Route::get('/list', [AssetController::class, 'list']);
+    Route::get('/{id}/components', [AssetController::class, 'getComponents']);
+    Route::post('/store', [AssetController::class, 'store']);
+    Route::post('/update/{id}', [AssetController::class, 'update']);
+    Route::delete('/delete/{id}', [AssetController::class, 'delete']);
+});
+Route::group(['prefix' => '/components'], function () {
+    Route::get('/list', [ComponentController::class, 'list']);
+    Route::post('/store', [ComponentController::class, 'store']);
+    Route::post('/update/{id}', [ComponentController::class, 'update']);
+    Route::delete('/delete/{id}', [ComponentController::class, 'delete']);
+});
+Route::group(['prefix' => '/maintenances'], function () {
+    Route::get('/list', [MaintenanceController::class, 'list']);
+    Route::post('/store', [MaintenanceController::class, 'store']);
+    Route::post('/update/{id}', [MaintenanceController::class, 'update']);
+    Route::delete('/delete/{id}', [MaintenanceController::class, 'delete']);
+
+    Route::get('/recent', [MaintenanceController::class, 'recent']);
+
+})->middleware('auth:sanctum');
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

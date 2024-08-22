@@ -252,3 +252,8 @@ const saveInvoice = () => {
 
 
 </style>
+<route lang="yaml">
+meta:
+  action: add
+  subject: returns
+</route>

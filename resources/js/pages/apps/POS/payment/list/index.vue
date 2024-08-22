@@ -408,3 +408,8 @@ const openConfirmationDialog = (payment) => {
   color: rgba(var(--v-theme-on-background), var(--v-high-emphasis-opacity));
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: payments
+</route>

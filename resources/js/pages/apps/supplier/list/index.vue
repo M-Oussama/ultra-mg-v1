@@ -7,6 +7,7 @@ import EditDrawer from '@/views/apps/supplier/EditDrawer.vue'
 import ConfirmationDialog from '@/views/apps/supplier/ConfirmationDialog.vue'
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 import {successMiddleware} from "@/middlewares/successMiddleware";
+import PERMISSIONS from '@/router/permissions.js'
 
 
 /**
@@ -179,6 +180,8 @@ const paginationData = computed(() => {
 
           <!-- 👉 Add client button -->
           <VBtn
+            v-if="$can(PERMISSIONS.SUPPLIER.ADD, PERMISSIONS.SUPPLIER.SUBJECT)"
+
             prepend-icon="tabler-plus"
             @click="isAddNewVisible = true"
           >
@@ -300,6 +303,8 @@ const paginationData = computed(() => {
 
 
                 <VBtn
+                  v-if="$can(PERMISSIONS.SUPPLIER.EDIT, PERMISSIONS.SUPPLIER.SUBJECT)"
+
                   icon
                   size="x-small"
                   color="default"
@@ -315,6 +320,7 @@ const paginationData = computed(() => {
                 </VBtn>
 
                 <VBtn
+                  v-if="$can(PERMISSIONS.SUPPLIER.DELETE, PERMISSIONS.SUPPLIER.SUBJECT)"
                   icon
                   size="x-small"
                   color="default"
@@ -415,3 +421,8 @@ const paginationData = computed(() => {
   width: -webkit-fill-available;
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: suppliers
+</route>

@@ -265,3 +265,8 @@ const saveInvoice = () => {
   </VRow>
 </template>
 
+<route lang="yaml">
+meta:
+  action: edit
+  subject: returns
+</route>

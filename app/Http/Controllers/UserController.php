@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,8 +51,9 @@ class UserController extends Controller
         })->paginate($perPage, ['*'], 'page', $currentPage);
         $totalUsers = $users->total(); // Total number of users matching the query
         $totalPage = ceil($totalUsers / $perPage); // Calculate total pages
+        $roles = Role::all();
 
-        return response()->json(["users" => $users, "totalPage" => $totalPage, "totalUsers"=>$totalUsers]);
+        return response()->json(["users" => $users, "totalPage" => $totalPage, "totalUsers"=>$totalUsers, "roles" => $roles]);
     }
 
     /**
@@ -86,10 +88,16 @@ class UserController extends Controller
             'name' => 'string|max:255',
             'email' => 'email|unique:users,email',
             'password' => 'string',
+            'role' => 'integer'
         ]);
 
         // Create a new user record in the database using User::create()
-        $user = User::create($validatedData);
+        $user = User::create([
+            'name' => $validatedData['name'],
+            'email' => $validatedData['email'],
+            'password' => bcrypt($validatedData['password']),
+            'role_id' => $validatedData['role']
+        ]);
 
         // Optionally, you can return a response, redirect the user, or perform any other actions here
         return response()->json(['message' => 'User created successfully', 'user' => $user]);
@@ -121,7 +129,7 @@ class UserController extends Controller
         $validatedData = $request->validate([
             'name' => 'string|max:255',
             'email' => 'email',
-            'password' => 'string',
+            'role_id' => 'integer'
         ]);
 
         // Check if the passwordChanged field is present in the request data,and it is true the user want to change password

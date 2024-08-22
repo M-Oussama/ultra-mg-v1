@@ -917,3 +917,8 @@ table > tbody > tr > td, table > thead > tr > th{
   font-size: x-small !important;
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: returns
+</route>

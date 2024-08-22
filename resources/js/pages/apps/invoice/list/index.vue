@@ -418,3 +418,8 @@ const resolveInvoiceStatusVariantAndIcon = status => {
   }
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: certify_invoices
+</route>

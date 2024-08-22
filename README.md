@@ -33,3 +33,18 @@ npm run dev
 ```sh
 npm run build
 ```
+
+
+php artisan migrate
+
+php artisan db:seed --class=PermissionSeeder
+
+make tokenable nullable
+
+
+
+-- PERMISSIONS TO ADD --
+LIGHTNING
+TRANSLATION
+DASHBOARD SHORTCUTS
+NOTIFICATIONS

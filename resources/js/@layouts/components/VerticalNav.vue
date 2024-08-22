@@ -51,6 +51,7 @@ const {
 const hideTitleAndIcon = isVerticalNavMini(windowWidth, isHovered)
 
 const resolveNavItemComponent = item => {
+
   if ('heading' in item)
     return VerticalNavSectionTitle
   if ('children' in item)

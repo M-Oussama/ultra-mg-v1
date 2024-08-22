@@ -3,21 +3,32 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { isUserLoggedIn } from './utils'
 import routes from '~pages'
 import { canNavigate } from '@layouts/plugins/casl'
+import userRoles from './constants.js'
 
 const router = createRouter({
   history: createWebHistory('/'),
   routes: [
+    ...setupLayouts(routes),
     // ℹ️ We are redirecting to different pages based on role.
     // NOTE: Role is just for UI purposes. ACL is based on abilities.
     {
       path: '/',
+
       redirect: to => {
         const userData = JSON.parse(localStorage.getItem('userData') || '{}')
         const userRole = userData && userData.role ? userData.role : null
-        if (userRole === 'admin')
+
+        console.log(userRole)
+        if (userRole.role === userRoles.ADMIN || userRole.role === userRoles.USER )
+          return  {
+            name: 'dashboards-analytics'
+          }
+        if(userRole.role === userRoles.MAINTENANCE)
+          return  {
+            name: 'dashboards-maintenance'
+          }
+        if (userRole.role === userRoles.CLIENT)
           return { name: 'dashboards-analytics' }
-        if (userRole === 'client')
-          return { name: 'access-control' }
         
         return { name: 'login', query: to.query }
       },
@@ -31,7 +42,7 @@ const router = createRouter({
       redirect: () => ({ name: 'pages-account-settings-tab', params: { tab: 'account' } }),
     },
 
-    ...setupLayouts(routes),
+
   ],
 })
 
@@ -61,6 +72,8 @@ router.beforeEach(to => {
     return next()
   
     */
+
+
   if (canNavigate(to)) {
     if (to.meta.redirectIfLoggedIn && isLoggedIn)
       return '/'
@@ -68,8 +81,10 @@ router.beforeEach(to => {
   else {
     if (isLoggedIn)
       return { name: 'not-authorized' }
-    else
+    else{
       return { name: 'login', query: { to: to.name !== 'index' ? to.fullPath : undefined } }
+    }
+
   }
 })
 export default router

@@ -12,10 +12,13 @@ import CardStatisticsVertical from '@core/components/CardStatisticsVertical.vue'
 import AnalyticsVacationTable from "@/views/dashboards/analytics/AnalyticsVacationTable.vue";
 import {useDashboardStore} from "@/views/dashboards/analytics/useDashboardStore";
 import AnalyticsIncomingVacationTable from "@/views/dashboards/analytics/AnalyticsIncomingVacationTable.vue";
+import {nextTick} from "vue";
 
 const vuetifyTheme = useTheme()
 const currentTheme = vuetifyTheme.current.value.colors
-
+const loading2 = ref({
+  isActive: false
+})
 const statisticsVertical = {
   title: 'Revenue Generated',
   color: 'success',
@@ -76,12 +79,39 @@ const statisticsVertical = {
 }
 
 const dashboard = useDashboardStore()
+const incomingVacationList = ref([])
+const vacationList = ref([])
 
+const getAdminDashboard = () => {
+  loading2.value.isActive = true;
+  dashboard.getAdminDashboard().then(response => {
+    vacationList.value = response.data.vacationList
+    incomingVacationList.value = response.data.incomingVacationList
 
+    loading2.value.isActive = false;
+
+  }).catch(error => {
+    loading2.value.isActive = false;
+  })
+}
+nextTick(() => {
+  // This runs after the DOM has been updated with the new value
+  getAdminDashboard()
+});
 </script>
 
 <template>
   <VRow class="match-height">
+    <v-overlay
+      :model-value="loading2.isActive"
+      class="align-center justify-center"
+    >
+      <v-progress-circular
+        color="primary"
+        indeterminate
+        size="64"
+      ></v-progress-circular>
+    </v-overlay>
     <!-- 👉 Website analytics -->
     <VCol
       cols="12"
@@ -113,7 +143,7 @@ const dashboard = useDashboardStore()
       cols="12"
       md="6"
     >
-      <AnalyticsIncomingVacationTable  />
+      <AnalyticsIncomingVacationTable  :vacation="incomingVacationList"/>
 
       <!--      <AnalyticsEarningReportsWeeklyOverview />-->
     </VCol>
@@ -124,7 +154,7 @@ const dashboard = useDashboardStore()
       md="6"
     >
       <!-- -->
-      <AnalyticsVacationTable />
+      <AnalyticsVacationTable :vacation="vacationList"/>
 
 
     </VCol>
@@ -180,3 +210,9 @@ const dashboard = useDashboardStore()
 <style lang="scss">
 @use "@core-scss/template/libs/apex-chart.scss";
 </style>
+
+<route lang="yaml">
+meta:
+  action: admin
+  subject: dashboard
+</route>

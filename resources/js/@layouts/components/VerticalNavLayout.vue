@@ -209,3 +209,8 @@ export default defineComponent({
   }
 }
 </style>
+<route lang="yaml">
+meta:
+  action: read
+  subject: dashboard
+</route>

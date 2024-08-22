@@ -531,3 +531,8 @@ table > tbody > tr > td, table > thead > tr > th{
   padding-right: 10% !important;
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: vacations
+</route>

@@ -7,6 +7,10 @@ export default [
         title: 'Analytics',
         to: 'dashboards-analytics',
         icon: { icon: 'tabler-chart-bar' },
+        meta: {
+          requiresAuth: false,
+          resource: 'People',
+        },
       },
       {
         title: 'eCommerce',

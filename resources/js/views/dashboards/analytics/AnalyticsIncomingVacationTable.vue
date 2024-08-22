@@ -31,9 +31,20 @@ const getEmployeeInVacation = () => {
   })
 }
 // 👉 Fetch Projects
-watchEffect(() => {
-  getEmployeeInVacation()
+const props = defineProps({
+  vacation: {
+    type: Array,
+    required: true,
+  },
 })
+watch(() => props.vacation, (newVacation) => {
+  if (newVacation) {
+    vacationsList.value = newVacation
+
+  }
+});
+
+
 
 // 👉 Fetch Projects
 watchEffect(() => {

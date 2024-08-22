@@ -412,3 +412,8 @@ const getEndDate = (array) =>{
   }
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: attendances
+</route>

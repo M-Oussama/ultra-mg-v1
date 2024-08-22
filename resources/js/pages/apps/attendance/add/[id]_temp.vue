@@ -518,3 +518,8 @@ const activeQuitDate = (employee) =>{
   color: rgba(var(--v-theme-on-background), var(--v-high-emphasis-opacity));
 }
 </style>
+<route lang="yaml">
+meta:
+  action: add
+  subject: attendances
+</route>

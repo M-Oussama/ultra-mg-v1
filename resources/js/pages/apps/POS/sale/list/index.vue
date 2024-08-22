@@ -3,6 +3,7 @@ import { avatarText } from '@core/utils/formatters'
 import {useSaleStore} from "@/views/apps/POS/sales/useSaleStore";
 import InvoiceAddPaymentDrawer from '@/views/apps/invoice/InvoiceAddPaymentDrawer.vue'
 import ConfirmationDialog from "@/views/apps/POS/sales/list/ConfirmationDialog.vue";
+import PERMISSIONS from '@/router/permissions.js'
 
 const saleStore = useSaleStore()
 const searchQuery = ref('')
@@ -247,6 +248,8 @@ const onDataChanged = () =>{
               <div class="me-3 ">
                 <!-- 👉 Create invoice -->
                 <VBtn
+                  v-if="$can(PERMISSIONS.SALE.ADD, PERMISSIONS.SALE.SUBJECT)"
+
                   prepend-icon="tabler-plus"
                   :to="{ name: 'apps-POS-sale-add' }"
                 >
@@ -393,6 +396,8 @@ const onDataChanged = () =>{
                 </VBtn>
 
                 <VBtn
+                  v-if="$can(PERMISSIONS.SALE.DELETE, PERMISSIONS.SALE.SUBJECT)"
+
                   icon
                   variant="text"
                   color="default"
@@ -405,6 +410,8 @@ const onDataChanged = () =>{
                   />
                 </VBtn>
                 <VBtn
+                  v-if="$can(PERMISSIONS.SALE.LIST, PERMISSIONS.SALE.SUBJECT)"
+
                   icon
                   variant="text"
                   color="default"
@@ -441,7 +448,10 @@ const onDataChanged = () =>{
                         <VListItemTitle>Download</VListItemTitle>
                       </VListItem>
 
-                      <VListItem :to="{ name: 'apps-POS-sale-edit-id', params: { id: sale.id } }">
+                      <VListItem :to="{ name: 'apps-POS-sale-edit-id', params: { id: sale.id } }"
+                                 v-if="$can(PERMISSIONS.SALE.EDIT, PERMISSIONS.SALE.SUBJECT)"
+
+                      >
                         <template #prepend>
                           <VIcon
                             size="24"
@@ -452,7 +462,10 @@ const onDataChanged = () =>{
 
                         <VListItemTitle>Edit</VListItemTitle>
                       </VListItem>
-                      <VListItem value="payment" @click="openPaymentDrawer(sale)">
+                      <VListItem value="payment" @click="openPaymentDrawer(sale)"
+                                 v-if="$can(PERMISSIONS.PAYMENT.ADD, PERMISSIONS.PAYMENT.SUBJECT)"
+
+                      >
                         <template #prepend>
                           <VIcon
                             size="24"
@@ -533,3 +546,8 @@ const onDataChanged = () =>{
   }
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: sales
+</route>

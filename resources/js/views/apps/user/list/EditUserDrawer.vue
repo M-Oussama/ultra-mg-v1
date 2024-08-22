@@ -15,6 +15,13 @@ const props = defineProps({
     type: Object,
 
   },
+  roles:{
+    type:Array,
+    required: true
+  },
+  role:{
+    type: Object,
+  }
 })
 
 // 👉 Watch for changes in the user prop and update form fields
@@ -23,6 +30,7 @@ watch(() => props.user, (newUser) => {
     id.value = newUser.id || 0
     name.value = newUser.name || '';
     email.value = newUser.email || '';
+    role_id.value = newUser.role_id || '';
 
   }
 });
@@ -41,6 +49,7 @@ const company = ref('')
 const country = ref('')
 const contact = ref('')
 const role = ref()
+const role_id = ref()
 let password = ref()
 let visible = ref(false)
 let confirm_visible = ref(false)
@@ -67,6 +76,7 @@ const onSubmit = () => {
         name: name.value,
         email: email.value,
         password: password.value,
+        role_id: role_id.value
       })
       emit('update:isDrawerOpen', false)
       nextTick(() => {
@@ -141,6 +151,22 @@ const handleDrawerModelValueUpdate = val => {
                   :rules="[requiredValidator, emailValidator]"
                   label="Email"
                 />
+              </VCol>
+
+              <VCol cols="12">
+
+
+                <VAutocomplete
+                  clearable
+                  v-model="role_id"
+                  :items="props.roles"
+                  item-value="id"
+                  item-title="role"
+                  label="Role"
+                  placeholder="Role"
+                  :rules="[requiredValidator]"
+                />
+
               </VCol>
               <VCol cols="12" >
                 <VSwitch

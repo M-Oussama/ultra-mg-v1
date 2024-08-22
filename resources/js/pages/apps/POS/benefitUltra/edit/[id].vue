@@ -444,3 +444,8 @@ const refreshData = () => {
 }
 </style>
 
+<route lang="yaml">
+meta:
+  action: edit
+  subject: benefits
+</route>

@@ -71,3 +71,4 @@ const { width: windowWidth } = useWindowSize()
     <TheCustomizer />
   </VerticalNavLayout>
 </template>
+

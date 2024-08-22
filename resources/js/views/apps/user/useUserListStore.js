@@ -8,12 +8,14 @@ export const useUserListStore = defineStore('UserListStore', {
 
     // 👉 Add User
     addUser(userData) {
-      const { name, email, password } = userData;
+      const { name, email, password, role } = userData;
+      console.log(role)
       return new Promise((resolve, reject) => {
         axios.post('/api/users/store', {
           name,
           email,
           password,
+          role,
         }).then(response => resolve(response))
           .catch(error => reject(error))
       })
@@ -21,12 +23,13 @@ export const useUserListStore = defineStore('UserListStore', {
 
     // 👉 Update User
     updateUser(userData) {
-      const { id, name, email, password, passwordChanged } = userData;
+      const { id, name, email, password, passwordChanged, role_id } = userData;
       return new Promise((resolve, reject) => {
         let requestData = {
           passwordChanged,
           name,
           email,
+          role_id
         };
 
         // Add password to the request data only if passwordChanged is true

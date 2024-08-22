@@ -278,3 +278,8 @@ const saveInvoice = () => {
   </VRow>
 </template>
 
+<route lang="yaml">
+meta:
+  action: list
+  subject: certify_invoices
+</route>

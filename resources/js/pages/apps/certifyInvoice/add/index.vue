@@ -237,3 +237,8 @@ const saveInvoice = () => {
 <style lang="scss">
 
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: certify_invoices
+</route>

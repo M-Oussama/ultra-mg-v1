@@ -11,7 +11,8 @@
         "doctrine/dbal": "^4.0@RC",
         "guzzlehttp/guzzle": "^7.2",
         "laravel/framework": "^9.19",
-        "laravel/sanctum": "^3.0",
+        "laravel/passport": "*",
+        "laravel/sanctum": "*",
         "laravel/tinker": "^2.7",
         "spatie/laravel-medialibrary": "^10.0.0"
     },

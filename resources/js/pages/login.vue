@@ -29,32 +29,35 @@ const errors = ref({
   password: undefined,
 })
 
+const loading = ref({
+  isActive : false
+})
+
 const refVForm = ref()
-const email = ref('admin@demo.com')
-const password = ref('admin')
+const email = ref('')
+const password = ref('')
 const rememberMe = ref(false)
 
 const login = () => {
-  axios.post('/auth/login', {
+  loading.value.isActive = true;
+  axios.post('/api/auth/login', {
     email: email.value,
     password: password.value,
     device_name: 'iphone'
   }).then(r => {
-
     const { accessToken, userData, userAbilities } = r.data
-
-    localStorage.setItem('userAbilities', JSON.stringify(userAbilities))
+   localStorage.setItem('userAbilities', JSON.stringify(userAbilities))
     ability.update(userAbilities)
     localStorage.setItem('userData', JSON.stringify(userData))
-    localStorage.setItem('accessToken', JSON.stringify(accessToken))
+    localStorage.setItem('accessToken', accessToken)
+    loading.value.isActive = false;
+    router.replace( '/')
+  }).catch(e =>{
 
-    // Redirect to `to` query if exist or redirect to index route
-    router.replace(route.query.to ? String(route.query.to) : '/')
-  }).catch(e => {
-    const { errors: formErrors } = e.response.data
+    loading.value.isActive = false;
+    errors.value.email = e.response.data.error
+    console.log(e.response.data.error)
 
-    errors.value = formErrors
-    console.error(e.response.data)
   })
 }
 
@@ -64,6 +67,9 @@ const onSubmit = () => {
       login()
   })
 }
+const emailUpdated = () => {
+  errors.value.email = undefined
+}
 </script>
 
 <template>
@@ -71,6 +77,16 @@ const onSubmit = () => {
     no-gutters
     class="auth-wrapper"
   >
+    <v-overlay
+      :model-value="loading.isActive"
+      class="align-center justify-center"
+    >
+      <v-progress-circular
+        color="primary"
+        indeterminate
+        size="64"
+      ></v-progress-circular>
+    </v-overlay>
     <VCol
       lg="8"
       class="d-none d-lg-flex"
@@ -140,6 +156,7 @@ const onSubmit = () => {
                   label="Email"
                   type="email"
                   :rules="[requiredValidator, emailValidator]"
+                  @update:modelValue="emailUpdated"
                   :error-messages="errors.email"
                 />
               </VCol>
@@ -223,5 +240,5 @@ meta:
   layout: blank
   action: read
   subject: Auth
-  redirectIfLoggedIn: true
+  redirectIfLoggedIn: false
 </route>

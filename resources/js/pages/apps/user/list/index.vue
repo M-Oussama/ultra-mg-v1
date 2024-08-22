@@ -3,12 +3,16 @@ import AddNewUserDrawer from '@/views/apps/user/list/AddNewUserDrawer.vue'
 import EditUserDrawer from '@/views/apps/user/list/EditUserDrawer.vue';
 import ConfirmationDialog from '@/views/apps/user/list/ConfirmationDialog.vue';
 import { useUserListStore } from '@/views/apps/user/useUserListStore'
+import PERMISSIONS from '@/router/permissions.js'
+import {successMiddleware} from "@/middlewares/successMiddleware";
+import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 
 const userListStore = useUserListStore()
 const searchQuery = ref('')
 const loading = ref(false)
 const isTyping = ref(true)
 const selectedRole = ref()
+const selectedRoleId = ref()
 const selectedPlan = ref()
 const selectedStatus = ref()
 const rowPerPage = ref(10)
@@ -16,9 +20,14 @@ const currentPage = ref(1)
 const totalPage = ref(1)
 const totalUsers = ref(0)
 let users = ref([])
-
+let roles = ref([])
+const loading2 = ref({
+  isActive: false
+})
 // 👉 Fetching users
 const fetchUsers = () => {
+  loading2.value.isActive = true
+
   userListStore.fetchUsers({
      searchValue: searchQuery.value,
      perPage: rowPerPage.value,
@@ -27,13 +36,17 @@ const fetchUsers = () => {
      users.value = response.data.users.data
      totalPage.value = response.data.totalPage
      totalUsers.value = response.data.totalUsers
+     roles.value = response.data.roles
     loading.value = false;
+    loading2.value.isActive = false
+
     // Focus on the text field after loading is complete
     // Focus on the text field after loading is complete
 
 
   }).catch(error => {
-    console.error(error)
+    loading2.value.isActive = false
+
 
   })
 }
@@ -122,27 +135,53 @@ const paginationData = computed(() => {
 })
 
 const addNewUser = userData => {
-  userListStore.addUser(userData)
+  loading2.value.isActive = true
+  userListStore.addUser(userData).then(response => {
+    // refetch User
+    fetchUsers()
 
-  // refetch User
-  fetchUsers()
+    successMiddleware(response.data.message)
+  }).catch(error => {
+    loading2.value.isActive = false
+    errorsMiddleware(error.response.data.message)
+  })
+
 }
 const updateUser = userData => {
-  userListStore.updateUser(userData)
+  loading2.value.isActive = true
+  userListStore.updateUser(userData).then(response => {
+    // refetch User
+    fetchUsers()
 
-  // refetch User
-  fetchUsers()
+    successMiddleware(response.data.message)
+  }).catch(error => {
+    loading2.value.isActive = false
+
+    errorsMiddleware(error.response.data.message)
+  })
+
+
 }
 const deleteUser = userData =>  {
-  userListStore.deleteUser(userData)
+  loading2.value.isActive = true
+  userListStore.deleteUser(userData).then(response => {
+    // refetch User
+    fetchUsers()
 
-  // refetch User
-  fetchUsers()
+    successMiddleware(response.data.message)
+  }).catch(error => {
+    loading2.value.isActive = false
+
+    errorsMiddleware(error.response.data.message)
+  })
+
+
 }
 
 const openUpdateDrawer = (user) => {
   isEditUserDrawerVisible.value = true;
   selectedUser = user;
+  selectedRoleId.value = user.role_id;
 
 }
 
@@ -191,6 +230,16 @@ const userListMeta = [
 <template>
   <section>
     <VRow>
+      <v-overlay
+        :model-value="loading2.isActive"
+        class="align-center justify-center"
+      >
+        <v-progress-circular
+          color="primary"
+          indeterminate
+          size="64"
+        ></v-progress-circular>
+      </v-overlay>
       <VCol cols="12">
         <VCard title="Users">
           <VDivider />
@@ -239,6 +288,7 @@ const userListMeta = [
 
               <!-- 👉 Add user button -->
               <VBtn
+                v-if="$can(PERMISSIONS.USER.ADD, PERMISSIONS.USER.SUBJECT)"
                 prepend-icon="tabler-plus"
                 @click="isAddNewUserDrawerVisible = true"
               >
@@ -323,6 +373,7 @@ const userListMeta = [
                   style="width: 5rem;"
                 >
                   <VBtn
+                    v-if="$can(PERMISSIONS.USER.EDIT, PERMISSIONS.USER.SUBJECT)"
                     icon
                     size="x-small"
                     color="default"
@@ -338,6 +389,7 @@ const userListMeta = [
                   </VBtn>
 
                   <VBtn
+                    v-if="$can(PERMISSIONS.USER.DELETE, PERMISSIONS.USER.SUBJECT)"
                     icon
                     size="x-small"
                     color="default"
@@ -413,12 +465,15 @@ const userListMeta = [
     <!-- 👉 Add New User -->
     <AddNewUserDrawer
       v-model:isDrawerOpen="isAddNewUserDrawerVisible"
+      v-model:roles="roles"
       @user-data="addNewUser"
     />
 
     <!-- 👉 Edit User -->
     <EditUserDrawer
       v-model:isDrawerOpen="isEditUserDrawerVisible"
+      v-model:roles="roles"
+      v-model:role="selectedRoleId"
       v-model:user = "selectedUser"
       @user-data="updateUser"
     />
@@ -445,3 +500,8 @@ const userListMeta = [
   color: rgba(var(--v-theme-on-background), var(--v-high-emphasis-opacity));
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: users
+</route>

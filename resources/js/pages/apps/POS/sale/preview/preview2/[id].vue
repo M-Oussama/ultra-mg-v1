@@ -919,3 +919,8 @@ table > tbody > tr > td, table > thead > tr > th{
   height: 31px !important;
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: sales
+</route>

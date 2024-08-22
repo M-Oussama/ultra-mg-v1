@@ -4,6 +4,8 @@ import EditClientDrawer from '@/views/apps/client/list/EditClientDrawer.vue';
 import ConfirmationDialog from '@/views/apps/client/list/ConfirmationDialog.vue';
 import {useClientListStore} from "@/views/apps/client/useClientListStore";
 import ClientMonthlyReport from '@/views/dashboards/crm/ClientMonthlyReport.vue'
+import PERMISSIONS from '@/router/permissions.js'
+
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -292,6 +294,8 @@ const exportList = (client_id) => {
 
               <!-- 👉 Add client button -->
               <VBtn
+                v-if="$can(PERMISSIONS.CLIENT.ADD, PERMISSIONS.CLIENT.SUBJECT)"
+
                 prepend-icon="tabler-plus"
                 @click="isAddNewClientDrawerVisible = true"
               >
@@ -418,6 +422,7 @@ const exportList = (client_id) => {
 
 
                   <VBtn
+                    v-if="$can(PERMISSIONS.CLIENT.EDIT, PERMISSIONS.CLIENT.SUBJECT)"
                     icon
                     size="x-small"
                     color="default"
@@ -433,6 +438,8 @@ const exportList = (client_id) => {
                   </VBtn>
 
                   <VBtn
+                    v-if="$can(PERMISSIONS.CLIENT.DELETE, PERMISSIONS.CLIENT.SUBJECT)"
+
                     icon
                     size="x-small"
                     color="default"
@@ -771,3 +778,8 @@ const exportList = (client_id) => {
   width: -webkit-fill-available;
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: clients
+</route>

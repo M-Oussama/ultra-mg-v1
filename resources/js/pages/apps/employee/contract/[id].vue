@@ -569,3 +569,8 @@ table > tbody > tr > td, table > thead > tr > th{
   height: 23px !important;
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: employees
+</route>

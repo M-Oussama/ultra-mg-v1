@@ -11,6 +11,10 @@ const props = defineProps({
     required: true,
 
   },
+  roles:{
+    type:Array,
+     required: true
+  }
 })
 
 const emit = defineEmits([
@@ -25,7 +29,7 @@ const email = ref('')
 const company = ref('')
 const country = ref('')
 const contact = ref('')
-const role = ref()
+const selectedRole = ref()
 let password = ref()
 let visible = ref(false)
 let confirm_visible = ref(false)
@@ -43,12 +47,14 @@ const closeNavigationDrawer = () => {
 }
 
 const onSubmit = () => {
+
   refForm.value?.validate().then(({ valid }) => {
     if (valid) {
       emit('userData', {
         name: name.value,
         email: email.value,
         password: password.value,
+        role: selectedRole.value
       })
       emit('update:isDrawerOpen', false)
       nextTick(() => {
@@ -124,7 +130,21 @@ const handleDrawerModelValueUpdate = val => {
                   label="Email"
                 />
               </VCol>
+              <VCol cols="12">
 
+
+                <VAutocomplete
+                  clearable
+                  v-model="selectedRole"
+                  :items="props.roles"
+                  item-value="id"
+                  item-title="role"
+                  label="Role"
+                  placeholder="Role"
+                  :rules="[requiredValidator]"
+                />
+
+              </VCol>
               <!-- 👉 Password -->
               <VCol cols="12">
                 <VTextField
@@ -140,9 +160,10 @@ const handleDrawerModelValueUpdate = val => {
                   label="password"
                 />
               </VCol> 
-              
+
               <!-- 👉 Confirm Password -->
               <VCol cols="12">
+
                 <VTextField
                   hide-details="auto"
                   :append-inner-icon="confirm_visible ? 'mdi-eye-off' : 'mdi-eye'"

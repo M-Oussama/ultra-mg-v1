@@ -6,11 +6,15 @@ use App\Http\Helpers\NumberToLetter;
 use App\Models\ClientBalance;
 use App\Models\Payment;
 use App\Models\Sale;
+use App\Models\User;
+
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
+use Laravel\Sanctum\PersonalAccessToken;
+use Illuminate\Http\Request;
 /**
  * @OA\Info(title="My First API", version="0.1")
  */
@@ -160,5 +164,15 @@ class Controller extends BaseController
             ]);
         }
 
+    }
+
+    public function getConnectedUser(Request $request) {
+
+        $user_id = null;
+        $current_user = PersonalAccessToken::where('token', $request->header('authorization'))->get()->first();
+        if($current_user){
+            $user_id = $current_user->tokenable_id;
+        }
+        return User::find($user_id);
     }
 }

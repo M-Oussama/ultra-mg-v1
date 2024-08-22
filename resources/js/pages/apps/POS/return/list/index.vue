@@ -218,6 +218,8 @@ const onDataChanged = () =>{
               <div class="me-3">
                 <!-- 👉 Create invoice -->
                 <VBtn
+                  v-if="$can(PERMISSIONS.RETURN.ADD, PERMISSIONS.RETURN.SUBJECT)"
+
                   prepend-icon="tabler-plus"
                   :to="{ name: 'apps-POS-return-add' }"
                 >
@@ -361,6 +363,8 @@ const onDataChanged = () =>{
                 </VBtn>
 
                 <VBtn
+                  v-if="$can(PERMISSIONS.PRODUCT.DELETE, PERMISSIONS.PRODUCT.SUBJECT)"
+
                   icon
                   variant="text"
                   color="default"
@@ -373,6 +377,8 @@ const onDataChanged = () =>{
                   />
                 </VBtn>
                 <VBtn
+                  v-if="$can(PERMISSIONS.PRODUCT.LIST, PERMISSIONS.PRODUCT.SUBJECT)"
+
                   icon
                   variant="text"
                   color="default"
@@ -409,7 +415,10 @@ const onDataChanged = () =>{
                         <VListItemTitle>Download</VListItemTitle>
                       </VListItem>
 
-                      <VListItem :to="{ name: 'apps-POS-return-edit-id', params: { id: _product_return.id } }">
+                      <VListItem
+                        v-if="$can(PERMISSIONS.PRODUCT.EDIT, PERMISSIONS.PRODUCT.SUBJECT)"
+
+                        :to="{ name: 'apps-POS-return-edit-id', params: { id: _product_return.id } }">
                         <template #prepend>
                           <VIcon
                             size="24"
@@ -490,3 +499,8 @@ const onDataChanged = () =>{
   }
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: returns
+</route>

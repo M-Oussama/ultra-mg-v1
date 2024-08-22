@@ -5,6 +5,7 @@ import ConfirmationDialog from '@/views/apps/product/list/ConfirmationDialog.vue
 import { useProductListStore } from '@/views/apps/product/useProductListStore'
 import {successMiddleware} from "@/middlewares/successMiddleware";
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
+import PERMISSIONS from '@/router/permissions.js'
 
 
 const productListStore = useProductListStore()
@@ -267,6 +268,7 @@ const productListMeta = [
 
               <!-- 👉 Add product button -->
               <VBtn
+                v-if="$can(PERMISSIONS.PRODUCT.ADD, PERMISSIONS.PRODUCT.SUBJECT)"
                 prepend-icon="tabler-plus"
                 @click="isAddNewProductDrawerVisible = true"
               >
@@ -362,6 +364,7 @@ const productListMeta = [
                   style="width: 5rem;"
                 >
                   <VBtn
+                    v-if="$can(PERMISSIONS.PRODUCT.EDIT, PERMISSIONS.PRODUCT.SUBJECT)"
                     icon
                     size="x-small"
                     color="default"
@@ -377,6 +380,7 @@ const productListMeta = [
                   </VBtn>
 
                   <VBtn
+                    v-if="$can(PERMISSIONS.PRODUCT.DELETE, PERMISSIONS.PRODUCT.SUBJECT)"
                     icon
                     size="x-small"
                     color="default"
@@ -484,3 +488,8 @@ const productListMeta = [
   color: rgba(var(--v-theme-on-background), var(--v-high-emphasis-opacity));
 }
 </style>
+<route lang="yaml">
+meta:
+  action: list
+  subject: products
+</route>

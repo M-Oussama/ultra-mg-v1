@@ -166,3 +166,8 @@ const paymentMethods = [
   </VRow>
 </template>
 
+<route lang="yaml">
+meta:
+  action: edit
+  subject: certify_invoices
+</route>
