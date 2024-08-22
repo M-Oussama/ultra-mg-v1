@@ -18,18 +18,19 @@ const router = createRouter({
         const userData = JSON.parse(localStorage.getItem('userData') || '{}')
         const userRole = userData && userData.role ? userData.role : null
 
-        console.log(userRole)
-        if (userRole.role === userRoles.ADMIN || userRole.role === userRoles.USER )
-          return  {
-            name: 'dashboards-analytics'
-          }
-        if(userRole.role === userRoles.MAINTENANCE)
-          return  {
-            name: 'dashboards-maintenance'
-          }
-        if (userRole.role === userRoles.CLIENT)
-          return { name: 'dashboards-analytics' }
-        
+        if(userRole){
+          if (userRole.role === userRoles.ADMIN || userRole.role === userRoles.USER )
+            return  {
+              name: 'dashboards-analytics'
+            }
+          if(userRole.role === userRoles.MAINTENANCE)
+            return  {
+              name: 'dashboards-maintenance'
+            }
+          if (userRole.role === userRoles.CLIENT)
+            return { name: 'dashboards-analytics' }
+        }
+
         return { name: 'login', query: to.query }
       },
     },
