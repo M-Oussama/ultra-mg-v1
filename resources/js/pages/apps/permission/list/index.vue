@@ -5,6 +5,7 @@ import ConfirmationDialog from '@/views/apps/permission/list/ConfirmationDialog.
 import { usePermissionStore } from '@/views/apps/permission/usePermissionStore'
 import {errorsMiddleware} from "@/middlewares/errorsMiddleware";
 import {successMiddleware} from "@/middlewares/successMiddleware";
+import PERMISSIONS from "@/router/permissions";
 
 const permissionStore = usePermissionStore()
 const searchQuery = ref('')

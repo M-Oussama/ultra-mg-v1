@@ -3,6 +3,7 @@ import { avatarText } from '@core/utils/formatters'
 import {useReturnStore} from "@/views/apps/POS/return/usereturnStore";
 import InvoiceAddPaymentDrawer from '@/views/apps/invoice/InvoiceAddPaymentDrawer.vue'
 import ConfirmationDialog from "@/views/apps/POS/return/list/ConfirmationDialog.vue";
+import PERMISSIONS from "@/router/permissions";
 
 const returnStore = useReturnStore()
 const searchQuery = ref('')
@@ -363,7 +364,7 @@ const onDataChanged = () =>{
                 </VBtn>
 
                 <VBtn
-                  v-if="$can(PERMISSIONS.PRODUCT.DELETE, PERMISSIONS.PRODUCT.SUBJECT)"
+                  v-if="$can(PERMISSIONS.RETURN.DELETE, PERMISSIONS.RETURN.SUBJECT)"
 
                   icon
                   variant="text"
@@ -377,7 +378,7 @@ const onDataChanged = () =>{
                   />
                 </VBtn>
                 <VBtn
-                  v-if="$can(PERMISSIONS.PRODUCT.LIST, PERMISSIONS.PRODUCT.SUBJECT)"
+                  v-if="$can(PERMISSIONS.RETURN.LIST, PERMISSIONS.RETURN.SUBJECT)"
 
                   icon
                   variant="text"
@@ -416,7 +417,7 @@ const onDataChanged = () =>{
                       </VListItem>
 
                       <VListItem
-                        v-if="$can(PERMISSIONS.PRODUCT.EDIT, PERMISSIONS.PRODUCT.SUBJECT)"
+                        v-if="$can(PERMISSIONS.RETURN.EDIT, PERMISSIONS.RETURN.SUBJECT)"
 
                         :to="{ name: 'apps-POS-return-edit-id', params: { id: _product_return.id } }">
                         <template #prepend>
