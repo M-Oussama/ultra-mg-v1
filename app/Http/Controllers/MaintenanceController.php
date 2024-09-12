@@ -6,10 +6,9 @@ use App\Models\Asset;
 use App\Models\Maintenance;
 use App\Models\Role;
 use App\Models\User;
-use Illuminate\Http\JsonResponse;
+
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Laravel\Sanctum\PersonalAccessToken;
+
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 class MaintenanceController extends Controller
@@ -45,7 +44,7 @@ class MaintenanceController extends Controller
             'status' => 'required|string',
         ]);
 
-        if($user->role == Role::ADMIN){
+        if($user->role_id == Role::ADMIN){
             // Create a new  record
             $maintenance = Maintenance::create([
                 'name' => $validatedData['name'],

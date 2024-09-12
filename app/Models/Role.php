@@ -14,7 +14,7 @@ class Role extends Model
     ];
 
 
-    const ADMIN = 1 ;
+    const ADMIN = 1;
 
 
     protected $with = ['permissions'];
