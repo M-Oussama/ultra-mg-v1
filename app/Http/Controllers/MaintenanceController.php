@@ -94,7 +94,7 @@ class MaintenanceController extends Controller
         $user = $this->getConnectedUser($request);
         $maintenance = Maintenance::find($id);
 
-        if($user->role == Role::ADMIN){
+        if($user->role_id == Role::ADMIN){
             $maintenance->update([
                 'name' => $validatedData['name'],
                 'component_id' => $validatedData['component_id'],
