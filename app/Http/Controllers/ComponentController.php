@@ -6,6 +6,7 @@ use App\Models\Asset;
 use App\Models\Components;
 use App\Models\Maintenance;
 use Illuminate\Http\Request;
+use phpseclib3\Exception\BadDecryptionException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 class ComponentController extends Controller
@@ -20,9 +21,15 @@ class ComponentController extends Controller
 
         // Validate the incoming request data
         $validatedData = $request->validate([
-            'name' => 'string|max:255|unique:components',
+            'name' => 'string|max:255',
             'asset_id' => 'integer',
         ]);
+
+        $component_name_exists = Components::where('name', $validatedData['name'])->where('asset_id', $validatedData['asset_id'])->exists();
+
+        if($component_name_exists){
+            throw new BadDecryptionException('Component\'s Name Already Exists');
+        }
 
         // Create a new  record
         $component = Components::create([
@@ -42,7 +49,10 @@ class ComponentController extends Controller
             'asset_id' => 'integer',
         ]);
 
-        $componentExists = Components::where('name', $validatedData['name'])->where('id', '!=', $id)->exists();
+        $componentExists = Components::where('name', $validatedData['name'])
+            ->where('asset_id', $validatedData['asset_id'])
+            ->where('id', '!=', $id)
+            ->exists();
 
         if($componentExists) {
             throw new BadRequestHttpException('Component\'s Name Already Exists');
