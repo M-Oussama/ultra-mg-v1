@@ -298,6 +298,9 @@ const userListMeta = [
                   Component
                 </th>
                 <th scope="col">
+                  Asset
+                </th>
+                <th scope="col">
                   LAST MAINTENANCE
                 </th>
                 <th scope="col">
@@ -352,7 +355,9 @@ const userListMeta = [
                     </div>
                   </div>
                 </td>
-
+                <td>
+                  {{component.asset.name}}
+                </td>
                 <td>
                   {{component.last_maintenance_date}}
                 </td>
