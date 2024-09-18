@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\City;
 use App\Models\Client;
 use App\Models\Payment;
+use App\Models\ProductReturn;
 use App\Models\Sale;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -234,10 +235,49 @@ class ClientController extends Controller
                 return $item;
             });
 
-        $logEntries = collect([$payments, $invoices])->flatten()->sortBy('date');
+        $logEntries = collect([$invoices, $payments ])->flatten()->sortBy('date');
 
 
         $pdf = Pdf::loadView('client_log_pdf', compact('client', 'logEntries'));
+        $pdf->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isFontSubsettingEnabled' => true,
+            ]);
+        return $pdf->stream('client_log.pdf');
+    }
+
+
+    public function exportClientLogWithReturn($clientId){
+        $client = Client::find($clientId);
+
+        // Normalizing the date field and adding a type field
+        $invoices = Sale::where('client_id', $clientId)
+            ->get()
+            ->map(function ($item) {
+                $item->date = $item->sale_date; // Normalize to 'date'
+                $item->type = 'Invoice';
+                return $item;
+            });
+
+        $payments = Payment::where('client_id', $clientId)
+            ->get()
+            ->map(function ($item) {
+                $item->date = $item->payment_date; // Normalize to 'date'
+                $item->type = 'Payment';
+                return $item;
+            });
+        $returns = ProductReturn::where('client_id', $clientId)->where('paid', false)
+            ->get()
+            ->map(function ($item) {
+                $item->type = 'Return';
+                return $item;
+            });
+
+        $logEntries = collect([$invoices,$payments,  $returns])->flatten()->sortBy('date');
+
+
+        $pdf = Pdf::loadView('client_log_return_pdf', compact('client', 'logEntries'));
         $pdf->setPaper('a4', 'portrait')
             ->setOptions([
                 'defaultFont' => 'DejaVu Sans',

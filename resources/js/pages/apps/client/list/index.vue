@@ -165,7 +165,8 @@ const openDialogData = (client) => {
 
 }
 
-const exportList = (client_id) => {
+const exportList = (client) => {
+  var client_id = client.id
   loading2.value.isActive = true;
   clientListStore.getLogList(
    client_id
@@ -175,7 +176,30 @@ const exportList = (client_id) => {
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'client_log.pdf');
+    link.setAttribute('download', 'ETAT '+client.name+'.pdf');
+    document.body.appendChild(link);
+    link.click();
+    // Focus on the text field after loading is complete
+    // Focus on the text field after loading is complete
+
+
+  }).catch(error => {
+    console.error(error)
+    loading2.value.isActive = false;
+  })
+}
+const exportLogWithReturn = (client) => {
+  var client_id = client.id
+  loading2.value.isActive = true;
+  clientListStore.getLogListWithReturn(
+   client_id
+
+ ).then(response => {
+    loading2.value.isActive = false;
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'ETAT '+client.name+'.pdf');
     document.body.appendChild(link);
     link.click();
     // Focus on the text field after loading is complete
@@ -397,7 +421,21 @@ const exportList = (client_id) => {
                     color="default"
                     variant="text"
 
-                  @click="exportList(client.id)"
+                    @click="exportLogWithReturn(client)"
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-briefcase"
+
+                    />
+                  </VBtn>
+                  <VBtn
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
+
+                  @click="exportList(client)"
                   >
                     <VIcon
                       size="22"

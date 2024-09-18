@@ -68,10 +68,13 @@ export const useClientListStore = defineStore('ClientListStore', {
     exportAllLog(params) { return axios.post('/api/clients/log/generate', { params }) },
 
     getLogList(client_id) {
-
-
-
       return axios.get('/api/client-log/' + client_id+'/download',{
+        responseType: 'blob'
+      })
+    },
+
+    getLogListWithReturn(client_id) {
+      return axios.get('/api/client-log/return/' + client_id+'/download',{
         responseType: 'blob'
       })
     }
