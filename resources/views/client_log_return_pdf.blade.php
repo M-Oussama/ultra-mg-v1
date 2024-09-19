@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Client Log</title>
+  <title>ETAT DU CLIENT : {{ $client->name }}</title>
 </head>
 <body>
 <h1 style="text-align: center;">ETAT DU CLIENT : {{ $client->name }}</h1>
@@ -20,14 +20,14 @@
     <tr>
       <td>{{ $entry->date }}</td>
       @if($entry->type == 'Invoice')
-        <td>{{$entry->total_amount }}</td>
+        <td>{{ number_format(floatval($entry->total_amount), 2, '.', '') }}  </td>
         @php $rest += $entry->total_amount @endphp
       @else
           <td> </td>
       @endif
 
       @if($entry->type == 'Payment')
-        <td>{{  $entry->amount_paid  }}</td>
+        <td>{{ number_format(floatval($entry->amount_paid), 2, '.', '') }} </td>
         @php $rest -= $entry->amount_paid @endphp
 
       @else
@@ -35,7 +35,7 @@
       @endif
 
       @if($entry->type == 'Return')
-        <td>{{  $entry->total_amount  }}</td>
+        <td>{{ number_format(floatval($entry->total_amount), 2, '.', '') }}  </td>
         @php $rest -= $entry->total_amount @endphp
 
       @else

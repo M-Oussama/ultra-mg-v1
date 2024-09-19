@@ -283,6 +283,6 @@ class ClientController extends Controller
                 'defaultFont' => 'DejaVu Sans',
                 'isFontSubsettingEnabled' => true,
             ]);
-        return $pdf->stream('client_log.pdf');
+        return $pdf->stream('ETAT '.$client->name.'.pdf');
     }
 }
