@@ -1,1 +1,0 @@
-import{a6 as s,a9 as n,ae as o,p as i}from"./main.a88fc9d8.js";const r=s({name:"VListItemAction",props:{start:Boolean,end:Boolean,...n()},setup(t,e){let{slots:a}=e;return o(()=>i(t.tag,{class:["v-list-item-action",{"v-list-item-action--start":t.start,"v-list-item-action--end":t.end}]},a)),{}}});export{r as V};

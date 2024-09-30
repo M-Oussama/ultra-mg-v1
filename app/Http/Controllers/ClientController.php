@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Payment;
 use App\Models\ProductReturn;
 use App\Models\Sale;
+use App\Models\SaleItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -278,6 +279,24 @@ class ClientController extends Controller
 
 
         $pdf = Pdf::loadView('client_log_return_pdf', compact('client', 'logEntries'));
+        $pdf->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isFontSubsettingEnabled' => true,
+            ]);
+        return $pdf->stream('ETAT '.$client->name.'.pdf');
+    }
+
+    public function exportClientProductLog($clientId){
+        $client = Client::find($clientId);
+
+        // Normalizing the date field and adding a type field
+        $invoices = SaleItem::with('product')->orderBy('sale_date', 'desc')->where('client_id', $clientId)
+            ->get();
+
+
+
+        $pdf = Pdf::loadView('products_log', compact('client', 'invoices'));
         $pdf->setPaper('a4', 'portrait')
             ->setOptions([
                 'defaultFont' => 'DejaVu Sans',

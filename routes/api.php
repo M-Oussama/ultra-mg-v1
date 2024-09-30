@@ -151,6 +151,7 @@ Route::post('/clients/log/generate', [ClientLogController::class, 'getALLLog'])-
 Route::post('/recrutement/generateEmail/{id}', [AttendanceController::class, 'generateEmail'])->name('generateEmail');
 Route::get('/client-log/{id}/download', [ClientController::class, 'exportClientLog'])->name('exportClientLog');
 Route::get('/client-log/return/{id}/download', [ClientController::class, 'exportClientLogWithReturn'])->name('exportClientLogWithReturn');
+Route::get('/client/{id}/product/log/download', [ClientController::class, 'exportClientProductLog'])->name('exportClientProductLog');
 
 
 Route::group(['prefix' => '/dashboard'], function () {

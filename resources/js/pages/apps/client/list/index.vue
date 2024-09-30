@@ -211,6 +211,30 @@ const exportLogWithReturn = (client) => {
     loading2.value.isActive = false;
   })
 }
+
+const exportProductLog = (client) => {
+  var client_id = client.id
+  loading2.value.isActive = true;
+  clientListStore.getProductLog(
+   client_id
+
+ ).then(response => {
+    loading2.value.isActive = false;
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'Product Log '+client.name+'.pdf');
+    document.body.appendChild(link);
+    link.click();
+    // Focus on the text field after loading is complete
+    // Focus on the text field after loading is complete
+
+
+  }).catch(error => {
+    console.error(error)
+    loading2.value.isActive = false;
+  })
+}
 // const exportList = () => {
 //   var array = [];
 //   var counter = 1;
@@ -415,6 +439,21 @@ const exportLogWithReturn = (client) => {
                   class="text-center"
                   style="width: 5rem;"
                 >
+
+                  <VBtn
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
+
+                    @click="exportProductLog(client)"
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-box"
+
+                    />
+                  </VBtn>
                   <VBtn
                     icon
                     size="x-small"
