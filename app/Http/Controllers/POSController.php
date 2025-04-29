@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SaleStatus;
+use App\Models\TruckDriver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
@@ -65,6 +66,7 @@ class POSController extends Controller
 
     public function getData() {
         $clients = Client::all();
+        $drivers = TruckDriver::all();
         $products = Product::getAllProductsFormatted();
         $sale_statues = SaleStatus::all();
         $last_id = Sale::latest()->first();
@@ -77,7 +79,7 @@ class POSController extends Controller
 
         $cities = City::all();
 
-        return response()->json(["clients" => $clients, 'cities'=>$cities, "products" => $products, "sale_statues"=>$sale_statues,"last_id"=>$last_id+1]);
+        return response()->json(["clients" => $clients, 'drivers'=>$drivers, 'cities'=>$cities, "products" => $products, "sale_statues"=>$sale_statues,"last_id"=>$last_id+1]);
 
     }
 
@@ -114,11 +116,12 @@ class POSController extends Controller
         //$sale->payment = false;
 
         $clients = Client::all();
+        $drivers = TruckDriver::all();
         $products = Product::getAllProductsFormatted();
         $sale_statues = SaleStatus::all();
 
         $cities = City::all();
-        return response()->json(["sale" => $sale, "cities" => $cities,"clients"=>$clients, "products"=> $products, "sale_statues"=>$sale_statues]);
+        return response()->json(["sale" => $sale, "cities" => $cities,"clients"=>$clients,"drivers"=>$drivers, "products"=> $products, "sale_statues"=>$sale_statues]);
     }
 
     public function getPriceHistory($productId, $clientId) {
@@ -165,6 +168,11 @@ class POSController extends Controller
                 'balance' => $balance,
             ]);
 
+        }
+        if($data['driver_id']){
+            $sale->truck_driver_id = $data['driver_id'];
+            $sale->picked_up = 0;
+            $sale->save();
         }
         if(floatval($data['paymentAmount']) > 0) {
             $payment = new Payment();
@@ -234,6 +242,8 @@ class POSController extends Controller
             $sale->payment = 1;
             $sale->regulation = floatval($data['regulation']);
             $sale->save();
+
+
         } else{
 
             $sale->update([
@@ -246,6 +256,11 @@ class POSController extends Controller
             ]);
             $sale->payment = 0;
             $sale->regulation = 0;
+            $sale->save();
+        }
+
+        if($data['truck_driver_id']){
+            $sale->truck_driver_id = $data['truck_driver_id'];
             $sale->save();
         }
 
@@ -484,6 +499,23 @@ class POSController extends Controller
         return response()->json(["notPaidInvoices" => $notPaidInvoices, "paidInvoices" => $paidInvoices]);
 
 
+    }
+
+    public function updatePickUp(Request $request, Sale $sale)
+    {
+
+        // Validate that we got a boolean from frontend
+        $validated = $request->validate([
+            'picked_up' => 'required|boolean',
+        ]);
+
+        $sale->picked_up = $validated['picked_up'];
+        $sale->save();
+
+        return response()->json([
+            'message' => 'Sale pickup status updated.',
+            'sale' => $sale
+        ]);
     }
 
 }

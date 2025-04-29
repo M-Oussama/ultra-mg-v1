@@ -585,7 +585,27 @@ const onProductChanged = (item) => {
     </VCardText>
 
     <VDivider />
+    <VCol
+      cols="12"
+      md="12">
+      <div class="align-center mb-6">
+        <h6 class="text-sm font-weight-medium mb-3">
+          Driver:
+        </h6>
+        <VAutocomplete
+          clearable
+          v-model="props.data.truck_driver_id"
+          :items="props.data.drivers"
+          item-value="id"
+          item-title="full_name"
+          label="Driver"
 
+        >
+        </VAutocomplete>
+
+
+      </div>
+    </VCol>
     <VCardText class="mx-sm-4">
       <p class="font-weight-semibold mb-2">
         Note:

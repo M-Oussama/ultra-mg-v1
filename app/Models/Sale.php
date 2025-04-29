@@ -17,12 +17,14 @@ class Sale extends Model
         'sale_statuses_id',
         'notes',
         'balance',
-        'regulation'
+        'regulation',
+        'driver_id',
+        'picked_up'
     ];
     protected $casts = [
         'payment' => 'boolean'
     ];
-    protected $with = ['client','saleStatus','saleItems'];
+    protected $with = ['client','saleStatus','saleItems', 'driver'];
 
     public function client()
     {
@@ -37,5 +39,10 @@ class Sale extends Model
     public function saleItems()
     {
         return $this->hasMany(SaleItem::class);
+    }
+
+    public function driver()
+    {
+        return $this->belongsTo(TruckDriver::class,'truck_driver_id');
     }
 }

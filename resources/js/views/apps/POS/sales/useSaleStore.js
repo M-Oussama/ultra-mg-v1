@@ -204,6 +204,25 @@ export const useSaleStore = defineStore('SaleStore', {
       })
     },
 
+  updatePickup(sale, isChecked){
+
+      return new Promise((resolve, reject) => {
+        axios.post(`/api/sales/${sale.id}/toggle-pickup`, {
+            picked_up: isChecked
+        }).then(response => {
+
+          resolve(response)
+        })
+            .catch(error => {
+
+              reject(error)
+
+            })
+      })
+    },
+
+
+
     storeBenefit(data) {
       const { month, year} = data;
       return new Promise((resolve, reject) => {

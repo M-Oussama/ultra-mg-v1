@@ -20,6 +20,7 @@ const sale = ref({
     name: ""
   },
   amount_letter: "",
+  driver_id: null,
   notes: "",
 
   client:{
@@ -38,6 +39,7 @@ const sale = ref({
 
   sale_items:[],
   clients: [],
+  drivers: [],
   products: [],
   sale_statues:[],
   payment: false,
@@ -58,9 +60,9 @@ const saleStore = useSaleStore()
 loading.isActive = true;
 // 👉 fetchData
 saleStore.fetchData().then(response => {
-  console.log(loading.isActive)
   sale.value.id = response.data.last_id
   sale.value.clients = response.data.clients
+  sale.value.drivers = response.data.drivers
   sale.value.cities = response.data.cities
   sale.value.products = response.data.products
   sale.value.sale_statues = response.data.sale_statues

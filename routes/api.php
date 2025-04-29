@@ -86,6 +86,7 @@ Route::post('/pos/benefits/charges/update/{id}', [BenefitController::class, 'upd
 Route::get('/pos/benefits/refresh/{id}', [BenefitController::class, 'refreshBenefitData'])->name('refreshBenefitData');
 Route::get('/pos/client/{id}/sales', [POSController::class, 'getClientInvoices'])->name('getClientInvoices');
 Route::get('/pos/client/{id}/sales/{paymentId}/paid', [POSController::class, 'getPaidInvoices'])->name('getClientInvoices');
+Route::post('/sales/{sale}/toggle-pickup', [POSController::class, 'updatePickUp'])->name('updatePickUp');
 
 /** EMPLOYEES */
 Route::get('/employees/list', [EmployeeController::class, 'getEmployees'])->name('getEmployees');

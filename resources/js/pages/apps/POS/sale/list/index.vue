@@ -157,7 +157,22 @@ const onDataChanged = () =>{
   fetchSale()
 
 }
+const togglePickup = sale =>{
+  const isChecked = event.target.checked;
+  sale.picked_up = isChecked; // update the frontend
 
+ // Optional: Update backend
+  loading.value.isActive = true;
+
+  saleStore.updatePickup(sale, isChecked).then(response => {
+
+    fetchSale()
+  }).catch(error => {
+    loading.value.isActive = false;
+    console.log(error)
+  })
+
+}
 </script>
 
 <template>
@@ -296,6 +311,17 @@ const onDataChanged = () =>{
                 Issued Date
               </th>
 
+              <th scope="col">
+                Driver
+              </th>
+               <th scope="col">
+                Picked
+              </th>
+
+              <th scope="col">
+                Picked up
+              </th>
+
 
 
               <th scope="col">
@@ -378,6 +404,23 @@ const onDataChanged = () =>{
 
               <!-- 👉 Date -->
               <td>{{ sale.sale_date }}</td>
+              <td>{{ sale.driver ? sale.driver.full_name :'' }}</td>
+              <td>
+                <span v-if="sale.picked_up" class="badge badge-success">YES</span>
+                <span v-else class="badge badge-danger">NO</span>
+
+
+              </td>
+
+              <td>
+
+                <label class="switch">
+                  <input type="checkbox"
+                         :checked="!!sale.picked_up"
+                         @change="togglePickup(sale, $event)">
+                  <span class="slider round"></span>
+                </label>
+              </td>
 
 
 
@@ -544,6 +587,62 @@ const onDataChanged = () =>{
   .invoice-list-filter {
     inline-size: 12rem;
   }
+}
+
+
+.badge {
+
+  color: white;
+  padding: 4px 8px;
+  text-align: center;
+  border-radius: 25px;
+}
+.badge-success{
+  background-color: green;
+}
+.badge-danger{
+  background-color: red;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0;
+  right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px; width: 18px;
+  left: 3px; bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #28a745;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
 }
 </style>
 <route lang="yaml">
