@@ -1,0 +1,95 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\RawLog;
+use App\Models\ZKAttendance;
+use Carbon\Carbon;
+use Illuminate\Console\Command;
+use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+
+class ImportZKPunches extends Command
+{
+    protected $signature = 'zk:import {file}';
+    protected $description = 'Import punch logs from ZKTeco-style Excel file';
+
+    public function handle()
+    {
+        $filePath = $this->argument('file');
+        $rows = Excel::toArray([], $filePath)[0];
+
+        // Skip header if needed
+        $rows = array_filter($rows, fn($row) => isset($row[0], $row[2]) && $row[0] !== 'User ID');
+
+        // Group punches by user + date
+        $grouped = collect($rows)->groupBy(function ($row) {
+            $userId = $row[0];
+
+            RawLog::create([
+                'user_id'  => $row[0],
+                'timestamp'  => $row[2]
+            ]);
+            $timestamp = $this->parseExcelTimestamp($row[2]);
+            return $userId . '|' . $timestamp->toDateString();
+        });
+
+        foreach ($grouped as $key => $punches) {
+            [$userId, $date] = explode('|', $key);
+
+            $sorted = collect($punches)->sortBy(function ($row) {
+                return $this->parseExcelTimestamp($row[2])->timestamp;
+            })->values();
+
+            $totalMinutes = 0;
+            $checkIn = null;
+            $checkOut = null;
+
+            for ($i = 0; $i < count($sorted); $i += 2) {
+                if (!isset($sorted[$i + 1])) {
+                    // Odd number of punches, skip the last one
+                    break;
+                }
+
+                $checkIn = $this->parseExcelTimestamp($sorted[$i][2]);
+                $checkOut = $this->parseExcelTimestamp($sorted[$i + 1][2]);
+
+                // Overnight shift
+                if ($checkOut->lessThan($checkIn)) {
+                    $checkOut->addDay();
+                }
+
+                $minutes = $checkOut->diffInMinutes($checkIn);
+                $totalMinutes += $minutes;
+            }
+
+            // Save only the first check-in and last check-out
+            $firstCheckIn = $this->parseExcelTimestamp($sorted->first()[2]);
+            $lastCheckOut = $this->parseExcelTimestamp($sorted->last()[2]);
+            if ($lastCheckOut->lessThan($firstCheckIn)) {
+                $lastCheckOut->addDay();
+            }
+
+            ZKAttendance::updateOrCreate(
+                ['user_id' => $userId, 'date' => $date],
+                [
+                    'check_in' => $firstCheckIn,
+                    'check_out' => $lastCheckOut,
+                    'worked_minutes' => $totalMinutes,
+                    'status' => $sorted->count() % 2 === 0 ? 'complete' : 'incomplete',
+                    'note' => $sorted->count() % 2 === 0 ? null : 'Missing punch (odd number)',
+                ]
+            );
+        }
+
+        $this->info('✅ Punches imported successfully with paired check-ins/outs!');
+    }
+
+    private function parseExcelTimestamp($value): Carbon
+    {
+        if (is_numeric($value)) {
+            return Carbon::instance(ExcelDate::excelToDateTimeObject($value));
+        }
+        return Carbon::parse($value);
+    }
+}

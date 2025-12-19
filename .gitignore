@@ -1,4 +1,4 @@
-/vendor
+
 /node_modules
 /public/hot
 /public/storage
@@ -52,4 +52,4 @@ public/agbofyCoreMs/target/
 **/application-prod.yml
 **/application-test.yml
 *firebase-adminsdk*.json
-
+artisan
