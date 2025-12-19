@@ -210,3 +210,12 @@ Route::group(['prefix' => '/maintenances'], function () {
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+Route::group(['prefix' => 'zk-mobile'], function () {
+    Route::post('/login', [\App\Http\Controllers\ZKMobileApiController::class, 'login']);
+
+   
+        Route::get('/employees', [\App\Http\Controllers\ZKMobileApiController::class, 'getEmployees']);
+        Route::get('/attendance', [\App\Http\Controllers\ZKMobileApiController::class, 'getAttendance']);
+    
+});

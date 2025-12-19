@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Models;
+
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class ZKAttendance extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'user_id',
+        'date',
+        'check_in',
+        'check_out',
+        'worked_minutes',
+        'status',
+        'note',
+    ];
+
+    protected $casts = [
+        'check_in' => 'datetime',
+        'check_out' => 'datetime',
+        'date' => 'date',
+    ];
+
+    // 🔗 Relation to user
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function getWorkedHoursAttribute()
+    {
+        if (!$this->worked_minutes) return null;
+
+        $hours = floor($this->worked_minutes / 60);
+        $minutes = $this->worked_minutes % 60;
+
+        return sprintf('%02d:%02d', $hours, $minutes);
+    }
+
+    // 💡 Is attendance complete?
+    public function getIsCompleteAttribute()
+    {
+        return $this->status === 'complete' || $this->status === 'auto_closed';
+    }
+
+    // 📅 Human readable day
+    public function getDayNameAttribute()
+    {
+        return Carbon::parse($this->date)->locale('fr')->isoFormat('dddd'); // or 'en' if you want
+    }
+}

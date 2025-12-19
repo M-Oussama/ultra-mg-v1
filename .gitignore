@@ -46,3 +46,10 @@ dist-ssr
 *.sln
 *.sw?
 
+# Sensitive files with secrets
+public/agbofyCoreMs/target/
+**/application-dev.yml
+**/application-prod.yml
+**/application-test.yml
+*firebase-adminsdk*.json
+

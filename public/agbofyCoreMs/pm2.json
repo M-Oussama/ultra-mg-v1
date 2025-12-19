@@ -1,0 +1,10 @@
+{
+  "name": "ms-agbofy-api",
+  "script": "/usr/bin/java",
+  "args": [
+    "-jar",
+    "target/agbofy-core-ms-1.0-SNAPSHOT-runner.jar"
+  ],
+  "exec_interpreter": "",
+  "exec_mode": "fork"
+}
