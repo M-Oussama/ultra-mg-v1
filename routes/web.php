@@ -21,9 +21,7 @@ use Jmrashed\Zkteco\Lib\ZKTeco;
 */
 
 
-//Route::get('{any?}', function() {
-//    return view('application');
-//})->where('any', '.*');
+
 
 // ZKTeco iClock push endpoint: supports GET or POST depending on firmware
 Route::match(['GET','POST'], '/iclock/cdata', [ZKPushController::class, 'handleIclock']);
@@ -39,6 +37,11 @@ Route::post('/zk/push', [ZKPushController::class, 'handle']);
 Route::get('/test', function (Request $request) {
     Log::info('test------');
 });
+
+Route::get('{any?}', function() {
+    return view('application');
+})->where('any', '.*');
+
 //
 //Route::get('/test', function() {
 //    $name = "Mahgoun Oussama";
