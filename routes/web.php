@@ -37,10 +37,10 @@ Route::post('/zk/push', [ZKPushController::class, 'handle']);
 Route::get('/test', function (Request $request) {
     Log::info('test------');
 });
-
-Route::get('{any?}', function() {
-    return view('application');
-})->where('any', '.*');
+//
+//Route::get('{any?}', function() {
+//    return view('application');
+//})->where('any', '.*');
 
 //
 //Route::get('/test', function() {
