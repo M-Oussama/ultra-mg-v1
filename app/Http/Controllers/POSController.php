@@ -27,8 +27,9 @@ class POSController extends Controller
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
         $client_id = $request->input('client_id',  ''); // Default current page value is 1 if not provided
         $status = $request->input('status',  '');
-        $from = $request->input('from',  '');
         $to = $request->input('to',  '');
+        $from = $request->input('from',  '');
+        $department_id = $request->input('department_id', 1);
 
 
         $sales = Sale::query();
@@ -50,6 +51,9 @@ class POSController extends Controller
             if($from != ''){
                 $sales->whereBetween('sale_date', [$from, date('Y-m-d')]);
             }
+        }
+        if($department_id != '') {
+            $sales->where('department_id', $department_id);
         }
         $sales->orderBy('sale_date', 'desc');
 
@@ -138,6 +142,7 @@ class POSController extends Controller
         $client = $data['client'];
         $payment = $data['payment'];
         $balance =  $data['total_amount'] - $data['paymentAmount'];
+        $department_id = $data['department_id'] ?? $request->input('department_id', 1);
 
         if($payment) {
             if($balance >= 0) {
@@ -157,7 +162,8 @@ class POSController extends Controller
                 'sale_statuses_id' => $sale_status,
                 'balance' => $balance,
                 'regulation' => $data['paymentAmount'],
-                'payment' => 1
+                'payment' => 1,
+                'department_id' => $department_id
             ]);
         } else {
             $sale = Sale::create([
@@ -166,6 +172,7 @@ class POSController extends Controller
                 'total_amount' => $data['total_amount'],
                 'sale_statuses_id' => $sale_status,
                 'balance' => $balance,
+                'department_id' => $department_id
             ]);
 
         }
@@ -220,6 +227,7 @@ class POSController extends Controller
 
         $payment = $data['payment'];
         $balance =  $data['total_amount'] - $data['paymentAmount'];
+        $department_id = $data['department_id'] ?? $request->input('department_id', 1);
 
         if($balance >= 0) {
             $sale_status = SaleStatus::PAID_ID;
@@ -238,6 +246,7 @@ class POSController extends Controller
                 'total_amount' => $data['total_amount'],
                 'sale_statuses_id' => $sale_status,
                 'balance' => $balance - floatval($data['regulation']),
+                'department_id' => $department_id,
             ]);
             $sale->payment = 1;
             $sale->regulation = floatval($data['regulation']);
@@ -252,7 +261,7 @@ class POSController extends Controller
                 'total_amount' => $data['total_amount'],
                 'sale_statuses_id' => $sale_status,
                 'balance' => $balance,
-
+                'department_id' => $department_id,
             ]);
             $sale->payment = 0;
             $sale->regulation = 0;

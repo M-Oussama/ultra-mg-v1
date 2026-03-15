@@ -46,15 +46,20 @@ class Product extends Model
         'tax_rate',
         'type_id',
         'stockable',
-        'weight'
+        'weight',
+        'department_id'
     ];
 
     protected $with = [
-        'productStock'
+        'productStock', 'department'
     ];
 
     public function productStock() {
         return $this->hasOne(ProductStock::class);
+    }
+
+    public function department() {
+        return $this->belongsTo(Department::class);
     }
 
     public static function getAllProductsFormatted()

@@ -30,7 +30,13 @@ class CertifyInvoices extends Model
         'amount',
         'date',
         'payment_type',
-        'fac_id'
+        'fac_id',
+        'tva_rate',
+        'tva_amount',
+        'ht_amount',
+        'timbre_rate',
+        'timbre_amount',
+        'cheque_number',
     ];
 
     protected $with = [
@@ -40,11 +46,11 @@ class CertifyInvoices extends Model
 
     public function client(): BelongsTo
     {
-        return $this->belongsTo(Client::class);
+        return $this->belongsTo(CertifyClient::class, 'client_id');
     }
     public function products()
     {
-        return $this->belongsToMany(Product::class, 'certify_invoice_products','certify_invoice_id','product_id');
+        return $this->belongsToMany(CertifyProduct::class, 'certify_invoice_products', 'certify_invoice_id', 'product_id');
     }
     public function certifyInvoiceProducts()
     {

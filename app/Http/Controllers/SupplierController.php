@@ -130,17 +130,32 @@ class SupplierController extends Controller
 
     public function delete(Request $request) {
         try {
-
             $id = $request->input('id');
-
             $supplier = Supplier::find($id);
+
+            if (!$supplier) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Supplier not found'
+                ], 404);
+            }
+
+            // Check if supplier is used in other tables
+            $isUsedInPurchases = DB::table('purchases')->where('supplier_id', $id)->exists();
+            $isUsedInPurchaseItems = DB::table('purchase_items')->where('supplier_id', $id)->exists();
+            $isUsedInImportationInvoices = DB::table('importation_invoices')->where('supplier_id', $id)->exists();
+
+            if ($isUsedInPurchases || $isUsedInPurchaseItems || $isUsedInImportationInvoices) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete supplier because it is associated with purchases or invoices.'
+                ], 400);
+            }
 
             $supplier->delete();
 
             return $this->fsSuccess("Supplier deleted successfully");
-        }catch (\Exception $e){
-            DB::rollBack();
-
+        } catch (\Exception $e) {
             // Handle the exception, return an error response
             throw new BadRequestHttpException($e->getMessage());
         }

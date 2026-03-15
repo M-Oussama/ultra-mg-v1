@@ -60,4 +60,9 @@ class EmployeeController extends Controller
         return response()->json(['message' => 'Employee deleted successfully']);
 
     }
+
+    public function getCities(){
+        $cities = City::all();
+        return response()->json(['cities' => $cities]);
+    }
 }

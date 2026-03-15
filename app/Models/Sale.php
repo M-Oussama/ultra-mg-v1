@@ -19,16 +19,22 @@ class Sale extends Model
         'balance',
         'regulation',
         'driver_id',
-        'picked_up'
+        'picked_up',
+        'department_id'
     ];
     protected $casts = [
         'payment' => 'boolean'
     ];
-    protected $with = ['client','saleStatus','saleItems', 'driver'];
+    protected $with = ['client','saleStatus','saleItems', 'driver', 'department'];
 
     public function client()
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
     }
 
     public function saleStatus()

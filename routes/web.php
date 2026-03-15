@@ -27,20 +27,20 @@ use Jmrashed\Zkteco\Lib\ZKTeco;
 Route::match(['GET','POST'], '/iclock/cdata', [ZKPushController::class, 'handleIclock']);
 // Some firmwares use /iclock/attlog to send ATTLOG entries
 Route::match(['GET','POST'], '/iclock/attlog', [ZKPushController::class, 'handleIclock']);
-// Auxiliary iClock endpoints some devices call periodically
-Route::match(['GET','POST'], '/iclock/getrequest', [ZKPushController::class, 'handleIclockGetRequest']);
-Route::match(['GET','POST'], '/iclock/devicecmd', [ZKPushController::class, 'handleIclockDeviceCmd']);
-
-// Alternative JSON push endpoint using controller (recommended when device supports custom URL with uid/timestamp)
-Route::post('/zk/push', [ZKPushController::class, 'handle']);
+//// Auxiliary iClock endpoints some devices call periodically
+//Route::match(['GET','POST'], '/iclock/getrequest', [ZKPushController::class, 'handleIclockGetRequest']);
+//Route::match(['GET','POST'], '/iclock/devicecmd', [ZKPushController::class, 'handleIclockDeviceCmd']);
+//
+//// Alternative JSON push endpoint using controller (recommended when device supports custom URL with uid/timestamp)
+//Route::post('/zk/push', [ZKPushController::class, 'handle']);
 
 Route::get('/test', function (Request $request) {
     Log::info('test------');
 });
 //
-//Route::get('{any?}', function() {
-//    return view('application');
-//})->where('any', '.*');
+Route::get('{any?}', function() {
+   return view('application');
+})->where('any', '.*');
 
 //
 //Route::get('/test', function() {

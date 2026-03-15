@@ -5,10 +5,12 @@ use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BenefitController;
 use App\Http\Controllers\CertifyInvoiceController;
+use App\Http\Controllers\CertifyProductController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientLogController;
 use App\Http\Controllers\ComponentController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\PDFController;
@@ -17,9 +19,14 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReturnController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\ImportationInvoiceController;
+use App\Http\Controllers\ImportationPaymentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\POSController;
 use App\Http\Controllers\VacationController;
+use App\Http\Controllers\ZKAssignmentController;
+use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\RealLogisticsInvoiceController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -60,8 +67,27 @@ Route::get('/certifyInvoices/list', [CertifyInvoiceController::class, 'getInvoic
 Route::get('/certifyInvoices/getInvoice/{id}', [CertifyInvoiceController::class, 'getInvoice'])->name('getInvoice');
 Route::post('/certifyInvoices/store', [CertifyInvoiceController::class, 'store'])->name('store');
 Route::post('/certifyInvoices/update/{id}', [CertifyInvoiceController::class, 'update'])->name('update');
-Route::get('/certifyInvoices/getInvoiceData', [CertifyInvoiceController::class, 'getInvoiceData'])->name('getData');
+Route::delete('/certifyInvoices/delete/{id}', [CertifyInvoiceController::class, 'delete'])->name('deleteCertifyInvoice');
+Route::get('/certifyInvoices/getInvoiceData', [CertifyInvoiceController::class, 'getData'])->name('getData');
 Route::get('/certifyInvoices/getLastID', [CertifyInvoiceController::class, 'getLastID'])->name('getLastID');
+
+/** Certify Clients */
+Route::get('/certify-clients/list', [\App\Http\Controllers\CertifyClientController::class, 'getClients'])->name('getCertifyClients');
+Route::post('/certify-clients/store', [\App\Http\Controllers\CertifyClientController::class, 'store'])->name('storeCertifyClient');
+Route::post('/certify-clients/update/{id}', [\App\Http\Controllers\CertifyClientController::class, 'update'])->name('updateCertifyClient');
+Route::delete('/certify-clients/delete/{id}', [\App\Http\Controllers\CertifyClientController::class, 'delete'])->name('deleteCertifyClient');
+
+/** Certify Products */
+Route::get('/certify-products/list', [CertifyProductController::class, 'getProducts'])->name('getCertifyProducts');
+Route::post('/certify-products/store', [CertifyProductController::class, 'store'])->name('storeCertifyProduct');
+Route::post('/certify-products/update/{id}', [CertifyProductController::class, 'update'])->name('updateCertifyProduct');
+Route::delete('/certify-products/delete/{id}', [CertifyProductController::class, 'delete'])->name('deleteCertifyProduct');
+
+/** Cheques */
+Route::get('/cheques/list', [\App\Http\Controllers\ChequeController::class, 'getCheques'])->name('getCheques');
+Route::post('/cheques/store', [\App\Http\Controllers\ChequeController::class, 'store'])->name('storeCheque');
+Route::post('/cheques/update/{id}', [\App\Http\Controllers\ChequeController::class, 'update'])->name('updateCheque');
+Route::delete('/cheques/delete/{id}', [\App\Http\Controllers\ChequeController::class, 'delete'])->name('deleteCheque');
 
 /** POS */
 Route::get('/pos/sales/list', [POSController::class, 'getSales'])->name('getSales');
@@ -94,7 +120,7 @@ Route::post('/employees/store', [EmployeeController::class, 'store'])->name('sto
 Route::post('/employees/update/{id}', [EmployeeController::class, 'update'])->name('update');
 Route::delete('/employees/delete/{id}', [EmployeeController::class, 'destroy'])->name('destroy');
 Route::get('/employees/{id}', [EmployeeController::class, 'getEmployee'])->name('getEmployee');
-
+Route::get('/cities/list', [EmployeeController::class, 'getCities'])->name('getCities');
 /** Attendances */
 Route::get('/attendances/list', [AttendanceController::class, 'getAttendances'])->name('getAttendances');
 Route::get('/attendances/getAttendanceData/{id}', [AttendanceController::class, 'getAttendanceData'])->name('getAttendanceData');
@@ -129,6 +155,38 @@ Route::post('/clients/log/generate', [ClientLogController::class, 'getALLLog'])-
         Route::post('/delete', [SupplierController::class, 'delete']);
     });
 
+    Route::group(['prefix' => 'departments'], function () {
+        Route::get('/all', [DepartmentController::class, 'index']);
+        Route::get('/list', [DepartmentController::class, 'list']);
+        Route::post('/create', [DepartmentController::class, 'create']);
+        Route::post('/update', [DepartmentController::class, 'update']);
+        Route::post('/delete', [DepartmentController::class, 'delete']);
+    });
+
+    Route::group(['prefix' => 'importation-invoices'], function () {
+        Route::get('/list', [ImportationInvoiceController::class, 'list']);
+        Route::post('/store', [ImportationInvoiceController::class, 'store']);
+        Route::post('/update/{id}', [ImportationInvoiceController::class, 'update']);
+        Route::delete('/delete/{id}', [ImportationInvoiceController::class, 'delete']);
+    });
+
+    Route::group(['prefix' => 'importation-payments'], function () {
+        Route::get('/list/{invoice_id}', [ImportationPaymentController::class, 'list']);
+        Route::post('/store', [ImportationPaymentController::class, 'store']);
+        Route::post('/update/{id}', [ImportationPaymentController::class, 'update']);
+        Route::delete('/delete/{id}', [ImportationPaymentController::class, 'delete']);
+    });
+
+    Route::group(['prefix' => 'sub-certify-invoices'], function () {
+        Route::get('/list', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoices']);
+        Route::get('/getInvoice/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoice']);
+        Route::post('/store', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'store']);
+        Route::post('/update/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'update']);
+        Route::delete('/delete/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'delete']);
+        Route::get('/getInvoiceData', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoiceData']);
+        Route::get('/getLastID', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getLastID']);
+    });
+
     Route::group(['prefix' => 'returns'], function () {
         Route::get('/list', [ProductReturnController::class, 'getReturns']);
         Route::post('/store', [ProductReturnController::class, 'store']);
@@ -153,6 +211,10 @@ Route::post('/recrutement/generateEmail/{id}', [AttendanceController::class, 'ge
 Route::get('/client-log/{id}/download', [ClientController::class, 'exportClientLog'])->name('exportClientLog');
 Route::get('/client-log/return/{id}/download', [ClientController::class, 'exportClientLogWithReturn'])->name('exportClientLogWithReturn');
 Route::get('/client/{id}/product/log/download', [ClientController::class, 'exportClientProductLog'])->name('exportClientProductLog');
+Route::get('/pdf/sale/{id}', [PDFController::class, 'exportSale'])->name('pdf.sale');
+Route::get('/pdf/certify-invoice/{id}', [PDFController::class, 'exportCertifyInvoice'])->name('pdf.certify-invoice');
+Route::get('/pdf/multi-sales', [PDFController::class, 'exportMultiSales'])->name('pdf.multi-sales');
+Route::get('/pdf/multi-certify-invoices', [PDFController::class, 'exportMultiCertifyInvoices'])->name('pdf.multi-certify-invoices');
 
 
 Route::group(['prefix' => '/dashboard'], function () {
@@ -218,4 +280,36 @@ Route::group(['prefix' => 'zk-mobile'], function () {
         Route::get('/employees', [\App\Http\Controllers\ZKMobileApiController::class, 'getEmployees']);
         Route::get('/attendance', [\App\Http\Controllers\ZKMobileApiController::class, 'getAttendance']);
     
+});
+
+Route::group(['prefix' => 'zk-assignments'], function () {
+    Route::get('/zk-employees', [ZKAssignmentController::class, 'getZKEmployees']);
+    Route::get('/unlinked-employees', [ZKAssignmentController::class, 'getUnlinkedEmployees']);
+    Route::get('/available-zk', [ZKAssignmentController::class, 'getAvailableZKEmployees']);
+    Route::post('/link', [ZKAssignmentController::class, 'linkEmployee']);
+    Route::post('/release', [ZKAssignmentController::class, 'releaseAssignment']);
+    Route::get('/history/{employee_id}', [ZKAssignmentController::class, 'getEmployeeHistory']);
+    Route::get('/attendance-history/{employee_id}', [ZKAssignmentController::class, 'getAttendanceHistory']);
+    Route::get('/attendance-by-date/{date}', [ZKAssignmentController::class, 'getAttendanceByDate']);
+    Route::get('/zk-history/{zk_employee_id}', [ZKAssignmentController::class, 'getZKHistory']);
+});
+
+/** COMPANIES */
+Route::group(['prefix' => 'companies'], function () {
+    Route::get('/list', [CompanyController::class, 'index']);
+    Route::post('/store', [CompanyController::class, 'store']);
+    Route::get('/show/{company}', [CompanyController::class, 'show']);
+    Route::post('/update/{company}', [CompanyController::class, 'update']);
+    Route::delete('/delete/{company}', [CompanyController::class, 'destroy']);
+});
+
+/** REAL LOGISTICS INVOICES */
+Route::group(['prefix' => 'real-logistics-invoices'], function () {
+    Route::get('/list', [RealLogisticsInvoiceController::class, 'index']);
+    Route::post('/store', [RealLogisticsInvoiceController::class, 'store']);
+    Route::get('/show/{realLogisticsInvoice}', [RealLogisticsInvoiceController::class, 'show']);
+    Route::post('/update/{realLogisticsInvoice}', [RealLogisticsInvoiceController::class, 'update']);
+    Route::delete('/delete/{realLogisticsInvoice}', [RealLogisticsInvoiceController::class, 'destroy']);
+    Route::post('/preview-pdf', [RealLogisticsInvoiceController::class, 'previewPdf']);
+    Route::get('/export-pdf/{id}', [RealLogisticsInvoiceController::class, 'exportPdf']);
 });

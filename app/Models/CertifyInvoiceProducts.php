@@ -18,6 +18,6 @@ class CertifyInvoiceProducts extends Model
     ];
     protected $with = ['product'];
     public function product() {
-        return $this->belongsTo(Product::class,'product_id');
+        return $this->belongsTo(CertifyProduct::class,'product_id');
     }
 }

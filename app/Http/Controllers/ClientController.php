@@ -40,13 +40,15 @@ class ClientController extends Controller
         $searchValue = $request->input('searchValue', ''); // search value
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
-
+        $department_id = $request->input('department_id', '');
 
 
         $clients = Client::with(['balance', 'sales','payments'])->when($searchValue, function ($queryBuilder) use ($searchValue) {
             // Search for users with matching name or email
             $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
                 ->orWhere('surname', 'LIKE', '%' . $searchValue . '%');
+        })->when($department_id, function ($queryBuilder) use ($department_id) {
+            $queryBuilder->where('department_id', $department_id);
         });
         $clientsAll = $clients->get();
         $clientsPage = $clients->paginate($perPage, ['*'], 'page', $currentPage);
@@ -109,7 +111,10 @@ class ClientController extends Controller
             'NART' => 'string|nullable|max:255',
             'NIS' => 'string|nullable|max:255',
             'email' => 'nullable|email|unique:users,email',
+            'department_id' => 'nullable|integer',
         ]);
+
+        $validatedData['department_id'] = $request->input('department_id', 1);
 
 
         // Create a new user record in the database using User::create()
@@ -166,7 +171,10 @@ class ClientController extends Controller
             'NART' => 'nullable|string|max:255',
             'NIS' => 'nullable|string|max:255',
             'email' => 'nullable|email|unique:users,email',
+            'department_id' => 'nullable|integer',
         ]);
+
+        $validatedData['department_id'] = $request->input('department_id', 1);
 
         $client = Client::find($id);
 

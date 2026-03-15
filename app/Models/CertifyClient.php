@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use OpenApi\Attributes as OA;
 
-#[OA\Schema(schema: "IClient",
+#[OA\Schema(schema: "ICertifyClient",
     required: ["id", "name", "surname", "email", "address", "NRC", "NIF", "NART", "NIS", "created_at", "updated_at"],
     properties: [
         new OA\Property(property: "id", type: "integer", example: "1"),
@@ -24,17 +24,14 @@ use OpenApi\Attributes as OA;
     ]
 )]
 
-
-class Client extends Model
+class CertifyClient extends Model
 {
     use HasFactory, SoftDeletes;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
-    protected $with = ['city', 'department'];
+    protected $table = 'certify_clients';
+
+    protected $with = ['city'];
+
     protected $fillable = [
         'name',
         'surname',
@@ -46,27 +43,13 @@ class Client extends Model
         'NART',
         'email',
         'city_id',
-        'department_id'
     ];
 
     public function city(){
         return $this->belongsTo(City::class);
     }
-    public function department(){
-        return $this->belongsTo(Department::class);
-    }
-    public function sales(){
-        return $this->hasMany(Sale::class);
-    }
-    public function payments(){
-        return $this->hasMany(Payment::class);
-    }
 
-    public function balance(){
-        return $this->hasOne(ClientBalance::class);
-    }
-    public function realLogisticsInvoices(){
-        return $this->hasMany(RealLogisticsInvoice::class);
+    public function invoices(){
+        return $this->hasMany(CertifyInvoices::class, 'client_id');
     }
 }
-

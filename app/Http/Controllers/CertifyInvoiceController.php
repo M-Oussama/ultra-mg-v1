@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Helpers\NumberToLetter;
 use App\Models\CertifyInvoiceProducts;
 use App\Models\CertifyInvoices;
-use App\Models\Client;
+use App\Models\CertifyClient;
 use App\Models\Payment;
-use App\Models\Product;
+use App\Models\CertifyProduct;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use OpenApi\Attributes as OA;
@@ -52,9 +52,9 @@ class CertifyInvoiceController extends Controller
 
         $invoice->amount_letter = $this->convertAmoutToLetter(($invoice->amount*1.19));
 
-        $clients = Client::all();
+        $clients = CertifyClient::all();
 
-        $products = Product::getAllProductsFormatted();
+        $products = CertifyProduct::getAllProductsFormatted();
 
         return response()->json(["invoice" => $invoice, "clients"=>$clients, "products"=>$products, "unSelectedProducts"=>$products]);
     }
@@ -121,6 +121,12 @@ class CertifyInvoiceController extends Controller
             'client_id' => $client['id'],
             'amount' => $invoiceData['amount'],
             'payment_type' => $invoiceData['payment_type'],
+            'tva_rate' => $invoiceData['tva_rate'] ?? null,
+            'tva_amount' => $invoiceData['tva_amount'] ?? null,
+            'ht_amount' => $invoiceData['ht_amount'] ?? null,
+            'timbre_rate' => $invoiceData['timbre_rate'] ?? null,
+            'timbre_amount' => $invoiceData['timbre_amount'] ?? null,
+            'cheque_number' => $invoiceData['cheque_number'] ?? null,
         ]);
 
         $products = $invoiceData['certify_invoice_products'];
@@ -159,8 +165,8 @@ class CertifyInvoiceController extends Controller
         type: 'object'
     )])]
     public function getInvoiceData(): JsonResponse {
-        $clients = Client::all();
-        $products = Product::getAllProductsFormatted();
+        $clients = CertifyClient::all();
+        $products = CertifyProduct::getAllProductsFormatted();
         $date = date('Y-m-d');
         $id = $this->getLastIDPerYear(date('Y-m-d'));
 
@@ -179,14 +185,9 @@ class CertifyInvoiceController extends Controller
 
         $year = date("Y",strtotime($date));
 
-        $last_id = CertifyInvoices::whereYear('date',$year)->orderBy('fac_id')->get()->last();
+        $max_fac_id = CertifyInvoices::whereYear('date',$year)->max('fac_id');
 
-        if($last_id == null)
-            $last_id = 1;
-        else
-            $last_id = $last_id->fac_id+1;
-
-        return $last_id;
+        return ($max_fac_id ?? 0) + 1;
     }
 
 
@@ -206,6 +207,12 @@ class CertifyInvoiceController extends Controller
              'client_id' => $client['id'],
              'amount' => $invoiceData['total'],
              'payment_type' => $invoiceData['payment_type'],
+             'tva_rate' => $invoiceData['tva_rate'] ?? null,
+             'tva_amount' => $invoiceData['tva_amount'] ?? null,
+             'ht_amount' => $invoiceData['ht_amount'] ?? null,
+             'timbre_rate' => $invoiceData['timbre_rate'] ?? null,
+             'timbre_amount' => $invoiceData['timbre_amount'] ?? null,
+             'cheque_number' => $invoiceData['cheque_number'] ?? null,
          ]);
 
 
@@ -228,6 +235,32 @@ class CertifyInvoiceController extends Controller
 
         return response()->json(["message"=>"Invoice Updated Successfully"]);
 
+    }
+
+    /**
+     * Delete a certify invoice
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    #[OA\Delete(
+        path: "/api/certifyInvoices/delete/{id}",
+        operationId: "deleteCertifyInvoice",
+        description: "Delete a certify invoice",
+        tags: ["certifyInvoice"],
+    )]
+    #[OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: 'integer'))]
+    #[OA\Response(response: 200, description: "Successfully deleted")]
+    public function delete(int $id): JsonResponse
+    {
+        $invoice = CertifyInvoices::findOrFail($id);
+        
+        // Delete associated products
+        $invoice->certifyInvoiceProducts()->delete();
+        
+        $invoice->delete();
+        
+        return response()->json(["message" => "Certify Invoice deleted successfully"]);
     }
 
 }

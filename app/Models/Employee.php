@@ -54,6 +54,16 @@ class Employee extends Model
         return $this->belongsTo(City::class,'card_issued_city_id');
     }
 
+    public function zkAssignments()
+    {
+        return $this->hasMany(EmployeeZKAssignment::class, 'employee_id');
+    }
+
+    public function currentZkAssignment()
+    {
+        return $this->hasOne(EmployeeZKAssignment::class, 'employee_id')->whereNull('released_at');
+    }
+
     public function addSchedule($year, $month){
         $attendanceController = new AttendanceController();
         $dates = $attendanceController->getDatesOfMonth($year, $month);

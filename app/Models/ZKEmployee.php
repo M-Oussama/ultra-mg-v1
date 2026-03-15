@@ -30,4 +30,14 @@ class ZKEmployee extends Model
      */
     public $incrementing = false;
     protected $keyType = 'integer';
+
+    public function assignments()
+    {
+        return $this->hasMany(EmployeeZKAssignment::class, 'zk_employee_id');
+    }
+
+    public function currentAssignment()
+    {
+        return $this->hasOne(EmployeeZKAssignment::class, 'zk_employee_id')->whereNull('released_at');
+    }
 }

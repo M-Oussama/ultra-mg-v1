@@ -37,10 +37,13 @@ class ProductController extends Controller
         $searchValue = $request->input('searchValue', '');
         $perPage = $request->input('perPage', 10);
         $currentPage = $request->input('currentPage', 1);
+        $department_id = $request->input('department_id', '');
 
         $products = Product::when($searchValue, function ($queryBuilder) use ($searchValue) {
             $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
                 ->orWhere('brand', 'LIKE', '%' . $searchValue . '%');
+        })->when($department_id, function ($queryBuilder) use ($department_id) {
+            $queryBuilder->where('department_id', $department_id);
         })->paginate($perPage, ['*'], 'page', $currentPage);
 
         $totalProducts = $products->total();
@@ -105,7 +108,10 @@ class ProductController extends Controller
             'stockable' => 'nullable|boolean',
             'tax_rate' => 'nullable|numeric',
             'weight' => 'nullable',
+            'department_id' => 'nullable|integer',
         ]);
+ 
+        $validatedData['department_id'] = $request->input('department_id', 1);
 
 
 
@@ -179,7 +185,10 @@ class ProductController extends Controller
             'tax_rate' => 'nullable|numeric',
             'type_id' => 'nullable|integer',
             'weight' => 'nullable',
+            'department_id' => 'nullable|integer',
         ]);
+
+        $validatedData['department_id'] = $request->input('department_id', 1);
 
         $product = Product::find($id);
 
