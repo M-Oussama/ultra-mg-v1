@@ -38,9 +38,17 @@ Route::get('/test', function (Request $request) {
     Log::info('test------');
 });
 //
+Route::get('storage/{path}', function ($path) {
+    $path = storage_path('app/public/' . $path);
+    if (!file_exists($path)) {
+        abort(404);
+    }
+    return response()->file($path);
+})->where('path', '.*');
+
 Route::get('{any?}', function() {
    return view('application');
-})->where('any', '.*');
+})->where('any', '^(?!storage/).*');
 
 //
 //Route::get('/test', function() {

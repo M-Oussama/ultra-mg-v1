@@ -416,7 +416,7 @@ class POSController extends Controller
             $invoice->update(['balance' => $newBalance]);
         }
 
-        PartialPayment::where('payment_id', $payment->id)->delete();
+        PartialPayment::where('payment_id', $payment->id)->get()->each->delete();
 
 
         foreach ($paidInvoices as $paidInvoice) {
@@ -486,7 +486,7 @@ class POSController extends Controller
         $sale = Sale::find($id);
 
         SaleItem::where('sale_id', $id)->delete();
-        Payment::where('sale_id', $id)->delete();
+        Payment::where('sale_id', $id)->get()->each->delete();
 
         $sale->delete();
 
@@ -527,4 +527,40 @@ class POSController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: "/api/pos/sales/payments/invoice/{sale_id}",
+        summary: "Get total amount paid for a specific sale",
+        tags: ["POS"],
+        parameters: [
+            new OA\Parameter(name: "sale_id", in: "path", required: true, schema: new OA\Schema(type: "integer"))
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: "Total amount paid",
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: "sale_id", type: "integer"),
+                        new OA\Property(property: "total_paid", type: "number", format: "float")
+                    ]
+                )
+            ),
+            new OA\Response(response: 404, description: "Sale not found")
+        ]
+    )]
+    public function getSalePaymentsTotal($sale_id)
+    {
+        $sale = Sale::find($sale_id);
+        if (!$sale) {
+            return response()->json(['message' => 'Sale not found'], 404);
+        }
+
+        $direct_payment = Payment::where('sale_id', $sale_id)->sum('amount_paid');
+        $partial_payment = PartialPayment::where('sale_id', $sale_id)->sum('amount');
+
+        return response()->json([
+            'sale_id' => (int) $sale_id,
+            'total_paid' => (float) ($direct_payment + $partial_payment)
+        ]);
+    }
 }

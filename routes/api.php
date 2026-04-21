@@ -21,6 +21,8 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ImportationInvoiceController;
 use App\Http\Controllers\ImportationPaymentController;
+use App\Http\Controllers\SalesSupplierController;
+use App\Http\Controllers\SupplyController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\POSController;
 use App\Http\Controllers\VacationController;
@@ -85,8 +87,12 @@ Route::delete('/certify-products/delete/{id}', [CertifyProductController::class,
 
 /** Cheques */
 Route::get('/cheques/list', [\App\Http\Controllers\ChequeController::class, 'getCheques'])->name('getCheques');
+Route::get('/cheques/available', [\App\Http\Controllers\ChequeController::class, 'getAvailable'])->name('getAvailableCheques');
+Route::get('/cheques/status/{chequeId}/{excludeCommandId}', [\App\Http\Controllers\ChequeController::class, 'getStatusExcluding'])->name('getChequeStatusExcluding');
+Route::get('/cheques/status/{chequeId}', [\App\Http\Controllers\ChequeController::class, 'getStatus'])->name('getChequeStatus');
 Route::post('/cheques/store', [\App\Http\Controllers\ChequeController::class, 'store'])->name('storeCheque');
 Route::post('/cheques/update/{id}', [\App\Http\Controllers\ChequeController::class, 'update'])->name('updateCheque');
+Route::get('/cheques/unify-status', [\App\Http\Controllers\ChequeController::class, 'unifyStatuses'])->name('unifyChequeStatuses');
 Route::delete('/cheques/delete/{id}', [\App\Http\Controllers\ChequeController::class, 'delete'])->name('deleteCheque');
 
 /** POS */
@@ -100,6 +106,7 @@ Route::get('/pos/sale/getSaleData/{id}', [POSController::class, 'getSaleData'])-
 Route::post('/pos/sales/update/{id}', [POSController::class, 'update'])->name('update');
 Route::post('/pos/sales/payment/create/{id}', [POSController::class, 'addPayment'])->name('addPayment');
 Route::get('/pos/sales/payments/list', [POSController::class, 'listPayment'])->name('listPayment');
+Route::get('/pos/sales/payments/invoice/{sale_id}', [POSController::class, 'getSalePaymentsTotal']);
 Route::post('/pos/sales/payment/create', [POSController::class, 'createPayment'])->name('createPayment');
 Route::post('/pos/sales/payment/update', [POSController::class, 'updatePayment'])->name('updatePayment');
 Route::post('/pos/sales/payment/delete', [POSController::class, 'deletePayment'])->name('deletePayment');
@@ -155,12 +162,29 @@ Route::post('/clients/log/generate', [ClientLogController::class, 'getALLLog'])-
         Route::post('/delete', [SupplierController::class, 'delete']);
     });
 
+    Route::group(['prefix' => 'sales-suppliers'], function () {
+        Route::get('/list', [SalesSupplierController::class, 'getSuppliers']);
+        Route::get('/getData', [SalesSupplierController::class, 'getData']);
+        Route::post('/create', [SalesSupplierController::class, 'create']);
+        Route::post('/update/{id}', [SalesSupplierController::class, 'update']);
+        Route::post('/delete', [SalesSupplierController::class, 'delete']);
+    });
+
     Route::group(['prefix' => 'departments'], function () {
         Route::get('/all', [DepartmentController::class, 'index']);
         Route::get('/list', [DepartmentController::class, 'list']);
         Route::post('/create', [DepartmentController::class, 'create']);
         Route::post('/update', [DepartmentController::class, 'update']);
         Route::post('/delete', [DepartmentController::class, 'delete']);
+    });
+
+    Route::group(['prefix' => 'supplies'], function () {
+        Route::get('/list', [SupplyController::class, 'getSupplies']);
+        Route::get('/getData', [SupplyController::class, 'getData']);
+        Route::post('/store', [SupplyController::class, 'store']);
+        Route::post('/update/{id}', [SupplyController::class, 'update']);
+        Route::get('/show/{id}', [SupplyController::class, 'show']);
+        Route::post('/delete', [SupplyController::class, 'delete']);
     });
 
     Route::group(['prefix' => 'importation-invoices'], function () {
@@ -171,7 +195,7 @@ Route::post('/clients/log/generate', [ClientLogController::class, 'getALLLog'])-
     });
 
     Route::group(['prefix' => 'importation-payments'], function () {
-        Route::get('/list/{invoice_id}', [ImportationPaymentController::class, 'list']);
+        Route::get('/list/{invoice_id?}', [ImportationPaymentController::class, 'list']);
         Route::post('/store', [ImportationPaymentController::class, 'store']);
         Route::post('/update/{id}', [ImportationPaymentController::class, 'update']);
         Route::delete('/delete/{id}', [ImportationPaymentController::class, 'delete']);
@@ -213,8 +237,10 @@ Route::get('/client-log/return/{id}/download', [ClientController::class, 'export
 Route::get('/client/{id}/product/log/download', [ClientController::class, 'exportClientProductLog'])->name('exportClientProductLog');
 Route::get('/pdf/sale/{id}', [PDFController::class, 'exportSale'])->name('pdf.sale');
 Route::get('/pdf/certify-invoice/{id}', [PDFController::class, 'exportCertifyInvoice'])->name('pdf.certify-invoice');
+Route::get('/pdf/sub-certify-invoice/{id}', [PDFController::class, 'exportSubCertifyInvoice'])->name('pdf.sub-certify-invoice');
 Route::get('/pdf/multi-sales', [PDFController::class, 'exportMultiSales'])->name('pdf.multi-sales');
 Route::get('/pdf/multi-certify-invoices', [PDFController::class, 'exportMultiCertifyInvoices'])->name('pdf.multi-certify-invoices');
+Route::get('/pdf/multi-cheques', [PDFController::class, 'exportMultiCheques'])->name('pdf.multi-cheques');
 
 
 Route::group(['prefix' => '/dashboard'], function () {

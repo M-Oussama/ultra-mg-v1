@@ -28,7 +28,9 @@ class Cheque extends Model
         'cheque_date',
         'cheque_number',
         'client_id',
+        'amount',
         'file_path',
+        'banque',
     ];
 
     public function client()

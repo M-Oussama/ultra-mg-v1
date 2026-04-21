@@ -52,20 +52,21 @@ class ChequeController extends Controller
             new OA\Response(response: 422, description: "Validation error")
         ]
     )]
-    public function store(Request $request)
+        public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'cheque_date' => 'required|date',
             'cheque_number' => 'required|string',
             'client_id' => 'required|exists:certify_clients,id',
             'file' => 'nullable|mimes:pdf|max:10240', // Max 10MB PDF
+            'banque' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $data = $request->only(['cheque_date', 'cheque_number', 'client_id']);
+        $data = $request->only(['cheque_date', 'cheque_number', 'client_id', 'amount', 'banque']);
 
         if ($request->hasFile('file')) {
             $path = $request->file('file')->store('cheques/scans', 'public');
@@ -100,7 +101,7 @@ class ChequeController extends Controller
             new OA\Response(response: 404, description: "Cheque not found")
         ]
     )]
-    public function update(Request $request, $id)
+        public function update(Request $request, $id)
     {
         $cheque = Cheque::find($id);
         if (!$cheque) {
@@ -112,13 +113,14 @@ class ChequeController extends Controller
             'cheque_number' => 'sometimes|string',
             'client_id' => 'sometimes|exists:certify_clients,id',
             'file' => 'nullable|mimes:pdf|max:10240',
+            'banque' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $data = $request->only(['cheque_date', 'cheque_number', 'client_id']);
+        $data = $request->only(['cheque_date', 'cheque_number', 'client_id', 'amount', 'banque']);
 
         if ($request->hasFile('file')) {
             // Delete old file if exists
@@ -150,7 +152,103 @@ class ChequeController extends Controller
             return response()->json(['message' => 'Cheque not found'], 404);
         }
 
+        // Check if cheque is used in certify_invoices
+        $usedInCertify = \App\Models\CertifyInvoices::where('cheque_id', $cheque->id)
+            ->orWhere(function($query) use ($cheque) {
+                $query->whereNotNull('cheque_number')->where('cheque_number', $cheque->cheque_number);
+            })->exists();
+            
+        if ($usedInCertify) {
+            return response()->json(['message' => 'Cannot delete this cheque. It is used by one or more certify invoices.'], 422);
+        }
+
+        // Check if cheque is used in sub_certify_invoices
+        $usedInSub = \App\Models\SubCertifyInvoices::where('cheque_id', $cheque->id)
+            ->orWhere(function($query) use ($cheque) {
+                $query->whereNotNull('cheque_number')->where('cheque_number', $cheque->cheque_number);
+            })->exists();
+            
+        if ($usedInSub) {
+            return response()->json(['message' => 'Cannot delete this cheque. It is used by one or more sub-certify invoices.'], 422);
+        }
+
         $cheque->delete();
         return response()->json(['message' => 'Cheque deleted successfully']);
+    }
+
+    public function getStatus(Request $request, $chequeId)
+    {
+        return $this->getStatusExcluding($request, $chequeId, null);
+    }
+
+    public function getStatusExcluding(Request $request, $chequeId, $excludeCommandId = null)
+    {
+        $cheque = Cheque::find($chequeId);
+        if (!$cheque) return response()->json(['message' => 'Cheque not found'], 404);
+
+        $usedCertify = \App\Models\CertifyInvoices::where(function($q) use ($cheque) {
+            $q->where('cheque_id', $cheque->id)
+              ->orWhere(function($sq) use ($cheque) {
+                  $sq->whereNotNull('cheque_number')->where('cheque_number', $cheque->cheque_number);
+              });
+        });
+        
+        $usedSub = \App\Models\SubCertifyInvoices::where(function($q) use ($cheque) {
+            $q->where('cheque_id', $cheque->id)
+              ->orWhere(function($sq) use ($cheque) {
+                  $sq->whereNotNull('cheque_number')->where('cheque_number', $cheque->cheque_number);
+              });
+        });
+
+        if ($excludeCommandId) {
+            $type = $request->query('type');
+            if ($type === 'sub') {
+                $usedSub->where('id', '!=', $excludeCommandId);
+            } elseif ($type === 'certify') {
+                $usedCertify->where('id', '!=', $excludeCommandId);
+            } else {
+                // If type is not specified, we assume the exclude applies to both if IDs match (unlikely to collide but safe)
+                $usedCertify->where('id', '!=', $excludeCommandId);
+                $usedSub->where('id', '!=', $excludeCommandId);
+            }
+        }
+
+        $usedAmount = $usedCertify->sum('amount') + $usedSub->sum('amount');
+        $remaining = max(0, $cheque->amount - $usedAmount);
+
+        return response()->json([
+            'used_amount' => (float)$usedAmount,
+            'remaining_balance' => (float)$remaining,
+            'is_available' => ((float)$remaining > 0),
+            'cheque_amount' => (float)$cheque->amount,
+        ]);
+    }
+
+    public function getAvailable()
+    {
+        $cheques = Cheque::with('client')->get()->map(function($cheque) {
+            $usedCertify = \App\Models\CertifyInvoices::where(function($q) use ($cheque) {
+                $q->where('cheque_id', $cheque->id)
+                  ->orWhere(function($sq) use ($cheque) {
+                      $sq->whereNotNull('cheque_number')->where('cheque_number', $cheque->cheque_number);
+                  });
+            })->sum('amount');
+            
+            $usedSub = \App\Models\SubCertifyInvoices::where(function($q) use ($cheque) {
+                $q->where('cheque_id', $cheque->id)
+                  ->orWhere(function($sq) use ($cheque) {
+                      $sq->whereNotNull('cheque_number')->where('cheque_number', $cheque->cheque_number);
+                  });
+            })->sum('amount');
+            
+            $used = $usedCertify + $usedSub;
+            $cheque->used_amount = $used;
+            $cheque->remaining_balance = max(0, $cheque->amount - $used);
+            return $cheque;
+        })->filter(function($cheque) {
+            return $cheque->remaining_balance > 0;
+        })->values();
+
+        return response()->json($cheques);
     }
 }

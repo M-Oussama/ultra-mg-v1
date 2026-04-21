@@ -37,16 +37,23 @@ class CertifyInvoices extends Model
         'timbre_rate',
         'timbre_amount',
         'cheque_number',
+        'cheque_id',
     ];
 
     protected $with = [
-      'client',
-      'certifyInvoiceProducts'
+        'client',
+        'certifyInvoiceProducts',
+        'cheque'
     ];
 
     public function client(): BelongsTo
     {
         return $this->belongsTo(CertifyClient::class, 'client_id');
+    }
+
+    public function cheque(): BelongsTo
+    {
+        return $this->belongsTo(Cheque::class, 'cheque_id');
     }
     public function products()
     {
@@ -54,6 +61,6 @@ class CertifyInvoices extends Model
     }
     public function certifyInvoiceProducts()
     {
-        return $this->hasMany(CertifyInvoiceProducts::class,'certify_invoice_id');
+        return $this->hasMany(CertifyInvoiceProducts::class, 'certify_invoice_id');
     }
 }

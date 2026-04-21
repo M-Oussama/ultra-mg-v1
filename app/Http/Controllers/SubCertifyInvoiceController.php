@@ -29,7 +29,7 @@ class SubCertifyInvoiceController extends Controller
         $perPage = $request->input('perPage', 10);
         $currentPage = $request->input('currentPage', 1);
 
-        $invoices = SubCertifyInvoices::paginate($perPage, ['*'], 'page', $currentPage);
+        $invoices = SubCertifyInvoices::orderBy('date', 'desc')->paginate($perPage, ['*'], 'page', $currentPage);
         $totalInvoices = $invoices->total();
         $totalPage = ceil($totalInvoices / $perPage);
 
@@ -71,7 +71,7 @@ class SubCertifyInvoiceController extends Controller
             'fac_id' => $fac_id,
             'date' => $invoiceData['date'],
             'client_id' => $client['id'],
-            'amount' => $invoiceData['amount'],
+            'amount' => $invoiceData['total'] ?? $invoiceData['amount'] ?? 0,
             'payment_type' => $invoiceData['payment_type'],
             'tva_rate' => $invoiceData['tva_rate'] ?? null,
             'tva_amount' => $invoiceData['tva_amount'] ?? null,
@@ -79,6 +79,7 @@ class SubCertifyInvoiceController extends Controller
             'timbre_rate' => $invoiceData['timbre_rate'] ?? null,
             'timbre_amount' => $invoiceData['timbre_amount'] ?? null,
             'cheque_number' => $invoiceData['cheque_number'] ?? null,
+            'cheque_id' => $invoiceData['cheque_id'] ?? null,
         ]);
 
         $products = $invoiceData['certify_invoice_products'];
@@ -132,7 +133,7 @@ class SubCertifyInvoiceController extends Controller
             'certify_invoice_id' => $invoiceData['certify_invoice_id'],
             'date' => $invoiceData['date'],
             'client_id' => $client['id'],
-            'amount' => $invoiceData['total'],
+            'amount' => $invoiceData['total'] ?? $invoiceData['amount'] ?? 0,
             'payment_type' => $invoiceData['payment_type'],
             'tva_rate' => $invoiceData['tva_rate'] ?? null,
             'tva_amount' => $invoiceData['tva_amount'] ?? null,
@@ -140,6 +141,7 @@ class SubCertifyInvoiceController extends Controller
             'timbre_rate' => $invoiceData['timbre_rate'] ?? null,
             'timbre_amount' => $invoiceData['timbre_amount'] ?? null,
             'cheque_number' => $invoiceData['cheque_number'] ?? null,
+            'cheque_id' => $invoiceData['cheque_id'] ?? null,
         ]);
 
         $invoice->subCertifyInvoiceProducts()->delete();

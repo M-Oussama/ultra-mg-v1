@@ -39,7 +39,7 @@ class CertifyInvoiceController extends Controller
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
 
-        $invoices = CertifyInvoices::paginate($perPage, ['*'], 'page', $currentPage);
+        $invoices = CertifyInvoices::orderBy('date', 'desc')->paginate($perPage, ['*'], 'page', $currentPage);
         $totalInvoices = $invoices->total(); // Total number of invoices matching the query
         $totalPage = ceil($totalInvoices / $perPage); // Calculate total pages
 
@@ -119,7 +119,7 @@ class CertifyInvoiceController extends Controller
             'fac_id' => $fac_id,
             'date' => $invoiceData['date'],
             'client_id' => $client['id'],
-            'amount' => $invoiceData['amount'],
+            'amount' => $invoiceData['total'] ?? $invoiceData['amount'] ?? 0,
             'payment_type' => $invoiceData['payment_type'],
             'tva_rate' => $invoiceData['tva_rate'] ?? null,
             'tva_amount' => $invoiceData['tva_amount'] ?? null,
@@ -127,6 +127,7 @@ class CertifyInvoiceController extends Controller
             'timbre_rate' => $invoiceData['timbre_rate'] ?? null,
             'timbre_amount' => $invoiceData['timbre_amount'] ?? null,
             'cheque_number' => $invoiceData['cheque_number'] ?? null,
+            'cheque_id' => $invoiceData['cheque_id'] ?? null,
         ]);
 
         $products = $invoiceData['certify_invoice_products'];
@@ -151,7 +152,6 @@ class CertifyInvoiceController extends Controller
     /**
      * get List Of Clients and Products
      *
-     * @param Request $request
      * @return JsonResponse
      */
 
@@ -205,7 +205,7 @@ class CertifyInvoiceController extends Controller
          $invoice->update([
              'date' => $invoiceData['date'],
              'client_id' => $client['id'],
-             'amount' => $invoiceData['total'],
+             'amount' => $invoiceData['total'] ?? $invoiceData['amount'] ?? 0,
              'payment_type' => $invoiceData['payment_type'],
              'tva_rate' => $invoiceData['tva_rate'] ?? null,
              'tva_amount' => $invoiceData['tva_amount'] ?? null,
@@ -213,6 +213,7 @@ class CertifyInvoiceController extends Controller
              'timbre_rate' => $invoiceData['timbre_rate'] ?? null,
              'timbre_amount' => $invoiceData['timbre_amount'] ?? null,
              'cheque_number' => $invoiceData['cheque_number'] ?? null,
+             'cheque_id' => $invoiceData['cheque_id'] ?? null,
          ]);
 
 

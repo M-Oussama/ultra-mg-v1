@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\ImportationInvoice;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use OpenApi\Attributes as OA;
+use Illuminate\Support\Facades\Log;
 
 class ImportationInvoiceController extends Controller
 {
@@ -48,6 +48,9 @@ class ImportationInvoiceController extends Controller
                         new OA\Property(property: "amount", type: "number", format: "float"),
                         new OA\Property(property: "container_status", type: "string"),
                         new OA\Property(property: "notes", type: "string"),
+                        new OA\Property(property: "vessel_name", type: "string"),
+                        new OA\Property(property: "vessel_number", type: "string"),
+                        new OA\Property(property: "container_number", type: "string"),
                         new OA\Property(property: "file", type: "string", format: "binary", description: "PDF scan of the invoice")
                     ]
                 )
@@ -70,6 +73,9 @@ class ImportationInvoiceController extends Controller
             'amount' => 'required|numeric',
             'container_status' => 'required|string',
             'notes' => 'nullable|string',
+            'vessel_name' => 'nullable|string',
+            'vessel_number' => 'nullable|string',
+            'container_number' => 'nullable|string',
             'file' => 'nullable|mimes:pdf|max:10240',
         ]);
 
@@ -79,15 +85,15 @@ class ImportationInvoiceController extends Controller
 
         $data = $request->only([
             'supplier_id', 'invoice_number', 'BL_number', 'company_name',
-            'start_date', 'arrive_date', 'amount', 'container_status', 'notes'
+            'start_date', 'arrive_date', 'amount', 'container_status', 'notes',
+            'vessel_name', 'vessel_number', 'container_number'
         ]);
 
-        if ($request->hasFile('file')) {
-            $path = $request->file('file')->store('importation_invoices', 'public');
-            $data['invoice_pdf'] = $path;
-        }
-
         $invoice = ImportationInvoice::create($data);
+
+        if ($request->hasFile('file')) {
+            $invoice->addMediaFromRequest('file')->toMediaCollection('invoice_pdf');
+        }
 
         return response()->json($invoice, 201);
     }
@@ -111,6 +117,9 @@ class ImportationInvoiceController extends Controller
                         new OA\Property(property: "amount", type: "number", format: "float"),
                         new OA\Property(property: "container_status", type: "string"),
                         new OA\Property(property: "notes", type: "string"),
+                        new OA\Property(property: "vessel_name", type: "string"),
+                        new OA\Property(property: "vessel_number", type: "string"),
+                        new OA\Property(property: "container_number", type: "string"),
                         new OA\Property(property: "file", type: "string", format: "binary")
                     ]
                 )
@@ -138,27 +147,43 @@ class ImportationInvoiceController extends Controller
             'amount' => 'sometimes|numeric',
             'container_status' => 'sometimes|string',
             'notes' => 'nullable|string',
+            'vessel_name' => 'nullable|string',
+            'vessel_number' => 'nullable|string',
+            'container_number' => 'nullable|string',
             'file' => 'nullable|mimes:pdf|max:10240',
+            'deleted_attachments' => 'nullable|array',
+            'deleted_attachments.*' => 'string',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        Log::info($request->all());
+
         $data = $request->only([
             'supplier_id', 'invoice_number', 'BL_number', 'company_name',
+            'vessel_name','vessel_number','container_number',
             'start_date', 'arrive_date', 'amount', 'container_status', 'notes'
         ]);
 
-        if ($request->hasFile('file')) {
-            if ($invoice->invoice_pdf) {
-                Storage::disk('public')->delete($invoice->invoice_pdf);
+        $invoice->update($data);
+
+        if ($request->has('deleted_attachments')) {
+            foreach ($request->input('deleted_attachments') as $url) {
+                $media = $invoice->getMedia('invoice_pdf')->first(function ($item) use ($url) {
+                    return $item->getUrl() === $url || $item->getFullUrl() === $url;
+                });
+                if ($media) {
+                    $media->delete();
+                }
             }
-            $path = $request->file('file')->store('importation_invoices', 'public');
-            $data['invoice_pdf'] = $path;
         }
 
-        $invoice->update($data);
+        if ($request->hasFile('file')) {
+            $invoice->clearMediaCollection('invoice_pdf');
+            $invoice->addMediaFromRequest('file')->toMediaCollection('invoice_pdf');
+        }
 
         return response()->json($invoice);
     }
@@ -179,10 +204,7 @@ class ImportationInvoiceController extends Controller
             return response()->json(['message' => 'Invoice not found'], 404);
         }
 
-        if ($invoice->invoice_pdf) {
-            Storage::disk('public')->delete($invoice->invoice_pdf);
-        }
-
+        // Spatie Media Library automatically deletes media on model delete
         $invoice->delete();
         return response()->json(['message' => 'Invoice deleted successfully']);
     }

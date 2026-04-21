@@ -26,16 +26,23 @@ class SubCertifyInvoices extends Model
         'timbre_rate',
         'timbre_amount',
         'cheque_number',
+        'cheque_id',
     ];
 
     protected $with = [
         'client',
-        'subCertifyInvoiceProducts'
+        'subCertifyInvoiceProducts',
+        'cheque'
     ];
 
     public function client(): BelongsTo
     {
         return $this->belongsTo(CertifyClient::class, 'client_id');
+    }
+
+    public function cheque(): BelongsTo
+    {
+        return $this->belongsTo(Cheque::class, 'cheque_id');
     }
 
     public function mainInvoice(): BelongsTo

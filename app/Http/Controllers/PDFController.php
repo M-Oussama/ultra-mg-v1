@@ -109,6 +109,56 @@ class PDFController extends Controller
 
         return $pdf->stream('Factures_Certifiees_Multiples.pdf');
     }
+    public function exportSubCertifyInvoice($invoiceId)
+    {
+        $invoice = \App\Models\SubCertifyInvoices::with(['client', 'subCertifyInvoiceProducts.product'])->findOrFail($invoiceId);
+        $company = Company::first();
+        
+        $totalTTC = $invoice->amount + ($invoice->tva_amount ?: ($invoice->amount * 0.19)) + ($invoice->timbre_amount ?: 0);
+        $amountLetter = $this->convertAmoutToLetter($totalTTC);
+        
+        $pdf = Pdf::loadView('sub_certify_invoice_pdf', compact('invoice', 'company', 'amountLetter'));
+        
+        $pdf->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isFontSubsettingEnabled' => true,
+                'isRemoteEnabled' => true,
+            ]);
+            
+        return $pdf->stream('Facture_Sous_Traitant_' . $invoice->fac_id . '.pdf');
+    }
+
+    public function exportMultiCheques(Request $request)
+    {
+        $ids = $request->input('ids');
+        if (is_string($ids)) {
+            $ids = explode(',', $ids);
+        }
+
+        if (empty($ids)) {
+            return response()->json(['error' => 'No IDs provided'], 400);
+        }
+
+        $cheques = \App\Models\Cheque::with(['client'])->whereIn('id', $ids)->get();
+        $company = Company::first();
+
+        foreach ($cheques as $cheque) {
+            $cheque->amountLetter = $this->convertAmoutToLetter($cheque->amount);
+        }
+
+        $pdf = Pdf::loadView('multi_cheques_pdf', compact('cheques', 'company'));
+
+        $pdf->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isFontSubsettingEnabled' => true,
+                'isRemoteEnabled' => true,
+            ]);
+
+        return $pdf->stream('Cheques_Multiples.pdf');
+    }
+
     public function generateCustomerLog()
     {
     }

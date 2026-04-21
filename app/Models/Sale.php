@@ -20,10 +20,12 @@ class Sale extends Model
         'regulation',
         'driver_id',
         'picked_up',
-        'department_id'
+        'department_id',
+        'paid_amount',
     ];
     protected $casts = [
-        'payment' => 'boolean'
+        'payment' => 'boolean',
+        'paid_amount' => 'double',
     ];
     protected $with = ['client','saleStatus','saleItems', 'driver', 'department'];
 
@@ -50,5 +52,19 @@ class Sale extends Model
     public function driver()
     {
         return $this->belongsTo(TruckDriver::class,'truck_driver_id');
+    }
+
+    /**
+     * Recalculate and persist the total paid_amount for this sale.
+     */
+    public function syncPaidAmount(): void
+    {
+        // Don't touch updated_at
+        static::withoutTimestamps(function () {
+            $direct_payment = Payment::where('sale_id', $this->id)->sum('amount_paid');
+            $partial_payment = PartialPayment::where('sale_id', $this->id)->sum('amount');
+
+            $this->update(['paid_amount' => (float) ($direct_payment + $partial_payment)]);
+        });
     }
 }

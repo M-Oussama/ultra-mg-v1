@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class ImportationInvoice extends Model
+class ImportationInvoice extends Model implements HasMedia
 {
-    use HasFactory;
+    use HasFactory, InteractsWithMedia;
 
     protected $fillable = [
         'supplier_id',
@@ -19,8 +21,18 @@ class ImportationInvoice extends Model
         'amount',
         'container_status',
         'notes',
-        'invoice_pdf',
+        'vessel_name',
+        'vessel_number',
+        'container_number',
     ];
+
+    protected $appends = ['invoice_pdf'];
+
+    public function getInvoicePdfAttribute()
+    {
+        $media = $this->getFirstMedia('invoice_pdf');
+        return $media ? $media->getUrl() : null;
+    }
 
     public function supplier()
     {
@@ -29,6 +41,6 @@ class ImportationInvoice extends Model
 
     public function payments()
     {
-        return $this->hasMany(ImportationPayment::class, 'importation_invoice_id');
+        return $this->hasMany(ImportationPayment::class , 'importation_invoice_id');
     }
 }

@@ -21,9 +21,15 @@ class ImportationPaymentController extends Controller
             )
         ]
     )]
-    public function list($invoice_id)
+    public function list($invoice_id = null)
     {
-        $payments = ImportationPayment::with(['invoice', 'media'])->where('importation_invoice_id',$invoice_id)->get();
+        $query = ImportationPayment::with(['invoice', 'media']);
+        
+        if ($invoice_id) {
+            $query->where('importation_invoice_id', $invoice_id);
+        }
+        
+        $payments = $query->get();
         
         // Map media URLs to the response
         $payments->each(function ($payment) {
