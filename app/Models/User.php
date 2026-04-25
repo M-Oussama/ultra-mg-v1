@@ -35,7 +35,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role_id'
+        'role_id',
+        'organization_id'
     ];
 
     /**
@@ -57,9 +58,24 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
     ];
 
-    protected $with = ['role'];
+    protected $with = ['role', 'departments'];
 
     public function role() {
         return $this->belongsTo(Role::class);
+    }
+
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class);
+    }
+
+    public function cashbooks()
+    {
+        return $this->hasMany(Cashbook::class);
+    }
+
+    public function departments()
+    {
+        return $this->belongsToMany(Department::class);
     }
 }

@@ -29,6 +29,8 @@ use App\Http\Controllers\VacationController;
 use App\Http\Controllers\ZKAssignmentController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\RealLogisticsInvoiceController;
+use App\Http\Controllers\CashbookController;
+use App\Http\Controllers\TransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -42,6 +44,15 @@ use Illuminate\Support\Facades\Route;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
+
+/** DEBUG AUTH */
+Route::get('/test-auth', function (Request $request) {
+    return response()->json([
+        'user' => $request->user('sanctum'),
+        'authenticated' => (bool) $request->user('sanctum'),
+        'header' => $request->header('Authorization'),
+    ]);
+});
 
 /** USERS  */
 Route::get('/users/list', [UserController::class, 'getUsers'])->name('getUsers');
@@ -155,79 +166,79 @@ Route::post('/clients/log/generate', [ClientLogController::class, 'getALLLog'])-
  */
 
 
-    Route::group(['prefix' => 'suppliers'], function () {
-        Route::post('/list', [SupplierController::class, 'getSuppliers']);
-        Route::post('/create', [SupplierController::class, 'create']);
-        Route::post('/update', [SupplierController::class, 'update']);
-        Route::post('/delete', [SupplierController::class, 'delete']);
-    });
-
-    Route::group(['prefix' => 'sales-suppliers'], function () {
-        Route::get('/list', [SalesSupplierController::class, 'getSuppliers']);
-        Route::get('/getData', [SalesSupplierController::class, 'getData']);
-        Route::post('/create', [SalesSupplierController::class, 'create']);
-        Route::post('/update/{id}', [SalesSupplierController::class, 'update']);
-        Route::post('/delete', [SalesSupplierController::class, 'delete']);
-    });
-
-    Route::group(['prefix' => 'departments'], function () {
-        Route::get('/all', [DepartmentController::class, 'index']);
-        Route::get('/list', [DepartmentController::class, 'list']);
-        Route::post('/create', [DepartmentController::class, 'create']);
-        Route::post('/update', [DepartmentController::class, 'update']);
-        Route::post('/delete', [DepartmentController::class, 'delete']);
-    });
-
-    Route::group(['prefix' => 'supplies'], function () {
-        Route::get('/list', [SupplyController::class, 'getSupplies']);
-        Route::get('/getData', [SupplyController::class, 'getData']);
-        Route::post('/store', [SupplyController::class, 'store']);
-        Route::post('/update/{id}', [SupplyController::class, 'update']);
-        Route::get('/show/{id}', [SupplyController::class, 'show']);
-        Route::post('/delete', [SupplyController::class, 'delete']);
-    });
-
-    Route::group(['prefix' => 'importation-invoices'], function () {
-        Route::get('/list', [ImportationInvoiceController::class, 'list']);
-        Route::post('/store', [ImportationInvoiceController::class, 'store']);
-        Route::post('/update/{id}', [ImportationInvoiceController::class, 'update']);
-        Route::delete('/delete/{id}', [ImportationInvoiceController::class, 'delete']);
-    });
-
-    Route::group(['prefix' => 'importation-payments'], function () {
-        Route::get('/list/{invoice_id?}', [ImportationPaymentController::class, 'list']);
-        Route::post('/store', [ImportationPaymentController::class, 'store']);
-        Route::post('/update/{id}', [ImportationPaymentController::class, 'update']);
-        Route::delete('/delete/{id}', [ImportationPaymentController::class, 'delete']);
-    });
-
-    Route::group(['prefix' => 'sub-certify-invoices'], function () {
-        Route::get('/list', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoices']);
-        Route::get('/getInvoice/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoice']);
-        Route::post('/store', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'store']);
-        Route::post('/update/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'update']);
-        Route::delete('/delete/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'delete']);
-        Route::get('/getInvoiceData', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoiceData']);
-        Route::get('/getLastID', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getLastID']);
-    });
-
-    Route::group(['prefix' => 'returns'], function () {
-        Route::get('/list', [ProductReturnController::class, 'getReturns']);
-        Route::post('/store', [ProductReturnController::class, 'store']);
-        Route::get('/getData', [ProductReturnController::class, 'getData']);
-        Route::post('/delete', [ProductReturnController::class, 'deleteReturn']);
-        Route::post('/update/{id}', [ProductReturnController::class, 'update']);
-        Route::get('/getReturnData/{id}', [ProductReturnController::class, 'getReturnData']);
-        Route::get('/getReturn/{id}', [ProductReturnController::class, 'getReturn']);
+Route::group(['prefix' => 'suppliers'], function () {
+    Route::post('/list', [SupplierController::class, 'getSuppliers']);
+    Route::post('/create', [SupplierController::class, 'create']);
+    Route::post('/update', [SupplierController::class, 'update']);
+    Route::post('/delete', [SupplierController::class, 'delete']);
 });
-    Route::group(['prefix' => '/employees/vacation'], function () {
-        Route::post('/store/{id}', [VacationController::class, 'store']);
-        Route::post('/update/{id}', [VacationController::class, 'update']);
-        Route::get('/list/{id}', [VacationController::class, 'getVacationsByEmployee']);
-        Route::get('/list', [VacationController::class, 'getVacations']);
-        Route::delete('/delete/{id}', [VacationController::class, 'destroy']);
-        Route::get('/{id}', [VacationController::class, 'getVacation']);
-    });
+
+Route::group(['prefix' => 'sales-suppliers'], function () {
+    Route::get('/list', [SalesSupplierController::class, 'getSuppliers']);
+    Route::get('/getData', [SalesSupplierController::class, 'getData']);
+    Route::post('/create', [SalesSupplierController::class, 'create']);
+    Route::post('/update/{id}', [SalesSupplierController::class, 'update']);
+    Route::post('/delete', [SalesSupplierController::class, 'delete']);
+});
+
+Route::group(['prefix' => 'departments', 'middleware' => 'auth:sanctum'], function () {
+    Route::get('/all', [DepartmentController::class, 'index']);
+    Route::get('/list', [DepartmentController::class, 'list']);
+    Route::post('/create', [DepartmentController::class, 'create']);
+    Route::post('/update', [DepartmentController::class, 'update']);
+    Route::post('/delete', [DepartmentController::class, 'delete']);
+});
+
+Route::group(['prefix' => 'supplies'], function () {
+    Route::get('/list', [SupplyController::class, 'getSupplies']);
+    Route::get('/getData', [SupplyController::class, 'getData']);
+    Route::post('/store', [SupplyController::class, 'store']);
+    Route::post('/update/{id}', [SupplyController::class, 'update']);
+    Route::get('/show/{id}', [SupplyController::class, 'show']);
+    Route::post('/delete', [SupplyController::class, 'delete']);
+});
+
+Route::group(['prefix' => 'importation-invoices'], function () {
+    Route::get('/list', [ImportationInvoiceController::class, 'list']);
+    Route::post('/store', [ImportationInvoiceController::class, 'store']);
+    Route::post('/update/{id}', [ImportationInvoiceController::class, 'update']);
+    Route::delete('/delete/{id}', [ImportationInvoiceController::class, 'delete']);
+});
+
+Route::group(['prefix' => 'importation-payments'], function () {
+    Route::get('/list/{invoice_id?}', [ImportationPaymentController::class, 'list']);
+    Route::post('/store', [ImportationPaymentController::class, 'store']);
+    Route::post('/update/{id}', [ImportationPaymentController::class, 'update']);
+    Route::delete('/delete/{id}', [ImportationPaymentController::class, 'delete']);
+});
+
+Route::group(['prefix' => 'sub-certify-invoices'], function () {
+    Route::get('/list', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoices']);
+    Route::get('/getInvoice/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoice']);
+    Route::post('/store', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'store']);
+    Route::post('/update/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'update']);
+    Route::delete('/delete/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'delete']);
+    Route::get('/getInvoiceData', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoiceData']);
+    Route::get('/getLastID', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getLastID']);
+});
+
+Route::group(['prefix' => 'returns'], function () {
+    Route::get('/list', [ProductReturnController::class, 'getReturns']);
+    Route::post('/store', [ProductReturnController::class, 'store']);
+    Route::get('/getData', [ProductReturnController::class, 'getData']);
+    Route::post('/delete', [ProductReturnController::class, 'deleteReturn']);
+    Route::post('/update/{id}', [ProductReturnController::class, 'update']);
+    Route::get('/getReturnData/{id}', [ProductReturnController::class, 'getReturnData']);
+    Route::get('/getReturn/{id}', [ProductReturnController::class, 'getReturn']);
+});
+Route::group(['prefix' => '/employees/vacation'], function () {
+    Route::post('/store/{id}', [VacationController::class, 'store']);
+    Route::post('/update/{id}', [VacationController::class, 'update']);
+    Route::get('/list/{id}', [VacationController::class, 'getVacationsByEmployee']);
+    Route::get('/list', [VacationController::class, 'getVacations']);
+    Route::delete('/delete/{id}', [VacationController::class, 'destroy']);
+    Route::get('/{id}', [VacationController::class, 'getVacation']);
+});
 /**
  * Recruitment
  */
@@ -254,8 +265,7 @@ Route::group(['prefix' => '/dashboard'], function () {
 });
 Route::group(['prefix' => '/auth'], function () {
     Route::post('/login', [AuthController::class, 'Login']);
-
-})->middleware('auth:sanctum');
+});
 
 Route::group(['prefix' => '/roles'], function () {
     Route::get('/list', [RoleController::class, 'list']);
@@ -302,10 +312,10 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::group(['prefix' => 'zk-mobile'], function () {
     Route::post('/login', [\App\Http\Controllers\ZKMobileApiController::class, 'login']);
 
-   
-        Route::get('/employees', [\App\Http\Controllers\ZKMobileApiController::class, 'getEmployees']);
-        Route::get('/attendance', [\App\Http\Controllers\ZKMobileApiController::class, 'getAttendance']);
-    
+
+    Route::get('/employees', [\App\Http\Controllers\ZKMobileApiController::class, 'getEmployees']);
+    Route::get('/attendance', [\App\Http\Controllers\ZKMobileApiController::class, 'getAttendance']);
+
 });
 
 Route::group(['prefix' => 'zk-assignments'], function () {
@@ -339,3 +349,26 @@ Route::group(['prefix' => 'real-logistics-invoices'], function () {
     Route::post('/preview-pdf', [RealLogisticsInvoiceController::class, 'previewPdf']);
     Route::get('/export-pdf/{id}', [RealLogisticsInvoiceController::class, 'exportPdf']);
 });
+
+/** CASHBOOK MODULE */
+Route::group(['middleware' => 'auth:sanctum'], function () {
+    // Cashbooks
+    Route::group(['prefix' => 'cashbooks'], function () {
+        Route::get('', [CashbookController::class, 'index']);
+        Route::post('/', [CashbookController::class, 'store']);
+        Route::get('/{id}', [CashbookController::class, 'show']);
+        Route::delete('/{id}', [CashbookController::class, 'destroy']);
+        Route::get('/{id}/summary', [CashbookController::class, 'summary']);
+
+        // Transactions within a cashbook
+        Route::get('/{id}/transactions', [TransactionController::class, 'index']);
+        Route::post('/{id}/transactions', [TransactionController::class, 'store']);
+    });
+
+    // Standalone Transactions
+    Route::group(['prefix' => 'transactions'], function () {
+        Route::put('/{id}', [TransactionController::class, 'update']);
+        Route::delete('/{id}', [TransactionController::class, 'destroy']);
+    });
+});
+

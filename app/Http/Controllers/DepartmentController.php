@@ -10,10 +10,24 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 class DepartmentController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth:sanctum');
+    }
+
     public function index(Request $request): JsonResponse
     {
         try {
-            $departments = Department::all();
+            $user = \Illuminate\Support\Facades\Auth::user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+            }
+
+            if ($user->role && in_array($user->role->role, ['admin', 'Super-Admin', 'Super Admin'])) {
+                $departments = Department::all();
+            } else {
+                $departments = $user->departments;
+            }
             return response()->json([
                 'success' => true,
                 'departments' => $departments
@@ -29,7 +43,16 @@ class DepartmentController extends Controller
             $perPage = $request->input('perPage', 10);
             $currentPage = $request->input('currentPage', 1);
 
-            $departments = Department::paginate($perPage, ['*'], 'page', $currentPage);
+            $user = \Illuminate\Support\Facades\Auth::user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+            }
+
+            if ($user->role && in_array($user->role->role, ['admin', 'Super-Admin', 'Super Admin'])) {
+                $departments = Department::paginate($perPage, ['*'], 'page', $currentPage);
+            } else {
+                $departments = $user->departments()->paginate($perPage, ['*'], 'page', $currentPage);
+            }
 
             return response()->json([
                 'success' => true,

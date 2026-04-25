@@ -108,9 +108,27 @@ class Permission extends Model
         const DELETE_MAINTENANCE = ['ACTION' => 'delete', 'SUBJECT' => 'maintenance'];
         const UPDATE_MAINTENANCE = ['ACTION' => 'update', 'SUBJECT' => 'maintenance'];
         const ASSIGN_MAINTENANCE = ['ACTION' => 'assign', 'SUBJECT' => 'maintenance'];
+ 
+    // cashbook permissions
+        const ADD_CASHBOOK = ['ACTION' => 'add', 'SUBJECT' => 'cashbooks'];
+        const LIST_CASHBOOK = ['ACTION' => 'list', 'SUBJECT' => 'cashbooks'];
+        const DELETE_CASHBOOK = ['ACTION' => 'delete', 'SUBJECT' => 'cashbooks'];
+
+    // transaction permissions
+        const ADD_TRANSACTION = ['ACTION' => 'add', 'SUBJECT' => 'transactions'];
+        const LIST_TRANSACTION = ['ACTION' => 'list', 'SUBJECT' => 'transactions'];
+        const EDIT_TRANSACTION = ['ACTION' => 'edit', 'SUBJECT' => 'transactions'];
+        const DELETE_TRANSACTION = ['ACTION' => 'delete', 'SUBJECT' => 'transactions'];
 
     //dashboard
         const ADMIN_DASHBOARD = ['ACTION' => 'admin', 'SUBJECT' => 'dashboard'];
+
+    // Additional Frontend Modules
+        const LIST_LOGISTIC = ['ACTION' => 'list', 'SUBJECT' => 'logistics'];
+        const LIST_IMPORTATION = ['ACTION' => 'list', 'SUBJECT' => 'importations'];
+        const LIST_REPORT = ['ACTION' => 'list', 'SUBJECT' => 'reports'];
+        const LIST_SETTING = ['ACTION' => 'list', 'SUBJECT' => 'settings'];
+        const ADMIN_SECURITY = ['ACTION' => 'admin', 'SUBJECT' => 'security'];
 
     protected $fillable = [
         'action',
@@ -135,8 +153,10 @@ class Permission extends Model
         self::ADD_PERMISSION, self::LIST_PERMISSION, self::EDIT_PERMISSION, self::DELETE_PERMISSION,
         self::ADD_ASSETS, self::LIST_ASSETS, self::EDIT_ASSETS, self::DELETE_ASSETS,
         self::ADD_COMPONENT, self::LIST_COMPONENT, self::EDIT_COMPONENT, self::DELETE_COMPONENT,
-        self::ADD_MAINTENANCE, self::LIST_MAINTENANCE, self::EDIT_MAINTENANCE, self::DELETE_MAINTENANCE,self::UPDATE_MAINTENANCE
-
+        self::ADD_MAINTENANCE, self::LIST_MAINTENANCE, self::EDIT_MAINTENANCE, self::DELETE_MAINTENANCE,self::UPDATE_MAINTENANCE,
+        self::ADD_CASHBOOK, self::LIST_CASHBOOK, self::DELETE_CASHBOOK,
+        self::ADD_TRANSACTION, self::LIST_TRANSACTION, self::EDIT_TRANSACTION, self::DELETE_TRANSACTION,
+        self::LIST_LOGISTIC, self::LIST_IMPORTATION, self::LIST_REPORT, self::LIST_SETTING, self::ADMIN_SECURITY
     ];
 
     const ADMIN_PERMISSIONS = [
@@ -157,6 +177,9 @@ class Permission extends Model
         self::ADD_ASSETS, self::LIST_ASSETS, self::EDIT_ASSETS, self::DELETE_ASSETS,
         self::ADD_COMPONENT, self::LIST_COMPONENT, self::EDIT_COMPONENT, self::DELETE_COMPONENT,
         self::ADD_MAINTENANCE, self::LIST_MAINTENANCE, self::EDIT_MAINTENANCE, self::DELETE_MAINTENANCE,self::UPDATE_MAINTENANCE, self::ASSIGN_MAINTENANCE,
-        self::ADMIN_DASHBOARD
+        self::ADMIN_DASHBOARD,
+        self::ADD_CASHBOOK, self::LIST_CASHBOOK, self::DELETE_CASHBOOK,
+        self::ADD_TRANSACTION, self::LIST_TRANSACTION, self::EDIT_TRANSACTION, self::DELETE_TRANSACTION,
+        self::LIST_LOGISTIC, self::LIST_IMPORTATION, self::LIST_REPORT, self::LIST_SETTING, self::ADMIN_SECURITY
     ];
 }

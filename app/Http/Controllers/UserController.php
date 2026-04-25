@@ -99,6 +99,10 @@ class UserController extends Controller
             'role_id' => $validatedData['role']
         ]);
 
+        if ($request->has('department_ids')) {
+            $user->departments()->sync($request->input('department_ids'));
+        }
+
         // Optionally, you can return a response, redirect the user, or perform any other actions here
         return response()->json(['message' => 'User created successfully', 'user' => $user]);
 
@@ -147,8 +151,12 @@ class UserController extends Controller
         // Create a new user record in the database using User::create()
         $user->update($validatedData);
 
+        if ($request->has('department_ids')) {
+            $user->departments()->sync($request->input('department_ids'));
+        }
+
         // Optionally, you can return a response, redirect the user, or perform any other actions here
-        return response()->json(['message' => 'User updated successfully', 'user' => $user]);
+        return response()->json(['message' => 'User updated successfully', 'user' => $user->load('departments')]);
 
     }
 
