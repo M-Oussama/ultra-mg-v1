@@ -18,31 +18,29 @@ class PermissionSeeder extends Seeder
      */
     public function run()
     {
-       $role = Role::create([
-            'role'=> 'admin',
+        $role = Role::firstOrCreate([
+            'role' => 'admin',
         ]);
 
         foreach (Permission::ADMIN_PERMISSIONS as $permission) {
-            $permission = Permission::create([
-                'action'=> $permission['ACTION'],
-                'subject'=> $permission['SUBJECT']
+            $perm = Permission::firstOrCreate([
+                'action' => $permission['ACTION'],
+                'subject' => $permission['SUBJECT']
             ]);
 
-            RoleHasPermissions::create([
+            RoleHasPermissions::firstOrCreate([
                 'role_id' => $role->id,
-                'permission_id' => $permission->id
+                'permission_id' => $perm->id
             ]);
         }
 
-        $user = User::create([
-            'name'=> 'ADMIN',
-            'email' => 'admin@gmail.com',
-            'password' => bcrypt('ultraOussama141998'),
-            'role_id' => $role->id
-        ]);
-
-
-
-
+        User::firstOrCreate(
+            ['email' => 'admin@gmail.com'],
+            [
+                'name' => 'ADMIN',
+                'password' => bcrypt('ultraOussama141998'),
+                'role_id' => $role->id
+            ]
+        );
     }
 }

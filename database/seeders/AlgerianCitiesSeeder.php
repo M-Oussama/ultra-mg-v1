@@ -77,12 +77,13 @@ class AlgerianCitiesSeeder extends Seeder
         ];
 
         foreach ($cities as $city) {
-            City::create([
-                'code' => $city['code'],
-                'name' => $city['name'],
-                'country' => 'Algeria',
-                // You can add more columns as needed
-            ]);
+            City::firstOrCreate(
+                ['code' => $city['code']],
+                [
+                    'name' => $city['name'],
+                    'country' => 'Algeria',
+                ]
+            );
         }
 
     }

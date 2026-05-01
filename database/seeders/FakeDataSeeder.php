@@ -69,8 +69,8 @@ class FakeDataSeeder extends Seeder
             // Add more products if needed
         ];
         foreach ($products as $productData) {
-           $product = Product::create($productData);
-           ProductStock::create(["product_id"=> $product->id,"quantity"=> 200]);
+           $product = Product::firstOrCreate(['product_code' => $productData['product_code']], $productData);
+           ProductStock::firstOrCreate(["product_id"=> $product->id], ["quantity"=> 200]);
         }
     }
 
@@ -116,7 +116,7 @@ class FakeDataSeeder extends Seeder
         ];
 
         foreach ($clients as $clientData) {
-            $client = Client::create($clientData);
+            $client = Client::firstOrCreate(['email' => $clientData['email']], $clientData);
 
             $client->full_name = $client->surname ? $client->name.' '.$client->surname : $client->name;
             $client->save();
@@ -125,7 +125,7 @@ class FakeDataSeeder extends Seeder
 
     public function createSaleStatus() {
         foreach (SaleStatus::STATUS as $status) {
-            SaleStatus::create(['name' => $status]);
+            SaleStatus::firstOrCreate(['name' => $status]);
         }
     }
 
@@ -158,7 +158,7 @@ class FakeDataSeeder extends Seeder
         ];
 
         foreach ($companies as $company) {
-            Company::create($company);
+            Company::firstOrCreate(['name' => $company['name']], $company);
         }
     }
 
@@ -195,9 +195,9 @@ class FakeDataSeeder extends Seeder
         ];
 
         foreach ($employees as $employee) {
-           $_employee =  Employee::create($employee);
+           $_employee =  Employee::firstOrCreate(['name' => $employee['name'], 'surname' => $employee['surname']], $employee);
 
-            EmployeeCareer::create([
+            EmployeeCareer::firstOrCreate([
                 'employee_id'=> $_employee->id,
                 'start_date'=>'2023-01-01'
             ]);
