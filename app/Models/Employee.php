@@ -30,7 +30,13 @@ class Employee extends Model
         'mother_full_name_ar',
         'birth_city_id',
         'card_issued_city_id',
+        'user_id',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
     protected $casts = [
         'active' => 'boolean',
     ];

@@ -38,13 +38,20 @@ class CertifyInvoices extends Model
         'timbre_amount',
         'cheque_number',
         'cheque_id',
+        'user_id',
     ];
 
     protected $with = [
         'client',
         'certifyInvoiceProducts',
-        'cheque'
+        'cheque',
+        'user'
     ];
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function client(): BelongsTo
     {

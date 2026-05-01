@@ -130,6 +130,31 @@ class Permission extends Model
         const LIST_SETTING = ['ACTION' => 'list', 'SUBJECT' => 'settings'];
         const ADMIN_SECURITY = ['ACTION' => 'admin', 'SUBJECT' => 'security'];
 
+    // Granular Actions for existing subjects
+        const PREVIEW_CERTIFY_INVOICE = ['ACTION' => 'preview', 'SUBJECT' => 'certify_invoices'];
+        const DOWNLOAD_CERTIFY_INVOICE = ['ACTION' => 'download', 'SUBJECT' => 'certify_invoices'];
+        const PREVIEW_SALE = ['ACTION' => 'preview', 'SUBJECT' => 'sales'];
+        const DOWNLOAD_SALE = ['ACTION' => 'download', 'SUBJECT' => 'sales'];
+        const ASSIGN_EMPLOYEE = ['ACTION' => 'assign', 'SUBJECT' => 'employees'];
+        const VIEW_ATTENDANCE = ['ACTION' => 'view', 'SUBJECT' => 'attendances'];
+        const VIEW_VACATION = ['ACTION' => 'view', 'SUBJECT' => 'vacations'];
+        const LIST_DEPARTMENT = ['ACTION' => 'list', 'SUBJECT' => 'departments'];
+        const ADD_DEPARTMENT = ['ACTION' => 'add', 'SUBJECT' => 'departments'];
+        const EDIT_DEPARTMENT = ['ACTION' => 'edit', 'SUBJECT' => 'departments'];
+        const DELETE_DEPARTMENT = ['ACTION' => 'delete', 'SUBJECT' => 'departments'];
+    // logistics permissions
+        const ADD_LOGISTIC = ['ACTION' => 'add', 'SUBJECT' => 'logistics'];
+        const EDIT_LOGISTIC = ['ACTION' => 'edit', 'SUBJECT' => 'logistics'];
+        const DELETE_LOGISTIC = ['ACTION' => 'delete', 'SUBJECT' => 'logistics'];
+        const PREVIEW_LOGISTIC = ['ACTION' => 'preview', 'SUBJECT' => 'logistics'];
+        const DOWNLOAD_LOGISTIC = ['ACTION' => 'download', 'SUBJECT' => 'logistics'];
+    // company permissions
+        const ADD_COMPANY = ['ACTION' => 'add', 'SUBJECT' => 'companies'];
+        const LIST_COMPANY = ['ACTION' => 'list', 'SUBJECT' => 'companies'];
+        const EDIT_COMPANY = ['ACTION' => 'edit', 'SUBJECT' => 'companies'];
+        const DELETE_COMPANY = ['ACTION' => 'delete', 'SUBJECT' => 'companies'];
+
+
     protected $fillable = [
         'action',
         'subject'
@@ -140,38 +165,41 @@ class Permission extends Model
         self::ADD_USER, self::LIST_USER, self::EDIT_USER, self::DELETE_USER,
         self::ADD_CLIENT, self::LIST_CLIENT, self::EDIT_CLIENT, self::DELETE_CLIENT,
         self::ADD_SUPPLIER, self::LIST_SUPPLIER, self::EDIT_SUPPLIER, self::DELETE_SUPPLIER,
-        self::ADD_EMPLOYEE, self::LIST_EMPLOYEE, self::EDIT_EMPLOYEE, self::DELETE_EMPLOYEE,
+        self::ADD_EMPLOYEE, self::LIST_EMPLOYEE, self::EDIT_EMPLOYEE, self::DELETE_EMPLOYEE, self::ASSIGN_EMPLOYEE,
         self::ADD_PRODUCT, self::LIST_PRODUCT, self::EDIT_PRODUCT, self::DELETE_PRODUCT,
-        self::ADD_CERTIFY_INVOICE, self::LIST_CERTIFY_INVOICE, self::EDIT_CERTIFY_INVOICE, self::DELETE_CERTIFY_INVOICE,
-        self::ADD_SALE, self::LIST_SALE, self::EDIT_SALE, self::DELETE_SALE,
+        self::ADD_CERTIFY_INVOICE, self::LIST_CERTIFY_INVOICE, self::EDIT_CERTIFY_INVOICE, self::DELETE_CERTIFY_INVOICE, self::PREVIEW_CERTIFY_INVOICE, self::DOWNLOAD_CERTIFY_INVOICE,
+        self::ADD_SALE, self::LIST_SALE, self::EDIT_SALE, self::DELETE_SALE, self::PREVIEW_SALE, self::DOWNLOAD_SALE,
         self::ADD_RETURN, self::LIST_RETURN, self::EDIT_RETURN, self::DELETE_RETURN,
         self::ADD_PAYMENT, self::LIST_PAYMENT, self::EDIT_PAYMENT, self::DELETE_PAYMENT,
         self::ADD_BENEFIT, self::LIST_BENEFIT, self::EDIT_BENEFIT, self::DELETE_BENEFIT,
-        self::ADD_VACATION, self::LIST_VACATION, self::EDIT_VACATION, self::DELETE_VACATION,
-        self::ADD_ATTENDANCE, self::LIST_ATTENDANCE, self::EDIT_ATTENDANCE, self::DELETE_ATTENDANCE,
+        self::ADD_VACATION, self::LIST_VACATION, self::EDIT_VACATION, self::DELETE_VACATION, self::VIEW_VACATION,
+        self::ADD_ATTENDANCE, self::LIST_ATTENDANCE, self::EDIT_ATTENDANCE, self::DELETE_ATTENDANCE, self::VIEW_ATTENDANCE,
         self::ADD_ROLE, self::LIST_ROLE, self::EDIT_ROLE, self::DELETE_ROLE,
         self::ADD_PERMISSION, self::LIST_PERMISSION, self::EDIT_PERMISSION, self::DELETE_PERMISSION,
         self::ADD_ASSETS, self::LIST_ASSETS, self::EDIT_ASSETS, self::DELETE_ASSETS,
         self::ADD_COMPONENT, self::LIST_COMPONENT, self::EDIT_COMPONENT, self::DELETE_COMPONENT,
-        self::ADD_MAINTENANCE, self::LIST_MAINTENANCE, self::EDIT_MAINTENANCE, self::DELETE_MAINTENANCE,self::UPDATE_MAINTENANCE,
+        self::ADD_MAINTENANCE, self::LIST_MAINTENANCE, self::EDIT_MAINTENANCE, self::DELETE_MAINTENANCE, self::UPDATE_MAINTENANCE, self::ASSIGN_MAINTENANCE,
         self::ADD_CASHBOOK, self::LIST_CASHBOOK, self::DELETE_CASHBOOK,
         self::ADD_TRANSACTION, self::LIST_TRANSACTION, self::EDIT_TRANSACTION, self::DELETE_TRANSACTION,
-        self::LIST_LOGISTIC, self::LIST_IMPORTATION, self::LIST_REPORT, self::LIST_SETTING, self::ADMIN_SECURITY
+        self::LIST_LOGISTIC, self::ADD_LOGISTIC, self::EDIT_LOGISTIC, self::DELETE_LOGISTIC, self::PREVIEW_LOGISTIC, self::DOWNLOAD_LOGISTIC,
+        self::LIST_IMPORTATION, self::LIST_REPORT, self::LIST_SETTING, self::ADMIN_SECURITY,
+        self::LIST_DEPARTMENT, self::ADD_DEPARTMENT, self::EDIT_DEPARTMENT, self::DELETE_DEPARTMENT,
+        self::LIST_COMPANY, self::ADD_COMPANY, self::EDIT_COMPANY, self::DELETE_COMPANY
     ];
 
     const ADMIN_PERMISSIONS = [
         self::ADD_USER, self::LIST_USER, self::EDIT_USER, self::DELETE_USER,
         self::ADD_CLIENT, self::LIST_CLIENT, self::EDIT_CLIENT, self::DELETE_CLIENT,
         self::ADD_SUPPLIER, self::LIST_SUPPLIER, self::EDIT_SUPPLIER, self::DELETE_SUPPLIER,
-        self::ADD_EMPLOYEE, self::LIST_EMPLOYEE, self::EDIT_EMPLOYEE, self::DELETE_EMPLOYEE,
+        self::ADD_EMPLOYEE, self::LIST_EMPLOYEE, self::EDIT_EMPLOYEE, self::DELETE_EMPLOYEE, self::ASSIGN_EMPLOYEE,
         self::ADD_PRODUCT, self::LIST_PRODUCT, self::EDIT_PRODUCT, self::DELETE_PRODUCT,
-        self::ADD_CERTIFY_INVOICE, self::LIST_CERTIFY_INVOICE, self::EDIT_CERTIFY_INVOICE, self::DELETE_CERTIFY_INVOICE,
-        self::ADD_SALE, self::LIST_SALE, self::EDIT_SALE, self::DELETE_SALE,
+        self::ADD_CERTIFY_INVOICE, self::LIST_CERTIFY_INVOICE, self::EDIT_CERTIFY_INVOICE, self::DELETE_CERTIFY_INVOICE, self::PREVIEW_CERTIFY_INVOICE, self::DOWNLOAD_CERTIFY_INVOICE,
+        self::ADD_SALE, self::LIST_SALE, self::EDIT_SALE, self::DELETE_SALE, self::PREVIEW_SALE, self::DOWNLOAD_SALE,
         self::ADD_RETURN, self::LIST_RETURN, self::EDIT_RETURN, self::DELETE_RETURN,
         self::ADD_PAYMENT, self::LIST_PAYMENT, self::EDIT_PAYMENT, self::DELETE_PAYMENT,
         self::ADD_BENEFIT, self::LIST_BENEFIT, self::EDIT_BENEFIT, self::DELETE_BENEFIT,
-        self::ADD_VACATION, self::LIST_VACATION, self::EDIT_VACATION, self::DELETE_VACATION,
-        self::ADD_ATTENDANCE, self::LIST_ATTENDANCE, self::EDIT_ATTENDANCE, self::DELETE_ATTENDANCE,
+        self::ADD_VACATION, self::LIST_VACATION, self::EDIT_VACATION, self::DELETE_VACATION, self::VIEW_VACATION,
+        self::ADD_ATTENDANCE, self::LIST_ATTENDANCE, self::EDIT_ATTENDANCE, self::DELETE_ATTENDANCE, self::VIEW_ATTENDANCE,
         self::ADD_ROLE, self::LIST_ROLE, self::EDIT_ROLE, self::DELETE_ROLE,
         self::ADD_PERMISSION, self::LIST_PERMISSION, self::EDIT_PERMISSION, self::DELETE_PERMISSION,
         self::ADD_ASSETS, self::LIST_ASSETS, self::EDIT_ASSETS, self::DELETE_ASSETS,
@@ -180,6 +208,20 @@ class Permission extends Model
         self::ADMIN_DASHBOARD,
         self::ADD_CASHBOOK, self::LIST_CASHBOOK, self::DELETE_CASHBOOK,
         self::ADD_TRANSACTION, self::LIST_TRANSACTION, self::EDIT_TRANSACTION, self::DELETE_TRANSACTION,
-        self::LIST_LOGISTIC, self::LIST_IMPORTATION, self::LIST_REPORT, self::LIST_SETTING, self::ADMIN_SECURITY
+        self::LIST_LOGISTIC, self::ADD_LOGISTIC, self::EDIT_LOGISTIC, self::DELETE_LOGISTIC, self::PREVIEW_LOGISTIC, self::DOWNLOAD_LOGISTIC,
+        self::LIST_IMPORTATION, self::LIST_REPORT, self::LIST_SETTING, self::ADMIN_SECURITY,
+        self::LIST_DEPARTMENT, self::ADD_DEPARTMENT, self::EDIT_DEPARTMENT, self::DELETE_DEPARTMENT,
+        self::LIST_COMPANY, self::ADD_COMPANY, self::EDIT_COMPANY, self::DELETE_COMPANY
+    ];
+
+    const SALES_PERMISSIONS = [
+        self::LIST_CLIENT, self::ADD_CLIENT, self::EDIT_CLIENT,
+        self::LIST_PRODUCT,
+        self::LIST_SALE, self::ADD_SALE, self::EDIT_SALE, self::PREVIEW_SALE, self::DOWNLOAD_SALE,
+        self::LIST_DEPARTMENT,
+        self::LIST_SUPPLIER,
+        self::LIST_CERTIFY_INVOICE,
+        self::LIST_ATTENDANCE, self::VIEW_ATTENDANCE,
+        self::LIST_REPORT,
     ];
 }

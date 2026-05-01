@@ -46,8 +46,14 @@ class Client extends Model
         'NART',
         'email',
         'city_id',
-        'department_id'
+        'department_id',
+        'user_id'
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function city(){
         return $this->belongsTo(City::class);

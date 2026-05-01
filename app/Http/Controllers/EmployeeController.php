@@ -17,11 +17,31 @@ class EmployeeController extends Controller
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
 
-        $employees = Employee::when($searchValue, function ($queryBuilder) use ($searchValue) {
-            // Search for users with matching name or email
-            $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
-                ->orWhere('surname', 'LIKE', '%' . $searchValue . '%');
-        })->paginate($perPage, ['*'], 'page', $currentPage);
+        $query = Employee::query();
+        
+        if ($searchValue) {
+            $query->where(function($q) use ($searchValue) {
+                $q->where('name', 'LIKE', '%' . $searchValue . '%')
+                  ->orWhere('surname', 'LIKE', '%' . $searchValue . '%');
+            });
+        }
+
+        // Hierarchical Data Isolation
+        $user = auth()->user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $query->whereHas('user', function($q) use ($deptIds) {
+                    $q->whereHas('departments', function($sq) use ($deptIds) {
+                        $sq->whereIn('departments.id', $deptIds);
+                    });
+                });
+            } else {
+                $query->where('user_id', $user->id);
+            }
+        }
+
+        $employees = $query->paginate($perPage, ['*'], 'page', $currentPage);
         $totalEmployees = $employees->total(); // Total number of users matching the query
         $totalPage = ceil($totalEmployees / $perPage); // Calculate total pages
         $cities = City::all();
@@ -36,11 +56,10 @@ class EmployeeController extends Controller
     }
 
     public function store(Request $request) {
-
         $employee_data = $request->input('employee');
+        $employee_data['user_id'] = auth()->id();
         $employee = Employee::create($employee_data);
 
-        // Optionally, you can return a response, redirect the user, or perform any other actions here
         return response()->json(['message' => 'Employee created successfully', 'employee' => $employee]);
     }
 

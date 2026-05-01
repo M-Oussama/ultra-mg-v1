@@ -36,6 +36,18 @@ class POSController extends Controller
 
         $sales = Sale::query();
 
+        // Hierarchical Data Isolation
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                // Managers see all sales in their assigned departments
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $sales->whereIn('department_id', $deptIds);
+            } else {
+                // Others (Salespeople) see only their own sales
+                $sales->where('user_id', $user->id);
+            }
+        }
 
         if($client_id !='') {
             $sales->where('client_id', $client_id);
@@ -65,14 +77,37 @@ class POSController extends Controller
         $totalSales = $paginatedResult->total(); // Total number of invoices matching the query
         $totalPage = ceil($totalSales / $perPage); // Calculate total pages
 
-        $clients = Client::all();
+        $clientsQuery = Client::query();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $clientsQuery->whereIn('department_id', $deptIds);
+            } else {
+                $clientsQuery->where('user_id', $user->id);
+            }
+        }
+        $clients = $clientsQuery->get();
 
         return response()->json(["sales" => $items, "totalPage" => $totalPage, "totalSales"=>$totalSales, 'clients' => $clients]);
     }
 
     public function getData() {
-        $clients = Client::all();
-        $drivers = TruckDriver::all();
+        $clientsQuery = Client::query();
+        $driversQuery = TruckDriver::query();
+
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $clientsQuery->whereIn('department_id', $deptIds);
+                $driversQuery->whereIn('department_id', $deptIds);
+            } else {
+                $clientsQuery->where('user_id', $user->id);
+            }
+        }
+
+        $clients = $clientsQuery->get();
+        $drivers = $driversQuery->get();
         $products = Product::getAllProductsFormatted();
         $sale_statues = SaleStatus::all();
         $last_id = Sale::latest()->first();
@@ -168,7 +203,8 @@ class POSController extends Controller
                     'balance' => $balance,
                     'regulation' => $data['paymentAmount'],
                     'payment' => 1,
-                    'department_id' => $department_id
+                    'department_id' => $department_id,
+                    'user_id' => \Illuminate\Support\Facades\Auth::id(),
                 ]);
             } else {
                 $sale = Sale::create([
@@ -177,7 +213,8 @@ class POSController extends Controller
                     'total_amount' => $data['total_amount'],
                     'sale_statuses_id' => $sale_status,
                     'balance' => $balance,
-                    'department_id' => $department_id
+                    'department_id' => $department_id,
+                    'user_id' => \Illuminate\Support\Facades\Auth::id(),
                 ]);
             }
 

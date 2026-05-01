@@ -6,6 +6,7 @@ use App\Models\ImportationPayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use OpenApi\Attributes as OA;
+use Illuminate\Support\Facades\Auth;
 
 class ImportationPaymentController extends Controller
 {
@@ -27,6 +28,23 @@ class ImportationPaymentController extends Controller
         
         if ($invoice_id) {
             $query->where('importation_invoice_id', $invoice_id);
+        }
+
+        // Hierarchical Data Isolation
+        $user = Auth::user();
+        if ($user && !$user->isGlobalAdmin()) {
+            $query->whereHas('invoice', function($q) use ($user) {
+                if ($user->isDepartmentManager()) {
+                    $deptIds = $user->departments->pluck('id')->toArray();
+                    $q->whereHas('user', function($uq) use ($deptIds) {
+                        $uq->whereHas('departments', function($sq) use ($deptIds) {
+                            $sq->whereIn('departments.id', $deptIds);
+                        });
+                    });
+                } else {
+                    $q->where('user_id', $user->id);
+                }
+            });
         }
         
         $payments = $query->get();

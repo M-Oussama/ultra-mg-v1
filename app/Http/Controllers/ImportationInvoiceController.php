@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use OpenApi\Attributes as OA;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class ImportationInvoiceController extends Controller
 {
@@ -24,7 +25,28 @@ class ImportationInvoiceController extends Controller
     )]
     public function list()
     {
-        $invoices = ImportationInvoice::with('supplier')->get();
+        $query = ImportationInvoice::with('supplier');
+
+        // Hierarchical Data Isolation
+        $user = Auth::user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                // Managers see invoices from all users in their assigned departments
+                // Note: This assumes we link invoices to departments or via users.
+                // Since ImportationInvoice doesn't have department_id yet, we filter by the user's department.
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $query->whereHas('user', function($q) use ($deptIds) {
+                    $q->whereHas('departments', function($sq) use ($deptIds) {
+                        $sq->whereIn('departments.id', $deptIds);
+                    });
+                });
+            } else {
+                // Salespeople see only their own invoices
+                $query->where('user_id', $user->id);
+            }
+        }
+
+        $invoices = $query->get();
         return response()->json($invoices);
     }
 
@@ -88,6 +110,8 @@ class ImportationInvoiceController extends Controller
             'start_date', 'arrive_date', 'amount', 'container_status', 'notes',
             'vessel_name', 'vessel_number', 'container_number'
         ]);
+
+        $data['user_id'] = Auth::id();
 
         $invoice = ImportationInvoice::create($data);
 

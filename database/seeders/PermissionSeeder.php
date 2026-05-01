@@ -18,10 +18,8 @@ class PermissionSeeder extends Seeder
      */
     public function run()
     {
-        $role = Role::firstOrCreate([
-            'role' => 'admin',
-        ]);
-
+        // 1. Setup Admin Role
+        $adminRole = Role::firstOrCreate(['role' => 'admin']);
         foreach (Permission::ADMIN_PERMISSIONS as $permission) {
             $perm = Permission::firstOrCreate([
                 'action' => $permission['ACTION'],
@@ -29,17 +27,33 @@ class PermissionSeeder extends Seeder
             ]);
 
             RoleHasPermissions::firstOrCreate([
-                'role_id' => $role->id,
+                'role_id' => $adminRole->id,
                 'permission_id' => $perm->id
             ]);
         }
 
-        User::firstOrCreate(
+        // 2. Setup Sales Role (Crucial for unblocking Sales users)
+        $salesRole = Role::firstOrCreate(['role' => 'Sales']);
+        foreach (Permission::SALES_PERMISSIONS as $permission) {
+            $perm = Permission::firstOrCreate([
+                'action' => $permission['ACTION'],
+                'subject' => $permission['SUBJECT']
+            ]);
+
+            RoleHasPermissions::firstOrCreate([
+                'role_id' => $salesRole->id,
+                'permission_id' => $perm->id
+            ]);
+        }
+
+        // 3. Sync Root Admin User
+        User::updateOrCreate(
             ['email' => 'admin@gmail.com'],
             [
                 'name' => 'ADMIN',
-                'password' => bcrypt('ultraOussama141998'),
-                'role_id' => $role->id
+                'password' => bcrypt('ultra1900'),
+                'role_id' => $adminRole->id,
+                'email_verified_at' => now(),
             ]
         );
     }

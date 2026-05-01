@@ -24,6 +24,7 @@ class ImportationInvoice extends Model implements HasMedia
         'vessel_name',
         'vessel_number',
         'container_number',
+        'user_id',
     ];
 
     protected $appends = ['invoice_pdf'];
@@ -37,6 +38,11 @@ class ImportationInvoice extends Model implements HasMedia
     public function supplier()
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function payments()

@@ -88,7 +88,7 @@ class UserController extends Controller
             'name' => 'string|max:255',
             'email' => 'email|unique:users,email',
             'password' => 'string',
-            'role' => 'integer'
+            'role_id' => 'integer'
         ]);
 
         // Create a new user record in the database using User::create()
@@ -96,7 +96,7 @@ class UserController extends Controller
             'name' => $validatedData['name'],
             'email' => $validatedData['email'],
             'password' => bcrypt($validatedData['password']),
-            'role_id' => $validatedData['role']
+            'role_id' => $validatedData['role_id']
         ]);
 
         if ($request->has('department_ids')) {

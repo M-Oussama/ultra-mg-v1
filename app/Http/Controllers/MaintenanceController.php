@@ -15,14 +15,33 @@ class MaintenanceController extends Controller
 {
     public function list(Request $request){
 
-        $user = $this->getConnectedUser($request);
-        $users = [];
-        if($user->role_id == Role::ADMIN) {
-            $maintenances = Maintenance::all();
-            $users = User::where('role_id', '!=', 1)->get();
-        }else{
-            $maintenances = Maintenance::where('technician_id', $user->id)->orWhere('technician_assigned_id', $user->id)->get();
+        $user = auth()->user();
+        $maintenancesQuery = Maintenance::query();
+        $usersQuery = User::query();
+
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                // Filter maintenances by technicians in the same departments
+                $maintenancesQuery->whereHas('technician', function($q) use ($deptIds) {
+                    $q->whereHas('departments', function($sq) use ($deptIds) {
+                        $sq->whereIn('departments.id', $deptIds);
+                    });
+                })->orWhere('technician_id', $user->id)
+                  ->orWhere('technician_assigned_id', $user->id);
+                
+                $usersQuery->whereHas('departments', function($q) use ($deptIds) {
+                    $q->whereIn('departments.id', $deptIds);
+                });
+            } else {
+                $maintenancesQuery->where('technician_id', $user->id)
+                                  ->orWhere('technician_assigned_id', $user->id);
+                $usersQuery->where('id', $user->id);
+            }
         }
+
+        $maintenances = $maintenancesQuery->get();
+        $users = $usersQuery->where('id', '!=', 1)->get();
         $assets = Asset::all();
         return response()->json(['maintenances' => $maintenances, 'assets' => $assets, 'users'=>$users]);
     }
@@ -30,7 +49,7 @@ class MaintenanceController extends Controller
     public function store(Request $request) {
 
 
-        $user = $this->getConnectedUser($request);
+        $user = auth()->user();
 
         // Validate the incoming request data
         $validatedData = $request->validate([
@@ -44,7 +63,7 @@ class MaintenanceController extends Controller
             'status' => 'required|string',
         ]);
 
-        if($user->role_id == Role::ADMIN){
+        if($user && $user->isGlobalAdmin()){
             // Create a new  record
             $maintenance = Maintenance::create([
                 'name' => $validatedData['name'],
@@ -91,10 +110,10 @@ class MaintenanceController extends Controller
             'notes' => 'string|nullable',
             'status' => 'required|string',
         ]);
-        $user = $this->getConnectedUser($request);
+        $user = auth()->user();
         $maintenance = Maintenance::find($id);
 
-        if($user->role_id == Role::ADMIN){
+        if($user && $user->isGlobalAdmin()){
             $maintenance->update([
                 'name' => $validatedData['name'],
                 'component_id' => $validatedData['component_id'],

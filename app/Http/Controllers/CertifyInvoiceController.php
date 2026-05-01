@@ -37,9 +37,24 @@ class CertifyInvoiceController extends Controller
         $searchValue = $request->input('searchValue', ''); // search value
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
+        $invoices = CertifyInvoices::orderBy('date', 'desc');
 
+        // Hierarchical Data Isolation
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                // Managers see all invoices in their assigned departments (via client)
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $invoices->whereHas('client', function($q) use ($deptIds) {
+                    $q->whereIn('department_id', $deptIds);
+                });
+            } else {
+                // Others (Salespeople) see only their own invoices
+                $invoices->where('user_id', $user->id);
+            }
+        }
 
-        $invoices = CertifyInvoices::orderBy('date', 'desc')->paginate($perPage, ['*'], 'page', $currentPage);
+        $invoices = $invoices->paginate($perPage, ['*'], 'page', $currentPage);
         $totalInvoices = $invoices->total(); // Total number of invoices matching the query
         $totalPage = ceil($totalInvoices / $perPage); // Calculate total pages
 
@@ -128,6 +143,7 @@ class CertifyInvoiceController extends Controller
             'timbre_amount' => $invoiceData['timbre_amount'] ?? null,
             'cheque_number' => $invoiceData['cheque_number'] ?? null,
             'cheque_id' => $invoiceData['cheque_id'] ?? null,
+            'user_id' => \Illuminate\Support\Facades\Auth::id(),
         ]);
 
         $products = $invoiceData['certify_invoice_products'];

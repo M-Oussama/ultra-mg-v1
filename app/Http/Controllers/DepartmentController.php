@@ -18,22 +18,23 @@ class DepartmentController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $user = \Illuminate\Support\Facades\Auth::user();
-            if (!$user) {
-                return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
-            }
-
-            if ($user->role && in_array($user->role->role, ['admin', 'Super-Admin', 'Super Admin'])) {
+            $user = auth()->user();
+            
+            if ($user->isGlobalAdmin()) {
                 $departments = Department::all();
             } else {
                 $departments = $user->departments;
             }
+
             return response()->json([
                 'success' => true,
                 'departments' => $departments
             ]);
         } catch (\Exception $e) {
-            throw new BadRequestHttpException($e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 
@@ -43,12 +44,9 @@ class DepartmentController extends Controller
             $perPage = $request->input('perPage', 10);
             $currentPage = $request->input('currentPage', 1);
 
-            $user = \Illuminate\Support\Facades\Auth::user();
-            if (!$user) {
-                return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
-            }
+            $user = auth()->user();
 
-            if ($user->role && in_array($user->role->role, ['admin', 'Super-Admin', 'Super Admin'])) {
+            if ($user->isGlobalAdmin()) {
                 $departments = Department::paginate($perPage, ['*'], 'page', $currentPage);
             } else {
                 $departments = $user->departments()->paginate($perPage, ['*'], 'page', $currentPage);
@@ -61,7 +59,10 @@ class DepartmentController extends Controller
                 'totalPage' => $departments->lastPage(),
             ]);
         } catch (\Exception $e) {
-            throw new BadRequestHttpException($e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 

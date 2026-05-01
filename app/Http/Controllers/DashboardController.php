@@ -17,7 +17,21 @@ class DashboardController extends Controller
         $perPage = $request->input('perPage', 5); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
+        $user = auth()->user();
         $vacations = YearlyVacation::with('employee')->where('end_date', '>=', date("Y/m/d"));
+
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $vacations->whereHas('employee', function($q) use ($deptIds) {
+                    $q->whereIn('department_id', $deptIds);
+                });
+            } else {
+                $vacations->whereHas('employee', function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                });
+            }
+        }
 
         $vacationsAll = $vacations->get();
         $vacationsPage = $vacations->paginate($perPage, ['*'], 'page', $currentPage);
@@ -37,9 +51,23 @@ class DashboardController extends Controller
         $tenMonthsAgo = Carbon::today()->subMonths(10);
         $elevenMonthsAgo = Carbon::today()->subMonths(12);
 
+        $user = auth()->user();
         $vacations = YearlyVacation::with('employee')->where('end_date', '<', Carbon::today())
             ->where('end_date', '<=', $tenMonthsAgo)
             ->where('end_date', '>=', $elevenMonthsAgo);
+
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $vacations->whereHas('employee', function($q) use ($deptIds) {
+                    $q->whereIn('department_id', $deptIds);
+                });
+            } else {
+                $vacations->whereHas('employee', function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                });
+            }
+        }
 
         $vacationsAll = $vacations->get();
         $vacationsPage = $vacations->paginate($perPage, ['*'], 'page', $currentPage);
@@ -56,7 +84,23 @@ class DashboardController extends Controller
         $perPage = $request->input('perPage', 5); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
+        $user = auth()->user();
         $maintenances = Maintenance::orderBy('next_maintenance_date', 'asc')->where('next_maintenance_date', '>=' , Carbon::today());
+
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $maintenances->whereHas('technician', function($q) use ($deptIds) {
+                    $q->whereHas('departments', function($sq) use ($deptIds) {
+                        $sq->whereIn('departments.id', $deptIds);
+                    });
+                })->orWhere('technician_id', $user->id)
+                  ->orWhere('technician_assigned_id', $user->id);
+            } else {
+                $maintenances->where('technician_id', $user->id)
+                             ->orWhere('technician_assigned_id', $user->id);
+            }
+        }
 
         $maintenancesAll = $maintenances->get();
         $maintenancesPage = $maintenances->paginate($perPage, ['*'], 'page', $currentPage);
@@ -109,7 +153,21 @@ class DashboardController extends Controller
         $perPage = $request->input('perPage', 5); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
+        $user = auth()->user();
         $vacation = YearlyVacation::with('employee')->where('end_date', '>=', date("Y/m/d"));
+
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $vacation->whereHas('employee', function($q) use ($deptIds) {
+                    $q->whereIn('department_id', $deptIds);
+                });
+            } else {
+                $vacation->whereHas('employee', function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                });
+            }
+        }
 
         $vacations = $vacation->get();
 

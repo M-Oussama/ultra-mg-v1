@@ -78,4 +78,49 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Department::class);
     }
+
+    /**
+     * Check if user is an administrator or director (Global Access).
+     */
+    public function isGlobalAdmin(): bool
+    {
+        // Emergency Fallback: Ensure the primary admin always has access
+        if ($this->email === 'admin@gmail.com') return true;
+
+        if (!$this->role) return false;
+        $role = strtolower($this->role->role);
+        return in_array($role, ['admin', 'super-admin', 'super admin', 'director']);
+    }
+
+    /**
+     * Check if user is a department manager (Departmental Access).
+     */
+    public function isDepartmentManager(): bool
+    {
+        if (!$this->role) return false;
+        return str_contains(strtolower($this->role->role), 'manager');
+    }
+
+    /**
+     * Check if user is a salesperson (Individual Access).
+     */
+    public function isSalesperson(): bool
+    {
+        if (!$this->role) return false;
+        return str_contains(strtolower($this->role->role), 'sale');
+    }
+
+    /**
+     * Check if user has a specific permission.
+     */
+    public function hasPermission(string $action, string $subject): bool
+    {
+        if ($this->isGlobalAdmin()) return true;
+        if (!$this->role) return false;
+
+        return $this->role->permissions()
+            ->where('action', $action)
+            ->where('subject', $subject)
+            ->exists();
+    }
 }

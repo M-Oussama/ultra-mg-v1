@@ -11,17 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('zk_employee_attendances', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('employee_id')->comment('PIN from ZK device');
-            $table->dateTime('punched_at');
-            $table->integer('type')->nullable()->comment('0: check-in, 1: check-out, etc');
-            $table->text('raw_line')->nullable();
-            $table->timestamps();
+        if (!Schema::hasTable('zk_employee_attendances')) {
+            Schema::create('zk_employee_attendances', function (Blueprint $table) {
+                $table->id();
+                $table->string('employee_id', 50)->comment('PIN from ZK device');
+                $table->unsignedBigInteger('user_id')->nullable()->comment('Linked internal user id if found');
+                $table->dateTime('punched_at')->nullable();
+                $table->integer('type')->nullable()->comment('0: check-in, 1: check-out, etc');
+                $table->text('raw_line')->nullable();
+                $table->timestamps();
 
-            $table->index('employee_id');
-            $table->index('punched_at');
-        });
+                $table->index('employee_id');
+                $table->index('punched_at');
+            });
+        }
     }
 
     /**

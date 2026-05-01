@@ -21,13 +21,19 @@ class Sale extends Model
         'driver_id',
         'picked_up',
         'department_id',
+        'user_id',
         'paid_amount',
     ];
     protected $casts = [
         'payment' => 'boolean',
         'paid_amount' => 'double',
     ];
-    protected $with = ['client','saleStatus','saleItems', 'driver', 'department'];
+    protected $with = ['client','saleStatus','saleItems', 'driver', 'department', 'user'];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function client()
     {

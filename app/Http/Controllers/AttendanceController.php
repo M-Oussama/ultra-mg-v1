@@ -8,7 +8,6 @@ use App\Models\Employee;
 use App\Models\EmployeeAttendance;
 use App\Models\EmployeeCareer;
 use Carbon\Carbon;
-use Faker\Provider\DateTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -30,20 +29,69 @@ class AttendanceController extends Controller
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
+        $query = Attendance::query();
+        
+        if ($searchValue) {
+            $query->where(function($q) use ($searchValue) {
+                $q->where('month', 'LIKE', '%' . $searchValue . '%')
+                  ->orWhere('year', 'LIKE', '%' . $searchValue . '%');
+            });
+        }
 
-        $attendances = Attendance::when($searchValue, function ($queryBuilder) use ($searchValue) {
-            // Search for users with matching name or email
-            $queryBuilder->where('month', 'LIKE', '%' . $searchValue . '%')
-                ->orWhere('year', 'LIKE', '%' . $searchValue . '%');
-        })->paginate($perPage, ['*'], 'page', $currentPage);
+        // Hierarchical Data Isolation
+        $user = auth()->user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                // Attendance records are global, but we filter based on employees assigned to these departments
+                $query->whereHas('attendance_employee', function($q) use ($deptIds) {
+                    $q->whereHas('employee', function($eq) use ($deptIds) {
+                        $eq->whereIn('department_id', $deptIds);
+                    });
+                });
+            } else {
+                // Salespeople see only attendances where they are linked to an employee
+                $query->whereHas('attendance_employee', function($q) use ($user) {
+                    $q->whereHas('employee', function($eq) use ($user) {
+                        $eq->where('user_id', $user->id);
+                    });
+                });
+            }
+        }
 
-        $totalAttendances = $attendances->total(); // Total number of users matching the query
+        $attendances = $query->paginate($perPage, ['*'], 'page', $currentPage);
+
+        $totalAttendances = $attendances->total(); // Total number matching the query
         $totalPage = ceil($totalAttendances / $perPage); // Calculate total pages
 
         $months = $this->months(1);
         $years = $this->years(2000);
-        $employee = Employee::all();
-        return response()->json(["attendances" => $attendances, "employee"=>$employee,"months"=>$months, "years"=>$years, "totalPage" => $totalPage, "totalAttendances"=>$totalAttendances]);
+        
+        // Filter Employees returned with attendance metadata
+        $employeeQuery = Employee::query();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $employeeQuery->whereHas('user', function($q) use ($deptIds) {
+                    $q->whereHas('departments', function($sq) use ($deptIds) {
+                        $sq->whereIn('departments.id', $deptIds);
+                    });
+                });
+            } else {
+                // Salespeople see only their own employees (if any) or none
+                $employeeQuery->where('user_id', $user->id);
+            }
+        }
+        $employee = $employeeQuery->get();
+
+        return response()->json([
+            "attendances" => $attendances, 
+            "employee" => $employee,
+            "months" => $months, 
+            "years" => $years, 
+            "totalPage" => $totalPage, 
+            "totalAttendances" => $totalAttendances
+        ]);
     }
 
     public function store(Request $request){
@@ -174,10 +222,21 @@ class AttendanceController extends Controller
                         ->orWhere('end_date', '>=', $firstDayOfMonth);
                 });
         })->with('employeeCareer')->get();
-        $employeesActive = Employee::whereHas('employeeCareer', function ($query) use ($lastDayOfMonth,$firstDayOfMonth) {
+        $user = auth()->user();
+        $employeesQuery = Employee::whereHas('employeeCareer', function ($query) use ($lastDayOfMonth, $firstDayOfMonth) {
             $query->where('end_date', '>=', $firstDayOfMonth)->orWhere('end_date', '=', null);
+        });
 
-        })->with('employeeCareer')->get();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $employeesQuery->whereIn('department_id', $deptIds);
+            } else {
+                $employeesQuery->where('user_id', $user->id);
+            }
+        }
+
+        $employeesActive = $employeesQuery->with('employeeCareer')->get();
 
         $employeesNonActive = Employee::where('active',false)->get();
 

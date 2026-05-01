@@ -43,7 +43,22 @@ class ClientController extends Controller
         $department_id = $request->input('department_id', '');
 
 
-        $clients = Client::with(['balance', 'sales','payments'])
+        $clients = Client::query();
+
+        // Hierarchical Data Isolation
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                // Managers see all clients in their assigned departments
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $clients->whereIn('department_id', $deptIds);
+            } else {
+                // Others (Salespeople) see only their own clients
+                $clients->where('user_id', $user->id);
+            }
+        }
+
+        $clients->with(['balance', 'sales','payments'])
             ->withSum(['sales as total_spent' => function ($query) use ($department_id) {
                 if ($department_id) {
                     $query->where('department_id', $department_id);
@@ -121,7 +136,7 @@ class ClientController extends Controller
         ]);
 
         $validatedData['department_id'] = $request->input('department_id', 1);
-
+        $validatedData['user_id'] = \Illuminate\Support\Facades\Auth::id();
 
         // Create a new user record in the database using User::create()
         $client = Client::create($validatedData);
@@ -180,7 +195,10 @@ class ClientController extends Controller
             'department_id' => 'nullable|integer',
         ]);
 
-        $validatedData['department_id'] = $request->input('department_id', 1);
+        // Do not default to 1; keep existing or use validated data
+        if ($request->has('department_id')) {
+            $validatedData['department_id'] = $request->input('department_id');
+        }
 
         $client = Client::find($id);
 
@@ -219,15 +237,25 @@ class ClientController extends Controller
     }
 
     public function getClientsPerCity($cityId) {
+        $query = Client::query();
 
-        if($cityId != "null") {
-            $clients = Client::where('city_id',$cityId)->get();
-            return response()->json(['clients'=>$clients]);
+        // Hierarchical Data Isolation
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $query->whereIn('department_id', $deptIds);
+            } else {
+                $query->where('user_id', $user->id);
+            }
         }
 
-        $clients = Client::all();
-        return response()->json(['clients'=>$clients]);
+        if($cityId != "null") {
+            $query->where('city_id',$cityId);
+        }
 
+        $clients = $query->get();
+        return response()->json(['clients'=>$clients]);
     }
 
     public function exportClientLog($clientId){

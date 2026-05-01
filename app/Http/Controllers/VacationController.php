@@ -10,12 +10,26 @@ class VacationController extends Controller
 {
     public function getVacations(Request $request){
 
-        dd($request);
+
         $searchValue = $request->input('searchValue', ''); // search value
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
         $employee_id = $request->input('id', null); // Default current page value is 1 if not provided
         $vacations = YearlyVacation::orderBy('start_date', 'desc');
+        $user = auth()->user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $vacations->whereHas('employee', function($q) use ($deptIds) {
+                    $q->whereIn('department_id', $deptIds);
+                });
+            } else {
+                $vacations->whereHas('employee', function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                });
+            }
+        }
+
         if($employee_id){
             $vacations->where('employee_id', $employee_id);
         }
