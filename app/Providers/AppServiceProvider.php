@@ -6,6 +6,7 @@ use App\Models\PartialPayment;
 use App\Models\Payment;
 use App\Observers\PartialPaymentObserver;
 use App\Observers\PaymentObserver;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -27,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        Schema::defaultStringLength(191);
         Payment::observe(PaymentObserver::class);
         PartialPayment::observe(PartialPaymentObserver::class);
     }
