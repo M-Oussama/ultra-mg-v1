@@ -43,13 +43,19 @@ class ClientController extends Controller
         $department_id = $request->input('department_id', '');
 
 
-        $clients = Client::with(['balance', 'sales','payments'])->when($searchValue, function ($queryBuilder) use ($searchValue) {
-            // Search for users with matching name or email
-            $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
-                ->orWhere('surname', 'LIKE', '%' . $searchValue . '%');
-        })->when($department_id, function ($queryBuilder) use ($department_id) {
-            $queryBuilder->where('department_id', $department_id);
-        });
+        $clients = Client::with(['balance', 'sales','payments'])
+            ->withSum(['sales as total_spent' => function ($query) use ($department_id) {
+                if ($department_id) {
+                    $query->where('department_id', $department_id);
+                }
+            }], 'total_amount')
+            ->when($searchValue, function ($queryBuilder) use ($searchValue) {
+                // Search for users with matching name or email
+                $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
+                    ->orWhere('surname', 'LIKE', '%' . $searchValue . '%');
+            })->when($department_id, function ($queryBuilder) use ($department_id) {
+                $queryBuilder->where('department_id', $department_id);
+            });
         $clientsAll = $clients->get();
         $clientsPage = $clients->paginate($perPage, ['*'], 'page', $currentPage);
 

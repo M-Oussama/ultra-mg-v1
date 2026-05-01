@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\SalesSupplier;
 use App\Models\Supply;
 use App\Models\SupplyItem;
+use App\Models\ProductStock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -99,6 +100,13 @@ class SupplyController extends Controller
                         'total_price' => $item['quantity'] * $item['unit_price'],
                         'supply_date' => $data['supply_date'],
                     ]);
+
+                    // Update Product Stock
+                    $productStock = ProductStock::firstOrCreate(
+                        ['product_id' => $item['product']['id']],
+                        ['quantity' => 0]
+                    );
+                    $productStock->increment('quantity', $item['quantity']);
                 }
             }
 
@@ -129,7 +137,14 @@ class SupplyController extends Controller
                 'notes' => $data['notes'] ?? null,
             ]);
 
-            // Clear old items and recreate
+            // Reverse old stock and clear items
+            $oldItems = SupplyItem::where('supply_id', $supply->id)->get();
+            foreach ($oldItems as $oldItem) {
+                $stock = ProductStock::where('product_id', $oldItem->product_id)->first();
+                if ($stock) {
+                    $stock->decrement('quantity', $oldItem->quantity);
+                }
+            }
             SupplyItem::where('supply_id', $supply->id)->delete();
 
             if (isset($data['supply_items'])) {
@@ -143,6 +158,13 @@ class SupplyController extends Controller
                         'total_price' => $item['quantity'] * $item['unit_price'],
                         'supply_date' => $data['supply_date'],
                     ]);
+
+                    // Update Product Stock
+                    $productStock = ProductStock::firstOrCreate(
+                        ['product_id' => $item['product']['id']],
+                        ['quantity' => 0]
+                    );
+                    $productStock->increment('quantity', $item['quantity']);
                 }
             }
 
@@ -169,10 +191,24 @@ class SupplyController extends Controller
     public function delete(Request $request): JsonResponse
     {
         $id = $request->input('id');
-        $supply = Supply::findOrFail($id);
-        
-        SupplyItem::where('supply_id', $id)->delete();
-        $supply->delete();
+        try {
+            DB::beginTransaction();
+            $supply = Supply::findOrFail($id);
+            $items = SupplyItem::where('supply_id', $id)->get();
+            foreach ($items as $item) {
+                $stock = ProductStock::where('product_id', $item->product_id)->first();
+                if ($stock) {
+                    $stock->decrement('quantity', $item->quantity);
+                }
+            }
+
+            SupplyItem::where('supply_id', $id)->delete();
+            $supply->delete();
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
+        }
 
         return response()->json(['success' => true, 'message' => 'Supply deleted successfully']);
     }

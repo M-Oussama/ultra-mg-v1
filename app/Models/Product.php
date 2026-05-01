@@ -50,6 +50,21 @@ class Product extends Model
         'department_id'
     ];
 
+    protected $casts = [
+        'stockable' => 'boolean',
+        'price' => 'double',
+        'tax_rate' => 'double',
+        'weight' => 'double',
+        'min_stock_level' => 'integer',
+    ];
+
+    protected $appends = ['stock'];
+
+    public function getStockAttribute()
+    {
+        return $this->productStock?->quantity ?? 0;
+    }
+
     protected $with = [
         'productStock', 'department'
     ];

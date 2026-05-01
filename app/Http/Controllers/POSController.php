@@ -16,6 +16,8 @@ use App\Models\TruckDriver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
+use App\Models\ProductStock;
 
 class POSController extends Controller
 {
@@ -154,58 +156,73 @@ class POSController extends Controller
             $sale_status = SaleStatus::NOT_PAID_ID;
         }
 
-        if($sale_status != SaleStatus::NOT_PAID_ID ) {
-            $sale = Sale::create([
-                'sale_date' => $data['sale_date'],
-                'client_id' => $client['id'],
-                'total_amount' => $data['total_amount'],
-                'sale_statuses_id' => $sale_status,
-                'balance' => $balance,
-                'regulation' => $data['paymentAmount'],
-                'payment' => 1,
-                'department_id' => $department_id
-            ]);
-        } else {
-            $sale = Sale::create([
-                'sale_date' => $data['sale_date'],
-                'client_id' => $client['id'],
-                'total_amount' => $data['total_amount'],
-                'sale_statuses_id' => $sale_status,
-                'balance' => $balance,
-                'department_id' => $department_id
-            ]);
+        try {
+            DB::beginTransaction();
 
-        }
-        if($data['driver_id']){
-            $sale->truck_driver_id = $data['driver_id'];
-            $sale->picked_up = 0;
-            $sale->save();
-        }
-        if(floatval($data['paymentAmount']) > 0) {
-            $payment = new Payment();
-            $payment->payment_date = $data['sale_date'];
-            $payment->amount_paid = $data['paymentAmount'];
-            $payment->sale_id = $sale->id;
-            $payment->client_id = $client['id'];
-            $payment->active = true;
-            $payment->save();
-        }
+            if($sale_status != SaleStatus::NOT_PAID_ID ) {
+                $sale = Sale::create([
+                    'sale_date' => $data['sale_date'],
+                    'client_id' => $client['id'],
+                    'total_amount' => $data['total_amount'],
+                    'sale_statuses_id' => $sale_status,
+                    'balance' => $balance,
+                    'regulation' => $data['paymentAmount'],
+                    'payment' => 1,
+                    'department_id' => $department_id
+                ]);
+            } else {
+                $sale = Sale::create([
+                    'sale_date' => $data['sale_date'],
+                    'client_id' => $client['id'],
+                    'total_amount' => $data['total_amount'],
+                    'sale_statuses_id' => $sale_status,
+                    'balance' => $balance,
+                    'department_id' => $department_id
+                ]);
+            }
 
+            if($data['driver_id']){
+                $sale->truck_driver_id = $data['driver_id'];
+                $sale->picked_up = 0;
+                $sale->save();
+            }
 
+            if(floatval($data['paymentAmount']) > 0) {
+                $payment = new Payment();
+                $payment->payment_date = $data['sale_date'];
+                $payment->amount_paid = $data['paymentAmount'];
+                $payment->sale_id = $sale->id;
+                $payment->client_id = $client['id'];
+                $payment->active = true;
+                $payment->save();
+            }
 
-        $products = $data['sale_items'];
+            $products = $data['sale_items'];
 
-        foreach ($products as $product) {
-          $object=  SaleItem::create([
-                'product_id' => $product['product']['id'],
-                'client_id' => $client['id'],
-                'quantity' => $product['quantity'],
-                'total_price' => $product['quantity'] * $product['price'],
-                'sale_id' => $sale->id,
-                'sale_date' => $data['sale_date'],
-            ]);
-            $object->price = floatval($product['price']);
-            $object->save();
+            foreach ($products as $product) {
+                $object = SaleItem::create([
+                    'product_id' => $product['product']['id'],
+                    'client_id' => $client['id'],
+                    'quantity' => $product['quantity'],
+                    'total_price' => $product['quantity'] * $product['price'],
+                    'sale_id' => $sale->id,
+                    'sale_date' => $data['sale_date'],
+                ]);
+                $object->price = floatval($product['price']);
+                $object->save();
+
+                // Decrement Stock
+                $stock = ProductStock::where('product_id', $product['product']['id'])->first();
+                if ($stock) {
+                    $stock->decrement('quantity', $product['quantity']);
+                }
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Product created successfully', "id" => $sale->id]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json(['message' => 'Error creating sale: ' . $e->getMessage()], 400);
         }
 
 //        $benefit = Benefit::where('month', date("m", strtotime($data['sale_date'])))->where('year', date("Y", strtotime($data['sale_date'])))->get();
@@ -236,77 +253,91 @@ class POSController extends Controller
         }
 
 
-        $sale = Sale::find($data['id']);
+        try {
+            DB::beginTransaction();
 
-        if($sale_status != SaleStatus::NOT_PAID_ID && $payment == 1) {
+            $sale = Sale::findOrFail($data['id']);
 
-            $sale->update([
-                'sale_date' => $data['sale_date'],
-                'client_id' => $client['id'],
-                'total_amount' => $data['total_amount'],
-                'sale_statuses_id' => $sale_status,
-                'balance' => $balance - floatval($data['regulation']),
-                'department_id' => $department_id,
-            ]);
-            $sale->payment = 1;
-            $sale->regulation = floatval($data['regulation']);
-            $sale->save();
-
-
-        } else{
-
-            $sale->update([
-                'sale_date' => $data['sale_date'],
-                'client_id' => $client['id'],
-                'total_amount' => $data['total_amount'],
-                'sale_statuses_id' => $sale_status,
-                'balance' => $balance,
-                'department_id' => $department_id,
-            ]);
-            $sale->payment = 0;
-            $sale->regulation = 0;
-            $sale->save();
-        }
-
-        if($data['truck_driver_id']){
-            $sale->truck_driver_id = $data['truck_driver_id'];
-            $sale->save();
-        }
-
-        if(floatval($data['regulation']) > 0) {
-
-            $payment = Payment::where('sale_id', $sale->id)->where('active', true)->get()->first();
-
-            if(!$payment){
-                $payment = new Payment();
+            // Reverse old stock
+            $oldItems = SaleItem::where('sale_id', $sale->id)->get();
+            foreach ($oldItems as $oldItem) {
+                $stock = ProductStock::where('product_id', $oldItem->product_id)->first();
+                if ($stock) {
+                    $stock->increment('quantity', $oldItem->quantity);
+                }
             }
-            $payment->payment_date = $data['sale_date'];
-            $payment->amount_paid = floatval($data['regulation']);
-            $payment->sale_id = $sale->id;
-            $payment->client_id = $client['id'];
-            $payment->active = true;
-            $payment->save();
-        }
+            SaleItem::where('sale_id', $sale->id)->delete();
 
-        $saleItems = SaleItem::where('sale_id',$sale->id)->get();
+            if($sale_status != SaleStatus::NOT_PAID_ID && $payment == 1) {
+                $sale->update([
+                    'sale_date' => $data['sale_date'],
+                    'client_id' => $client['id'],
+                    'total_amount' => $data['total_amount'],
+                    'sale_statuses_id' => $sale_status,
+                    'balance' => $balance - floatval($data['regulation']),
+                    'department_id' => $department_id,
+                ]);
+                $sale->payment = 1;
+                $sale->regulation = floatval($data['regulation']);
+                $sale->save();
+            } else {
+                $sale->update([
+                    'sale_date' => $data['sale_date'],
+                    'client_id' => $client['id'],
+                    'total_amount' => $data['total_amount'],
+                    'sale_statuses_id' => $sale_status,
+                    'balance' => $balance,
+                    'department_id' => $department_id,
+                ]);
+                $sale->payment = 0;
+                $sale->regulation = 0;
+                $sale->save();
+            }
 
-        foreach ($saleItems as $item) {
-            $item->delete();
-        }
+            if($data['truck_driver_id']){
+                $sale->truck_driver_id = $data['truck_driver_id'];
+                $sale->save();
+            }
 
-        $products = $data['sale_items'];
+            if(floatval($data['regulation']) > 0) {
+                $paymentObj = Payment::where('sale_id', $sale->id)->where('active', true)->first();
+                if(!$paymentObj){
+                    $paymentObj = new Payment();
+                }
+                $paymentObj->payment_date = $data['sale_date'];
+                $paymentObj->amount_paid = floatval($data['regulation']);
+                $paymentObj->sale_id = $sale->id;
+                $paymentObj->client_id = $client['id'];
+                $paymentObj->active = true;
+                $paymentObj->save();
+            }
 
-        foreach ($products as $product) {
-            $object=  SaleItem::create([
-                'product_id' => $product['product']['id'],
-                'quantity' => $product['quantity'],
-                'total_price' => $product['quantity'] * $product['price'],
-                'sale_id' => $sale->id,
-                'client_id' => $client['id'],
-                'sale_date' => $data['sale_date'],
-            ]);
-            $object->price = floatval($product['price']);
-            $object->save();
+            $products = $data['sale_items'];
+
+            foreach ($products as $product) {
+                $object = SaleItem::create([
+                    'product_id' => $product['product']['id'],
+                    'quantity' => $product['quantity'],
+                    'total_price' => $product['quantity'] * $product['price'],
+                    'sale_id' => $sale->id,
+                    'client_id' => $client['id'],
+                    'sale_date' => $data['sale_date'],
+                ]);
+                $object->price = floatval($product['price']);
+                $object->save();
+
+                // Decrement Stock
+                $stock = ProductStock::where('product_id', $product['product']['id'])->first();
+                if ($stock) {
+                    $stock->decrement('quantity', $product['quantity']);
+                }
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Product updated successfully', "id" => $sale->id]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json(['message' => 'Error updating sale: ' . $e->getMessage()], 400);
         }
 
 //        $benefit = Benefit::where('month', date("m", strtotime($data['sale_date'])))->where('year', date("Y", strtotime($data['sale_date'])))->get();
@@ -481,17 +512,30 @@ class POSController extends Controller
     }
 
     public function deleteSale(Request $request) {
-
         $id = $request->input('sale.id');
-        $sale = Sale::find($id);
+        
+        try {
+            DB::beginTransaction();
+            $sale = Sale::findOrFail($id);
+            $items = SaleItem::where('sale_id', $id)->get();
 
-        SaleItem::where('sale_id', $id)->delete();
-        Payment::where('sale_id', $id)->get()->each->delete();
+            foreach ($items as $item) {
+                $stock = ProductStock::where('product_id', $item->product_id)->first();
+                if ($stock) {
+                    $stock->increment('quantity', $item->quantity);
+                }
+            }
 
-        $sale->delete();
+            SaleItem::where('sale_id', $id)->delete();
+            Payment::where('sale_id', $id)->get()->each->delete();
+            $sale->delete();
 
-        return response()->json('Sale deleted Successfully');
-
+            DB::commit();
+            return response()->json('Sale deleted Successfully');
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json('Error deleting sale: ' . $e->getMessage(), 400);
+        }
     }
 
     public function getClientInvoices($id){

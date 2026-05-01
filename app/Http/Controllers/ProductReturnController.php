@@ -10,6 +10,8 @@ use App\Models\ProductReturn;
 use App\Models\ProductReturnList;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Models\ProductStock;
 
 class ProductReturnController extends Controller
 {
@@ -71,51 +73,72 @@ class ProductReturnController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-
         $data = $request->input('data');
         $client = $data['client'];
 
+        try {
+            DB::beginTransaction();
 
-
-        $return = ProductReturn::create([
+            $return = ProductReturn::create([
                 'date' => $data['sale_date'],
                 'client_id' => $client['id'],
                 'total_amount' => $data['total_amount'],
-                 'paid' => $data['payment']
+                'paid' => $data['payment']
             ]);
 
+            $products = $data['sale_items'];
 
-       $products = $data['sale_items'];
+            foreach ($products as $product) {
+                ProductReturnList::create([
+                    'product_id' => $product['product']['id'],
+                    'client_id' => $client['id'],
+                    'quantity' => $product['quantity'],
+                    'total_price' => $product['quantity'] * $product['price'],
+                    'return_id' => $return->id,
+                    'price' => $product['price'],
+                    'date' => $data['sale_date'],
+                ]);
 
-        foreach ($products as $product) {
-            $object=  ProductReturnList::create([
-                'product_id' => $product['product']['id'],
-                'client_id' => $client['id'],
-                'quantity' => $product['quantity'],
-                'total_price' => $product['quantity'] * $product['price'],
-                'return_id' => $return->id,
-                'price' => $product['price'],
-                'date' => $data['sale_date'],
-            ]);
+                // Increment Stock
+                $stock = ProductStock::firstOrCreate(
+                    ['product_id' => $product['product']['id']],
+                    ['quantity' => 0]
+                );
+                $stock->increment('quantity', $product['quantity']);
+            }
 
-
-
+            DB::commit();
+            return response()->json(['message' => 'Product Return added successfully', "id" => $return->id]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json(['message' => 'Error adding return: ' . $e->getMessage()], 400);
         }
-
-        return response()->json(['message' => 'Product Return added successfully', "id"=>$return->id]);
     }
 
     public function deleteReturn(Request $request) {
-
         $id = $request->input('sale.id');
-        $return = ProductReturn::find($id);
+        
+        try {
+            DB::beginTransaction();
+            $return = ProductReturn::findOrFail($id);
+            $items = ProductReturnList::where('return_id', $id)->get();
 
-        ProductReturnList::where('return_id', $id)->delete();
+            foreach ($items as $item) {
+                $stock = ProductStock::where('product_id', $item->product_id)->first();
+                if ($stock) {
+                    $stock->decrement('quantity', $item->quantity);
+                }
+            }
 
-        $return->delete();
+            ProductReturnList::where('return_id', $id)->delete();
+            $return->delete();
 
-        return response()->json('Return deleted Successfully');
-
+            DB::commit();
+            return response()->json('Return deleted Successfully');
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json('Error deleting return: ' . $e->getMessage(), 400);
+        }
     }
 
     public function update(Request $request): JsonResponse
@@ -123,38 +146,55 @@ class ProductReturnController extends Controller
         $data = $request->input('data');
         $client = $data['client'];
 
+        try {
+            DB::beginTransaction();
 
-        $return = ProductReturn::find($data['id']);
+            $return = ProductReturn::findOrFail($data['id']);
 
+            // Reverse old stock
+            $oldItems = ProductReturnList::where('return_id', $return->id)->get();
+            foreach ($oldItems as $oldItem) {
+                $stock = ProductStock::where('product_id', $oldItem->product_id)->first();
+                if ($stock) {
+                    $stock->decrement('quantity', $oldItem->quantity);
+                }
+            }
+            ProductReturnList::where('return_id', $return->id)->delete();
 
-
-        $return->update([
+            $return->update([
                 'date' => $data['sale_date'],
                 'client_id' => $client['id'],
                 'total_amount' => $data['total_amount'],
                 'paid' => $data['paid']
             ]);
-        $items = $return->ProductReturnList;
 
-        foreach ($items as $item) {
-            $item->delete();
+            $products = $data['sale_items'];
+
+            foreach ($products as $product) {
+                ProductReturnList::create([
+                    'product_id' => $product['product']['id'],
+                    'quantity' => $product['quantity'],
+                    'total_price' => $product['quantity'] * $product['price'],
+                    'return_id' => $return->id,
+                    'client_id' => $client['id'],
+                    'price' => $product['price'],
+                    'date' => $data['sale_date'],
+                ]);
+
+                // Increment Stock
+                $stock = ProductStock::firstOrCreate(
+                    ['product_id' => $product['product']['id']],
+                    ['quantity' => 0]
+                );
+                $stock->increment('quantity', $product['quantity']);
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Return Products updated successfully', "id" => $return->id]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json(['message' => 'Error updating return: ' . $e->getMessage()], 400);
         }
-        $products = $data['sale_items'];
-
-        foreach ($products as $product) {
-            ProductReturnList::create([
-                'product_id' => $product['product']['id'],
-                'quantity' => $product['quantity'],
-                'total_price' => $product['quantity'] * $product['price'],
-                'return_id' => $return->id,
-                'client_id' => $client['id'],
-                'price' => $product['price'],
-                'date' => $data['sale_date'],
-            ]);
-
-        }
-
-        return response()->json(['message' => 'Return Products updated successfully', "id"=>$return->id]);
     }
 
     public function getReturnData($returnId) {
