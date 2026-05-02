@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -19,19 +20,24 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $user = Auth::user();
-
-            // Eager load native role and array of capabilities so it serializes properly into JSON
             $user->load('role.permissions');
 
-            // Manual token creation bypass to handle the buggy production 'tokenable' column
+            // Manual token creation via DB to avoid shadowing the 'tokenable' relationship
             $plainTextToken = Str::random(40);
-            $tokenInstance = $user->tokens()->create([
-                'name' => Str::random(80),
-                'token' => hash('sha256', $plainTextToken),
-                'abilities' => ['*'],
-                'tokenable' => 'legacy_bypass', // This satisfies the NOT NULL constraint on production
+            $hashedToken = hash('sha256', $plainTextToken);
+            
+            $tokenId = DB::table('personal_access_tokens')->insertGetId([
+                'tokenable_type' => get_class($user),
+                'tokenable_id'   => $user->id,
+                'name'           => 'auth_token',
+                'token'          => $hashedToken,
+                'abilities'      => '["*"]',
+                'tokenable'      => 'legacy_bypass', // Satisfies NOT NULL without breaking Eloquent relationship
+                'created_at'     => now(),
+                'updated_at'     => now(),
             ]);
-            $token = $tokenInstance->id . '|' . $plainTextToken;
+
+            $token = $tokenId . '|' . $plainTextToken;
 
             return response()->json([
                 'accessToken' => $token,
