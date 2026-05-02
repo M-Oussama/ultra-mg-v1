@@ -17,18 +17,24 @@ return new class extends Migration
     public function up(): void
     {
         if (Schema::hasColumn('personal_access_tokens', 'tokenable')) {
+            // Rename to avoid shadowing Sanctum's 'tokenable' relationship
+            Schema::table('personal_access_tokens', function ($table) {
+                $table->renameColumn('tokenable', 'tokenable_legacy');
+            });
+            
+            // Also make it nullable just in case
             DB::statement(
-                'ALTER TABLE personal_access_tokens MODIFY COLUMN `tokenable` VARCHAR(255) NULL DEFAULT NULL'
+                'ALTER TABLE personal_access_tokens MODIFY COLUMN `tokenable_legacy` VARCHAR(255) NULL DEFAULT NULL'
             );
         }
     }
 
     public function down(): void
     {
-        if (Schema::hasColumn('personal_access_tokens', 'tokenable')) {
-            DB::statement(
-                'ALTER TABLE personal_access_tokens MODIFY COLUMN `tokenable` VARCHAR(255) NOT NULL'
-            );
+        if (Schema::hasColumn('personal_access_tokens', 'tokenable_legacy')) {
+            Schema::table('personal_access_tokens', function ($table) {
+                $table->renameColumn('tokenable_legacy', 'tokenable');
+            });
         }
     }
 };
