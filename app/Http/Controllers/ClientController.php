@@ -71,7 +71,6 @@ class ClientController extends Controller
             })->when($department_id, function ($queryBuilder) use ($department_id) {
                 $queryBuilder->where('department_id', $department_id);
             });
-        $clientsAll = $clients->get();
         $clientsPage = $clients->paginate($perPage, ['*'], 'page', $currentPage);
 
         $totalUsers = $clientsPage->total(); // Total number of users matching the query
@@ -79,11 +78,20 @@ class ClientController extends Controller
 
         $cities = City::all();
 
-        foreach ($clientsAll as $client){
+        foreach ($clientsPage as $client){
             $this->calculateClientBalance($client);
         }
 
-        return response()->json(["clients" => $clientsPage, 'clientsAll' => $clientsAll, "totalPage" => $totalPage, "totalClients"=>$totalUsers, 'cities'=>$cities]);
+        return response()->json(["clients" => $clientsPage, "totalPage" => $totalPage, "totalClients"=>$totalUsers, 'cities'=>$cities]);
+    }
+
+    /**
+     * Get all cities for city picker dropdown.
+     */
+    public function getCities(): JsonResponse
+    {
+        $cities = City::orderBy('name')->get();
+        return response()->json(['cities' => $cities]);
     }
 
     /**
@@ -133,6 +141,9 @@ class ClientController extends Controller
             'NIS' => 'string|nullable|max:255',
             'email' => 'nullable|email|unique:users,email',
             'department_id' => 'nullable|integer',
+            'brand' => 'nullable|string|max:255',
+            'company_name' => 'nullable|string|max:255',
+            'preferred_product_ids' => 'nullable|array',
         ]);
 
         $validatedData['department_id'] = $request->input('department_id', 1);
@@ -193,6 +204,10 @@ class ClientController extends Controller
             'NIS' => 'nullable|string|max:255',
             'email' => 'nullable|email|unique:users,email',
             'department_id' => 'nullable|integer',
+            'city_id' => 'nullable|integer',
+            'brand' => 'nullable|string|max:255',
+            'company_name' => 'nullable|string|max:255',
+            'preferred_product_ids' => 'nullable|array',
         ]);
 
         // Do not default to 1; keep existing or use validated data

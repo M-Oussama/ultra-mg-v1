@@ -47,7 +47,14 @@ class Client extends Model
         'email',
         'city_id',
         'department_id',
-        'user_id'
+        'user_id',
+        'brand',
+        'company_name',
+        'preferred_product_ids',
+    ];
+
+    protected $casts = [
+        'preferred_product_ids' => 'array',
     ];
 
     public function user()

@@ -119,6 +119,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /** CLIENTS  */
     Route::get('/clients/list', [ClientController::class, 'getClients'])->middleware('permission:list,clients')->name('getClients');
+    Route::get('/clients/cities', [ClientController::class, 'getCities'])->middleware('permission:list,clients')->name('getClientCities');
     Route::post('/clients/store', [ClientController::class, 'store'])->middleware('permission:add,clients')->name('store');
     Route::post('/clients/update/{id}', [ClientController::class, 'update'])->middleware('permission:edit,clients')->name('update');
     Route::delete('/clients/delete/{id}', [ClientController::class, 'delete'])->middleware('permission:delete,clients')->name('delete');
