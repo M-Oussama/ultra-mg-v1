@@ -56,6 +56,45 @@ Route::get('/test-auth', function (Request $request) {
     ]);
 });
 
+Route::get('/deep-debug-auth', function (Request $request) {
+    $header = $request->header('Authorization');
+    $tokenStr = str_replace('Bearer ', '', $header);
+    
+    if (strpos($tokenStr, '|') !== false) {
+        [$id, $plainToken] = explode('|', $tokenStr, 2);
+        $tokenModel = \Laravel\Sanctum\PersonalAccessToken::find($id);
+        
+        if ($tokenModel) {
+            $isValid = hash_equals($tokenModel->token, hash('sha256', $plainToken));
+            return response()->json([
+                'token_found' => true,
+                'id_match' => $id,
+                'hash_valid' => $isValid,
+                'tokenable_type' => $tokenModel->tokenable_type,
+                'tokenable_id' => $tokenModel->tokenable_id,
+                'tokenable_resolved_type' => gettype($tokenModel->tokenable),
+                'tokenable_is_user' => $tokenModel->tokenable instanceof \App\Models\User,
+                'user_name' => $tokenModel->tokenable ? $tokenModel->tokenable->name : 'N/A',
+                'raw_token_data' => $tokenModel->toArray(),
+            ]);
+        }
+    }
+    
+    return response()->json(['error' => 'Token not found or invalid format', 'header' => $header]);
+});
+
+Route::get('/check-db-schema', function() {
+    try {
+        $columns = \Illuminate\Support\Facades\DB::select('DESCRIBE personal_access_tokens');
+        return response()->json([
+            'success' => true,
+            'columns' => $columns
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'error' => $e->getMessage()]);
+    }
+});
+
 Route::middleware('auth:sanctum')->group(function () {
     /** USERS  */
     Route::get('/users/list', [UserController::class, 'getUsers'])->middleware('permission:list,users')->name('getUsers');
