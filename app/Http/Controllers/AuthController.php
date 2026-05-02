@@ -22,22 +22,8 @@ class AuthController extends Controller
             $user = Auth::user();
             $user->load('role.permissions');
 
-            // Manual token creation via DB to avoid shadowing the 'tokenable' relationship
-            $plainTextToken = Str::random(40);
-            $hashedToken = hash('sha256', $plainTextToken);
-            
-            $tokenId = DB::table('personal_access_tokens')->insertGetId([
-                'tokenable_type' => get_class($user),
-                'tokenable_id'   => $user->id,
-                'name'           => 'auth_token',
-                'token'          => $hashedToken,
-                'abilities'      => '["*"]',
-                'tokenable'      => 'legacy_bypass', // Satisfies NOT NULL without breaking Eloquent relationship
-                'created_at'     => now(),
-                'updated_at'     => now(),
-            ]);
-
-            $token = $tokenId . '|' . $plainTextToken;
+            // Standard Sanctum token creation (works once 'tokenable' column is nullable)
+            $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
                 'accessToken' => $token,

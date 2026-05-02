@@ -47,6 +47,19 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'Login']);
 
+// TEMPORARY: Run migrations from browser to fix the 'tokenable' column crash
+Route::get('/run-migrations-securely', function() {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        return response()->json([
+            'success' => true, 
+            'output' => \Illuminate\Support\Facades\Artisan::output()
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'error' => $e->getMessage()]);
+    }
+});
+
 /** DEBUG AUTH */
 Route::get('/test-auth', function (Request $request) {
     return response()->json([
