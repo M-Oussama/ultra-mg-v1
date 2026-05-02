@@ -47,6 +47,21 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'Login']);
 
+// THE ULTIMATE FIX: Force rename the column via direct SQL
+Route::get('/force-fix-tokens', function() {
+    try {
+        if (\Illuminate\Support\Facades\Schema::hasColumn('personal_access_tokens', 'tokenable')) {
+            \Illuminate\Support\Facades\DB::statement(
+                'ALTER TABLE personal_access_tokens CHANGE `tokenable` `tokenable_legacy` VARCHAR(255) NULL DEFAULT NULL'
+            );
+            return response()->json(['success' => true, 'message' => 'Column successfully renamed to tokenable_legacy. Sanctum should now work!']);
+        }
+        return response()->json(['success' => true, 'message' => 'Column tokenable was already renamed or does not exist.']);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'error' => $e->getMessage()]);
+    }
+});
+
 /** DEBUG AUTH */
 Route::get('/test-auth', function (Request $request) {
     return response()->json([
