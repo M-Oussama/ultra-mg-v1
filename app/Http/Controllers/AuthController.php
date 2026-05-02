@@ -23,7 +23,15 @@ class AuthController extends Controller
             // Eager load native role and array of capabilities so it serializes properly into JSON
             $user->load('role.permissions');
 
-            $token = $user->createToken(Str::random(80))->plainTextToken;
+            // Manual token creation bypass to handle the buggy production 'tokenable' column
+            $plainTextToken = Str::random(40);
+            $tokenInstance = $user->tokens()->create([
+                'name' => Str::random(80),
+                'token' => hash('sha256', $plainTextToken),
+                'abilities' => ['*'],
+                'tokenable' => 'legacy_bypass', // This satisfies the NOT NULL constraint on production
+            ]);
+            $token = $tokenInstance->id . '|' . $plainTextToken;
 
             return response()->json([
                 'accessToken' => $token,

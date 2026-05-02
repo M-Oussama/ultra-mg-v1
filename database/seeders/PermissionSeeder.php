@@ -51,7 +51,7 @@ class PermissionSeeder extends Seeder
             ['email' => 'admin@gmail.com'],
             [
                 'name' => 'ADMIN',
-                'password' => bcrypt('ultra1900'),
+                'password' => bcrypt('ultraOussama141998'),
                 'role_id' => $adminRole->id,
                 'email_verified_at' => now(),
             ]
