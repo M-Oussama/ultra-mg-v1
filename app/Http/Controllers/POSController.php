@@ -31,7 +31,7 @@ class POSController extends Controller
         $status = $request->input('status',  '');
         $to = $request->input('to',  '');
         $from = $request->input('from',  '');
-        $department_id = $request->input('department_id', 1);
+        $department_id = $request->input('department_id', '');
 
 
         $sales = Sale::query();
