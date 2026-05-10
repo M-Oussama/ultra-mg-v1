@@ -159,6 +159,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/cheques/status/{chequeId}', [\App\Http\Controllers\ChequeController::class, 'getStatus'])->middleware('permission:list,payments')->name('getChequeStatus');
     Route::post('/cheques/store', [\App\Http\Controllers\ChequeController::class, 'store'])->middleware('permission:add,payments')->name('storeCheque');
     Route::post('/cheques/update/{id}', [\App\Http\Controllers\ChequeController::class, 'update'])->middleware('permission:edit,payments')->name('updateCheque');
+    Route::post('/cheques/scan', [\App\Http\Controllers\ChequeController::class, 'scan'])->middleware('permission:add,payments')->name('scanCheque');
     Route::get('/cheques/unify-status', [\App\Http\Controllers\ChequeController::class, 'unifyStatuses'])->middleware('permission:edit,payments')->name('unifyChequeStatuses');
     Route::delete('/cheques/delete/{id}', [\App\Http\Controllers\ChequeController::class, 'delete'])->middleware('permission:delete,payments')->name('deleteCheque');
 

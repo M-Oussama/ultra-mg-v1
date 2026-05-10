@@ -251,4 +251,104 @@ class ChequeController extends Controller
 
         return response()->json($cheques);
     }
+
+    public function scan(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|mimes:pdf|max:10240',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $apiKey = $request->header('X-Gemini-API-Key') ?? env('GEMINI_API_KEY');
+        if (!$apiKey) {
+            return response()->json(['message' => 'Gemini API Key not configured. Please provide it in settings or .env'], 500);
+        }
+
+        $file = $request->file('file');
+        $base64Data = base64_encode(file_get_contents($file->path()));
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$apiKey}", [
+                'contents' => [
+                    [
+                        'parts' => [
+                            ['text' => "Analyze this Algerian cheque.
+                            IMPORTANT: 'SATIS Detergents' or 'SETIFIS Detergents' is MY company (the beneficiary). DO NOT return it as the client_name.
+                            Find the CLIENT name (the person or company paying). Look for names near 'Pour compte de', 'Tiré par', or the issuer's signature area.
+                            
+                            Return a JSON object with:
+                            {
+                              \"cheque_number\": \"string\",
+                              \"amount\": \"number (numeric only)\",
+                              \"date\": \"YYYY-MM-DD\",
+                              \"bank\": \"Short code like CPA, BDL, BEA, BNA, BADR, SOCIETE GENERALE, GULF BANK, etc.\",
+                              \"client_name\": \"The name of the PERSON or COMPANY who issued the cheque (NOT SATIS Detergents)\"
+                            }"],
+                            [
+                                'inline_data' => [
+                                    'mime_type' => 'application/pdf',
+                                    'data' => $base64Data
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'generationConfig' => [
+                    'response_mime_type' => 'application/json'
+                ]
+            ]);
+
+            if ($response->failed()) {
+                return response()->json(['message' => 'AI Service error: ' . $response->body()], 502);
+            }
+
+            $data = json_decode($response->json('candidates.0.content.parts.0.text'), true);
+            
+            if (!$data) {
+                return response()->json(['message' => 'Failed to parse AI response'], 500);
+            }
+
+            // 4. Try to find the client in certify_clients with improved fuzzy matching
+            $matchedClient = null;
+            if (isset($data['client_name'])) {
+                $rawName = trim($data['client_name']);
+                
+                // Remove common business prefixes/suffixes for better matching
+                $cleanName = preg_replace('/^(EURL|SARL|SPA|SNC|GROUP|GROUPE)\s+/i', '', $rawName);
+                $cleanName = preg_replace('/\s+(EURL|SARL|SPA|SNC)$/i', '', $cleanName);
+                $cleanName = trim($cleanName);
+
+                // Try Exact Match first
+                $matchedClient = \Illuminate\Support\Facades\DB::table('certify_clients')
+                    ->where('name', 'LIKE', "%{$cleanName}%")
+                    ->orWhere('surname', 'LIKE', "%{$cleanName}%")
+                    ->first();
+
+                // If no match, try matching just the first word (most significant)
+                if (!$matchedClient) {
+                    $firstWord = explode(' ', $cleanName)[0];
+                    if (strlen($firstWord) > 3) {
+                        $matchedClient = \Illuminate\Support\Facades\DB::table('certify_clients')
+                            ->where('name', 'LIKE', "%{$firstWord}%")
+                            ->orWhere('surname', 'LIKE', "%{$firstWord}%")
+                            ->first();
+                    }
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => array_merge($data, [
+                    'matched_client_id' => $matchedClient?->id,
+                    'matched_client' => $matchedClient
+                ])
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Scan error: ' . $e->getMessage()], 500);
+        }
+    }
 }
