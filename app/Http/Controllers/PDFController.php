@@ -45,6 +45,7 @@ class PDFController extends Controller
             ->first();
 
         $departmentName = $department->name ?? ($company->name ?? '');
+        $departmentProfession = $department->profession ?? null;
         $departmentAddress = $department->address ?? ($company->address ?? '');
         $departmentPhone = $department->phone ?? ($company->phone ?? '');
         $departmentEmail = $department->email ?? ($company->email ?? '');
@@ -67,6 +68,7 @@ class PDFController extends Controller
             'amountLetter',
             'businessId',
             'departmentName',
+            'departmentProfession',
             'departmentAddress',
             'departmentPhone',
             'departmentEmail',

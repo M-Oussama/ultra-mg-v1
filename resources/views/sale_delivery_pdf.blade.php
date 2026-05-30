@@ -115,6 +115,9 @@
                 <img src="{{ $logoAbsolutePath }}" alt="Logo" class="logo">
             @endif
             <div class="co-name">{{ $departmentName }}</div>
+            @if(!empty($departmentProfession))
+                <div class="co-line"><strong>{{ $departmentProfession }}</strong></div>
+            @endif
             @if(!empty($departmentAddress))
                 <div class="co-line">{{ $departmentAddress }}</div>
             @endif
