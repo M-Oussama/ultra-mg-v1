@@ -33,7 +33,7 @@ class PDFController extends Controller
         $amountLetter = $this->convertAmoutToLetter((float) $sale->total_amount);
 
         $departmentColumns = ['name'];
-        foreach (['address', 'phone', 'email', 'logo_url', 'logo'] as $optionalColumn) {
+        foreach (['profession', 'address', 'phone', 'email', 'logo_url', 'logo'] as $optionalColumn) {
             if (Schema::hasColumn('departments', $optionalColumn)) {
                 $departmentColumns[] = $optionalColumn;
             }
