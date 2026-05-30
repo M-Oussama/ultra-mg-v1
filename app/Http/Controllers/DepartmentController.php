@@ -74,6 +74,7 @@ class DepartmentController extends Controller
             'phone' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'logo_url' => 'nullable|string|max:2048',
+            'profession' => 'nullable|string|max:255',
         ]);
 
         try {
@@ -97,6 +98,7 @@ class DepartmentController extends Controller
             'phone' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'logo_url' => 'nullable|string|max:2048',
+            'profession' => 'nullable|string|max:255',
         ]);
 
         try {
