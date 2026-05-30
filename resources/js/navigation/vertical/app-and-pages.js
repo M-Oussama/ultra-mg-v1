@@ -15,6 +15,11 @@ export default [
     subject:PERMISSIONS.CLIENT.SUBJECT
   },
   {
+    title: 'Import Clients', to: 'apps-client-import', icon: { icon: 'tabler-file-upload' },
+    action:PERMISSIONS.CLIENT.ADD,
+    subject:PERMISSIONS.CLIENT.SUBJECT
+  },
+  {
     title: 'Supplier', to: 'apps-supplier-list', icon: { icon: 'tabler-briefcase' },
     action:PERMISSIONS.SUPPLIER.LIST,
     subject:PERMISSIONS.SUPPLIER.SUBJECT
@@ -26,8 +31,28 @@ export default [
 
   },
   {
+    title: 'Import Employees', to: 'apps-employee-import', icon: { icon: 'tabler-file-upload' },
+    action:PERMISSIONS.EMPLOYEE.ADD,
+    subject:PERMISSIONS.EMPLOYEE.SUBJECT
+  },
+  {
+    title: 'Import Careers', to: 'apps-employee-import-careers', icon: { icon: 'tabler-file-upload' },
+    action:PERMISSIONS.EMPLOYEE.ADD,
+    subject:PERMISSIONS.EMPLOYEE.SUBJECT
+  },
+  {
+    title: 'Import Vacations', to: 'apps-employee-import-vacations', icon: { icon: 'tabler-file-upload' },
+    action:PERMISSIONS.VACATION.ADD,
+    subject:PERMISSIONS.VACATION.SUBJECT
+  },
+  {
     title: 'Product', to: 'apps-product-list', icon: { icon: 'tabler-box' },
     action:PERMISSIONS.PRODUCT.LIST,
+    subject:PERMISSIONS.PRODUCT.SUBJECT
+  },
+  {
+    title: 'Import Products', to: 'apps-product-import', icon: { icon: 'tabler-file-upload' },
+    action:PERMISSIONS.PRODUCT.ADD,
     subject:PERMISSIONS.PRODUCT.SUBJECT
   },
   {
@@ -37,6 +62,18 @@ export default [
         action:PERMISSIONS.CERTIFY_INVOICE.LIST,
         subject:PERMISSIONS.CERTIFY_INVOICE.SUBJECT},
       { title: 'Add', to: 'apps-certifyInvoice-add' ,
+        action:PERMISSIONS.CERTIFY_INVOICE.ADD,
+        subject:PERMISSIONS.CERTIFY_INVOICE.SUBJECT},
+      { title: 'Import Invoices', to: 'apps-certifyInvoice-import',
+        action:PERMISSIONS.CERTIFY_INVOICE.ADD,
+        subject:PERMISSIONS.CERTIFY_INVOICE.SUBJECT},
+      { title: 'Import Invoice Products', to: 'apps-certifyInvoice-import-products',
+        action:PERMISSIONS.CERTIFY_INVOICE.ADD,
+        subject:PERMISSIONS.CERTIFY_INVOICE.SUBJECT},
+      { title: 'Import Clients', to: 'apps-certifyClient-import',
+        action:PERMISSIONS.CERTIFY_INVOICE.ADD,
+        subject:PERMISSIONS.CERTIFY_INVOICE.SUBJECT},
+      { title: 'Import Products', to: 'apps-certifyProduct-import',
         action:PERMISSIONS.CERTIFY_INVOICE.ADD,
         subject:PERMISSIONS.CERTIFY_INVOICE.SUBJECT},
     ],
@@ -51,6 +88,14 @@ export default [
         subject:PERMISSIONS.SALE.SUBJECT
       },
       { title: 'Add', to: 'apps-POS-sale-add',
+        action:PERMISSIONS.SALE.ADD,
+        subject:PERMISSIONS.SALE.SUBJECT
+      },
+      { title: 'Import', to: 'apps-POS-sale-import',
+        action:PERMISSIONS.SALE.ADD,
+        subject:PERMISSIONS.SALE.SUBJECT
+      },
+      { title: 'Import Items', to: 'apps-POS-sale-import-items',
         action:PERMISSIONS.SALE.ADD,
         subject:PERMISSIONS.SALE.SUBJECT
       },
@@ -69,6 +114,14 @@ export default [
         action:PERMISSIONS.RETURN.ADD,
         subject:PERMISSIONS.RETURN.SUBJECT
       },
+      { title: 'Import Returns', to: 'apps-POS-return-import',
+        action:PERMISSIONS.RETURN.ADD,
+        subject:PERMISSIONS.RETURN.SUBJECT
+      },
+      { title: 'Import Return Lists', to: 'apps-POS-return-import-lists',
+        action:PERMISSIONS.RETURN.ADD,
+        subject:PERMISSIONS.RETURN.SUBJECT
+      },
 
     ],
     icon: { icon: 'tabler-archive' },
@@ -76,6 +129,21 @@ export default [
   {
     title: 'Payments', to: 'apps-POS-payment-list', icon: { icon: 'tabler-currency-dollar' },
     action:PERMISSIONS.PAYMENT.LIST,
+    subject:PERMISSIONS.PAYMENT.SUBJECT
+  },
+  {
+    title: 'Import Payments', to: 'apps-POS-payment-import', icon: { icon: 'tabler-file-upload' },
+    action:PERMISSIONS.PAYMENT.ADD,
+    subject:PERMISSIONS.PAYMENT.SUBJECT
+  },
+  {
+    title: 'Import Partial Payments', to: 'apps-POS-payment-import-partials', icon: { icon: 'tabler-file-upload' },
+    action:PERMISSIONS.PAYMENT.ADD,
+    subject:PERMISSIONS.PAYMENT.SUBJECT
+  },
+  {
+    title: 'Import Cheques', to: 'apps-cheque-import', icon: { icon: 'tabler-file-upload' },
+    action:PERMISSIONS.PAYMENT.ADD,
     subject:PERMISSIONS.PAYMENT.SUBJECT
   },
   {

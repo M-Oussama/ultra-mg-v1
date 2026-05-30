@@ -6,6 +6,8 @@ use App\Models\Product;
 use App\Models\ProductStock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use OpenApi\Attributes as OA;
 
 class ProductController extends Controller
@@ -223,5 +225,137 @@ class ProductController extends Controller
         $product = Product::find($id);
         $product->delete();
         return response()->json(["message" => "Product deleted successfully"]);
+    }
+
+    /**
+     * Import products from CSV with one department_id for all rows.
+     *
+     * Required CSV headers:
+     * id, name, brand, description, product_code, category_id, SKU, min_stock_level, price, weight, stockable, tax_rate
+     */
+    public function importCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+            'department_id' => 'required|integer|exists:departments,id',
+        ]);
+
+        $departmentId = (int) $request->input('department_id');
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+
+        foreach (['id', 'name', 'brand', 'description', 'product_code', 'category_id', 'sku', 'min_stock_level', 'price', 'weight', 'stockable', 'tax_rate'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $inserted = 0;
+        $errors = [];
+        $warnings = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $stockableRaw = strtolower((string) ($rowData['stockable'] ?? '0'));
+            $stockable = in_array($stockableRaw, ['1', 'true', 'yes'], true) ? 1 : 0;
+
+            $payload = [
+                'id' => isset($rowData['id']) ? (int) $rowData['id'] : null,
+                'department_id' => $departmentId,
+                'name' => $rowData['name'] ?? null,
+                'brand' => $rowData['brand'] ?? null,
+                'description' => $rowData['description'] ?? null,
+                'product_code' => $rowData['product_code'] ?? null,
+                'category_id' => isset($rowData['category_id']) ? (int) $rowData['category_id'] : null,
+                'SKU' => $rowData['sku'] ?? null,
+                'min_stock_level' => isset($rowData['min_stock_level']) ? (int) $rowData['min_stock_level'] : 0,
+                'price' => isset($rowData['price']) ? (float) $rowData['price'] : 0,
+                'weight' => isset($rowData['weight']) ? (float) $rowData['weight'] : 0,
+                'stockable' => $stockable,
+                'tax_rate' => isset($rowData['tax_rate']) ? (float) $rowData['tax_rate'] : 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            $validator = Validator::make($payload, [
+                'id' => 'required|integer|min:1',
+                'department_id' => 'required|integer|exists:departments,id',
+                'name' => 'required|string|max:255',
+                'brand' => 'nullable|string|max:255',
+                'description' => 'nullable|string|max:255',
+                'product_code' => 'nullable|string|max:255',
+                'category_id' => 'nullable|integer',
+                'SKU' => 'nullable|string|max:255',
+                'min_stock_level' => 'nullable|integer|min:0',
+                'price' => 'nullable|numeric|min:0',
+                'weight' => 'nullable|numeric|min:0',
+                'stockable' => 'nullable|boolean',
+                'tax_rate' => 'nullable|numeric|min:0',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => $validator->errors()->all(),
+                ];
+                continue;
+            }
+
+            if (!empty($payload['id']) && DB::table('products')->where('id', $payload['id'])->exists()) {
+                $warnings[] = [
+                    'row' => $rowNumber,
+                    'warning' => 'Product id exists, inserted with auto-generated id.',
+                ];
+                unset($payload['id']);
+            }
+
+            DB::table('products')->insert($payload);
+            $newProductId = (int) DB::getPdo()->lastInsertId();
+
+            if ($newProductId > 0 && !DB::table('product_stocks')->where('product_id', $newProductId)->exists()) {
+                DB::table('product_stocks')->insert([
+                    'product_id' => $newProductId,
+                    'quantity' => 0,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+            'warnings' => $warnings,
+        ]);
     }
 }

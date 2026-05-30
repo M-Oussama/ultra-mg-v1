@@ -11,6 +11,7 @@ use App\Models\ProductReturnList;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use App\Models\ProductStock;
 
 class ProductReturnController extends Controller
@@ -83,7 +84,8 @@ class ProductReturnController extends Controller
                 'date' => $data['sale_date'],
                 'client_id' => $client['id'],
                 'total_amount' => $data['total_amount'],
-                'paid' => $data['payment']
+                'paid' => $data['payment'],
+                'department_id' => $data['department_id'] ?? $request->input('department_id', 1),
             ]);
 
             $products = $data['sale_items'];
@@ -165,7 +167,8 @@ class ProductReturnController extends Controller
                 'date' => $data['sale_date'],
                 'client_id' => $client['id'],
                 'total_amount' => $data['total_amount'],
-                'paid' => $data['paid']
+                'paid' => $data['paid'],
+                'department_id' => $data['department_id'] ?? $request->input('department_id', $return->department_id),
             ]);
 
             $products = $data['sale_items'];
@@ -224,5 +227,224 @@ class ProductReturnController extends Controller
 
 
         return response()->json(["sold"=>0,"product_return"=>$product_return, "companies" => $company, "clients"=>$clients]);
+    }
+
+    /**
+     * Import product_returns from CSV.
+     *
+     * CSV columns:
+     * id, total_amount, client_id, date, created_at, updated_at, deleted_at, paid
+     */
+    public function importReturnsCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+            'department_id' => 'required|integer|exists:departments,id',
+        ]);
+
+        $departmentId = (int) $request->input('department_id');
+
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+
+        foreach (['id', 'total_amount', 'client_id', 'date', 'created_at', 'updated_at', 'deleted_at', 'paid'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $inserted = 0;
+        $errors = [];
+        $warnings = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $paidRaw = strtolower((string) ($rowData['paid'] ?? '0'));
+            $paid = in_array($paidRaw, ['1', 'true', 'yes'], true) ? 1 : 0;
+            $deletedRaw = trim((string) ($rowData['deleted_at'] ?? ''));
+
+            $payload = [
+                'id' => isset($rowData['id']) ? (int) $rowData['id'] : null,
+                'department_id' => $departmentId,
+                'total_amount' => isset($rowData['total_amount']) ? (float) $rowData['total_amount'] : 0,
+                'client_id' => isset($rowData['client_id']) ? (int) $rowData['client_id'] : null,
+                'date' => $rowData['date'] ?? null,
+                'created_at' => $rowData['created_at'] ?? now(),
+                'updated_at' => $rowData['updated_at'] ?? now(),
+                'deleted_at' => ($deletedRaw === '' || strtolower($deletedRaw) === 'null') ? null : $deletedRaw,
+                'paid' => $paid,
+            ];
+
+            $validator = Validator::make($payload, [
+                'id' => 'required|integer|min:1',
+                'department_id' => 'required|integer|exists:departments,id',
+                'total_amount' => 'required|numeric|min:0',
+                'client_id' => 'required|integer',
+                'date' => 'required|date',
+                'created_at' => 'nullable|date',
+                'updated_at' => 'nullable|date',
+                'deleted_at' => 'nullable|date',
+                'paid' => 'required|boolean',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => $validator->errors()->all(),
+                ];
+                continue;
+            }
+
+            if (!empty($payload['id']) && DB::table('product_returns')->where('id', $payload['id'])->exists()) {
+                $warnings[] = [
+                    'row' => $rowNumber,
+                    'warning' => 'product_return id exists, inserted with auto-generated id.',
+                ];
+                unset($payload['id']);
+            }
+
+            DB::table('product_returns')->insert($payload);
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+            'warnings' => $warnings,
+        ]);
+    }
+
+    /**
+     * Import product_return_lists from CSV.
+     *
+     * CSV columns:
+     * id, return_id, client_id, product_id, quantity, price, total_price, date
+     */
+    public function importReturnListsCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+
+        foreach (['id', 'return_id', 'client_id', 'product_id', 'quantity', 'price', 'total_price', 'date'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $inserted = 0;
+        $errors = [];
+        $warnings = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $payload = [
+                'id' => isset($rowData['id']) ? (int) $rowData['id'] : null,
+                'return_id' => isset($rowData['return_id']) ? (int) $rowData['return_id'] : null,
+                'client_id' => isset($rowData['client_id']) ? (int) $rowData['client_id'] : null,
+                'product_id' => isset($rowData['product_id']) ? (int) $rowData['product_id'] : null,
+                'quantity' => isset($rowData['quantity']) ? (float) $rowData['quantity'] : 0,
+                'price' => isset($rowData['price']) ? (float) $rowData['price'] : 0,
+                'total_price' => isset($rowData['total_price']) ? (float) $rowData['total_price'] : 0,
+                'date' => $rowData['date'] ?? null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            $validator = Validator::make($payload, [
+                'id' => 'required|integer|min:1',
+                'return_id' => 'required|integer',
+                'client_id' => 'required|integer',
+                'product_id' => 'required|integer',
+                'quantity' => 'required|numeric|min:0',
+                'price' => 'required|numeric|min:0',
+                'total_price' => 'required|numeric|min:0',
+                'date' => 'required|date',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => $validator->errors()->all(),
+                ];
+                continue;
+            }
+
+            if (!empty($payload['id']) && DB::table('product_return_lists')->where('id', $payload['id'])->exists()) {
+                $warnings[] = [
+                    'row' => $rowNumber,
+                    'warning' => 'product_return_list id exists, inserted with auto-generated id.',
+                ];
+                unset($payload['id']);
+            }
+
+            DB::table('product_return_lists')->insert($payload);
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+            'warnings' => $warnings,
+        ]);
     }
 }

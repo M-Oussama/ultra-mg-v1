@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Doctrine\DBAL\Platforms;
 
 use Doctrine\DBAL\Schema\Index;
@@ -10,28 +8,28 @@ use Doctrine\DBAL\Schema\TableDiff;
 /**
  * Provides the behavior, features and SQL dialect of the MariaDB 10.5 database platform.
  */
-class MariaDB1052Platform extends MariaDBPlatform
+class MariaDb1052Platform extends MariaDb1043Platform
 {
     /**
      * {@inheritDoc}
      */
-    protected function getPreAlterTableRenameIndexForeignKeySQL(TableDiff $diff): array
+    protected function getPreAlterTableRenameIndexForeignKeySQL(TableDiff $diff)
     {
-        return AbstractMySQLPlatform::getPreAlterTableRenameIndexForeignKeySQL($diff);
+        return [];
     }
 
     /**
      * {@inheritDoc}
      */
-    protected function getPostAlterTableIndexForeignKeySQL(TableDiff $diff): array
+    protected function getPostAlterTableRenameIndexForeignKeySQL(TableDiff $diff)
     {
-        return AbstractMySQLPlatform::getPostAlterTableIndexForeignKeySQL($diff);
+        return [];
     }
 
     /**
      * {@inheritDoc}
      */
-    protected function getRenameIndexSQL(string $oldIndexName, Index $index, $tableName): array
+    protected function getRenameIndexSQL($oldIndexName, Index $index, $tableName)
     {
         return ['ALTER TABLE ' . $tableName . ' RENAME INDEX ' . $oldIndexName . ' TO ' . $index->getQuotedName($this)];
     }

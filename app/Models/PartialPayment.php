@@ -13,7 +13,8 @@ class PartialPayment extends Model
     protected $fillable = [
         'payment_id',
         'sale_id',
-        'amount'
+        'amount',
+        'department_id',
     ];
 
     public function payment(){

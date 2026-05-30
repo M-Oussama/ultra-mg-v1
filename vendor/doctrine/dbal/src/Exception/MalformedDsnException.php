@@ -1,10 +1,9 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Doctrine\DBAL\Exception;
 
-/** @psalm-immutable */
+use InvalidArgumentException;
+
 class MalformedDsnException extends InvalidArgumentException
 {
     public static function new(): self

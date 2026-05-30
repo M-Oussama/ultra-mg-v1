@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CertifyProduct;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use OpenApi\Attributes as OA;
 
 class CertifyProductController extends Controller
@@ -200,5 +201,108 @@ class CertifyProductController extends Controller
         $product = CertifyProduct::findOrFail($id);
         $product->delete();
         return response()->json(["message" => "Certify Product deleted successfully"]);
+    }
+
+    /**
+     * Import certify products from CSV.
+     *
+     * Accepted CSV headers:
+     * name (required), price (required), tax_rate (optional, defaults to 0),
+     * brand, description, product_code, category_id, SKU, min_stock_level, weight, stockable
+     */
+    public function importCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(function ($col) {
+            return strtolower(trim((string) $col));
+        }, $header);
+
+        foreach (['name', 'price'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $inserted = 0;
+        $errors = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $payload = [
+                'name' => $rowData['name'] ?? null,
+                'brand' => $rowData['brand'] ?? null,
+                'description' => $rowData['description'] ?? null,
+                'product_code' => $rowData['product_code'] ?? null,
+                'category_id' => ($rowData['category_id'] ?? '') !== '' ? (int) $rowData['category_id'] : null,
+                'SKU' => $rowData['sku'] ?? null,
+                'min_stock_level' => ($rowData['min_stock_level'] ?? '') !== '' ? (int) $rowData['min_stock_level'] : 0,
+                'price' => $rowData['price'] ?? null,
+                'weight' => ($rowData['weight'] ?? '') !== '' ? $rowData['weight'] : 0,
+                'stockable' => filter_var($rowData['stockable'] ?? false, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false,
+                'tax_rate' => ($rowData['tax_rate'] ?? '') !== '' ? $rowData['tax_rate'] : 0,
+            ];
+
+            $validator = Validator::make($payload, [
+                'name' => 'required|string|max:255',
+                'brand' => 'nullable|string|max:255',
+                'description' => 'nullable|string|max:255',
+                'product_code' => 'nullable|string|max:255',
+                'category_id' => 'nullable|integer|min:0',
+                'SKU' => 'nullable|string|max:255',
+                'min_stock_level' => 'nullable|integer|min:0',
+                'price' => 'required|numeric|min:0',
+                'weight' => 'nullable|numeric|min:0',
+                'stockable' => 'nullable|boolean',
+                'tax_rate' => 'nullable|numeric|min:0|max:100',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => $validator->errors()->all(),
+                ];
+                continue;
+            }
+
+            CertifyProduct::create($validator->validated());
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+        ]);
     }
 }

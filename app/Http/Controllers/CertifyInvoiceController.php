@@ -10,6 +10,8 @@ use App\Models\Payment;
 use App\Models\CertifyProduct;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use OpenApi\Attributes as OA;
 
 class CertifyInvoiceController extends Controller
@@ -278,6 +280,243 @@ class CertifyInvoiceController extends Controller
         $invoice->delete();
         
         return response()->json(["message" => "Certify Invoice deleted successfully"]);
+    }
+
+    /**
+     * Import certify invoices from CSV using fiscal mapping rules.
+     *
+     * Required headers:
+     * id, fac_id, date, client_id, amount, custom_cheque_number, cheque_id, payment_type
+     */
+    public function importCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+
+        foreach (['id', 'fac_id', 'date', 'client_id', 'amount', 'custom_cheque_number', 'cheque_id', 'payment_type'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $inserted = 0;
+        $errors = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $baseAmount = isset($rowData['amount']) ? (float) $rowData['amount'] : 0;
+            $paymentType = isset($rowData['payment_type']) ? (int) $rowData['payment_type'] : null;
+            $tvaAmount = round($baseAmount * 0.19, 2);
+            $rawChequeNumber = trim((string) ($rowData['custom_cheque_number'] ?? ''));
+            $chequeNumber = ($rawChequeNumber === '' || strtolower($rawChequeNumber) === 'null')
+                ? null
+                : $rawChequeNumber;
+            $clientId = isset($rowData['client_id']) ? (int) $rowData['client_id'] : null;
+            $rawChequeId = trim((string) ($rowData['cheque_id'] ?? ''));
+            $chequeId = ($rawChequeId === '' || strtolower($rawChequeId) === 'null')
+                ? null
+                : (int) $rawChequeId;
+
+            if ($paymentType === 1) {
+                $timbreRate = 2;
+                $timbreAmount = round($baseAmount * 0.02, 2);
+                $finalAmount = round($baseAmount * 1.21, 2);
+            } else {
+                $timbreRate = null;
+                $timbreAmount = null;
+                $finalAmount = round($baseAmount * 1.19, 2);
+            }
+
+            $payload = [
+                'id' => isset($rowData['id']) ? (int) $rowData['id'] : null,
+                'fac_id' => isset($rowData['fac_id']) ? (int) $rowData['fac_id'] : null,
+                'date' => $rowData['date'] ?? null,
+                'client_id' => $clientId,
+                'ht_amount' => $baseAmount,
+                'tva_amount' => $tvaAmount,
+                'cheque_number' => $chequeNumber,
+                'cheque_id' => $chequeId,
+                'payment_type' => $paymentType,
+                'timbre_rate' => $timbreRate,
+                'timbre_amount' => $timbreAmount,
+                'amount' => $finalAmount,
+                'tva_rate' => 19,
+                'user_id' => auth()->id(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            $validator = Validator::make($payload, [
+                'id' => 'required|integer|min:1',
+                'fac_id' => 'required|integer|min:0',
+                'date' => 'required|date',
+                'client_id' => 'required|integer|exists:certify_clients,id',
+                'ht_amount' => 'required|numeric|min:0',
+                'tva_amount' => 'required|numeric|min:0',
+                'cheque_number' => 'nullable|string|max:255',
+                'cheque_id' => 'nullable|integer|min:1',
+                'payment_type' => 'required|integer|in:1,2,3,4',
+                'timbre_rate' => 'nullable|numeric|min:0',
+                'timbre_amount' => 'nullable|numeric|min:0',
+                'amount' => 'required|numeric|min:0',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => $validator->errors()->all(),
+                ];
+                continue;
+            }
+
+            if (DB::table('certify_invoices')->where('id', $payload['id'])->exists()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => ['Invoice id already exists in database.'],
+                ];
+                continue;
+            }
+
+            DB::table('certify_invoices')->insert($payload);
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+        ]);
+    }
+
+    /**
+     * Import certify invoice products from CSV.
+     *
+     * Required headers:
+     * id, command_id, product_id, price, quantity, amount
+     */
+    public function importProductsCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+
+        foreach (['id', 'command_id', 'product_id', 'price', 'quantity', 'amount'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $inserted = 0;
+        $errors = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $payload = [
+                'id' => isset($rowData['id']) ? (int) $rowData['id'] : null,
+                'certify_invoice_id' => isset($rowData['command_id']) ? (int) $rowData['command_id'] : null,
+                'product_id' => isset($rowData['product_id']) ? (int) $rowData['product_id'] : null,
+                'price' => isset($rowData['price']) ? (float) $rowData['price'] : null,
+                'quantity' => isset($rowData['quantity']) ? (int) $rowData['quantity'] : null,
+                'total' => isset($rowData['amount']) ? (float) $rowData['amount'] : null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            $validator = Validator::make($payload, [
+                'id' => 'required|integer|min:1',
+                'certify_invoice_id' => 'required|integer|exists:certify_invoices,id',
+                'product_id' => 'required|integer|exists:certify_products,id',
+                'price' => 'required|numeric|min:0',
+                'quantity' => 'required|integer|min:0',
+                'total' => 'required|numeric|min:0',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => $validator->errors()->all(),
+                ];
+                continue;
+            }
+
+            if (DB::table('certify_invoice_products')->where('id', $payload['id'])->exists()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => ['Certify invoice product id already exists in database.'],
+                ];
+                continue;
+            }
+
+            DB::table('certify_invoice_products')->insert($payload);
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+        ]);
     }
 
 }

@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Doctrine\DBAL\Driver\PgSQL;
 
 use Doctrine\DBAL\Driver\AbstractPostgreSQLDriver;
@@ -17,6 +15,7 @@ use function array_values;
 use function func_get_args;
 use function implode;
 use function pg_connect;
+use function preg_match;
 use function restore_error_handler;
 use function set_error_handler;
 use function sprintf;
@@ -28,10 +27,10 @@ final class Driver extends AbstractPostgreSQLDriver
     /** {@inheritDoc} */
     public function connect(
         #[SensitiveParameter]
-        array $params,
+        array $params
     ): Connection {
         set_error_handler(
-            static function (int $severity, string $message): never {
+            static function (int $severity, string $message) {
                 throw new ErrorException($message, 0, $severity, ...array_slice(func_get_args(), 2, 2));
             },
         );
@@ -64,11 +63,20 @@ final class Driver extends AbstractPostgreSQLDriver
      */
     private function constructConnectionString(
         #[SensitiveParameter]
-        array $params,
+        array $params
     ): string {
+        // pg_connect used by Doctrine DBAL does not support [...] notation,
+        // but requires the host address in plain form like `aa:bb:99...`
+        $matches = [];
+        if (isset($params['host']) && preg_match('/^\[(.+)\]$/', $params['host'], $matches) === 1) {
+            $params['hostaddr'] = $matches[1];
+            unset($params['host']);
+        }
+
         $components = array_filter(
             [
                 'host' => $params['host'] ?? null,
+                'hostaddr' => $params['hostaddr'] ?? null,
                 'port' => $params['port'] ?? null,
                 'dbname' => $params['dbname'] ?? 'postgres',
                 'user' => $params['user'] ?? null,
@@ -76,11 +84,11 @@ final class Driver extends AbstractPostgreSQLDriver
                 'sslmode' => $params['sslmode'] ?? null,
                 'gssencmode' => $params['gssencmode'] ?? null,
             ],
-            static fn (int|string|null $value) => $value !== '' && $value !== null,
+            static fn ($value) => $value !== '' && $value !== null,
         );
 
         return implode(' ', array_map(
-            static fn (int|string $value, string $key) => sprintf("%s='%s'", $key, addslashes((string) $value)),
+            static fn ($value, string $key) => sprintf("%s='%s'", $key, addslashes($value)),
             array_values($components),
             array_keys($components),
         ));

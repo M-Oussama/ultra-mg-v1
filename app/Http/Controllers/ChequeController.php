@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cheque;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -58,15 +59,18 @@ class ChequeController extends Controller
             'cheque_date' => 'required|date',
             'cheque_number' => 'required|string',
             'client_id' => 'required|exists:certify_clients,id',
+            'company_id' => 'nullable|integer',
             'file' => 'nullable|mimes:pdf|max:10240', // Max 10MB PDF
             'banque' => 'nullable|string',
+            'pdf_name' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $data = $request->only(['cheque_date', 'cheque_number', 'client_id', 'amount', 'banque']);
+        $data = $request->only(['cheque_date', 'cheque_number', 'client_id', 'company_id', 'amount', 'banque', 'pdf_name', 'notes']);
 
         if ($request->hasFile('file')) {
             $path = $request->file('file')->store('cheques/scans', 'public');
@@ -112,15 +116,18 @@ class ChequeController extends Controller
             'cheque_date' => 'sometimes|date',
             'cheque_number' => 'sometimes|string',
             'client_id' => 'sometimes|exists:certify_clients,id',
+            'company_id' => 'nullable|integer',
             'file' => 'nullable|mimes:pdf|max:10240',
             'banque' => 'nullable|string',
+            'pdf_name' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $data = $request->only(['cheque_date', 'cheque_number', 'client_id', 'amount', 'banque']);
+        $data = $request->only(['cheque_date', 'cheque_number', 'client_id', 'company_id', 'amount', 'banque', 'pdf_name', 'notes']);
 
         if ($request->hasFile('file')) {
             // Delete old file if exists
@@ -134,6 +141,114 @@ class ChequeController extends Controller
         $cheque->update($data);
 
         return response()->json($cheque);
+    }
+
+    /**
+     * Import cheques from CSV.
+     *
+     * Required headers:
+     * id, date, number, amount, bank, pdf_url, pdf_name, client_id, company_id, notes
+     */
+    public function importCsv(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+
+        foreach (['id', 'date', 'number', 'amount', 'bank', 'pdf_url', 'pdf_name', 'client_id', 'company_id', 'notes'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $inserted = 0;
+        $errors = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $payload = [
+                'id' => isset($rowData['id']) ? (int) $rowData['id'] : null,
+                'cheque_date' => $rowData['date'] ?? null,
+                'cheque_number' => $rowData['number'] ?? null,
+                'amount' => isset($rowData['amount']) ? (float) $rowData['amount'] : 0,
+                'banque' => $rowData['bank'] ?? null,
+                'file_path' => $rowData['pdf_url'] ?? null,
+                'pdf_name' => $rowData['pdf_name'] ?? null,
+                'client_id' => isset($rowData['client_id']) ? (int) $rowData['client_id'] : null,
+                'company_id' => isset($rowData['company_id']) ? (int) $rowData['company_id'] : null,
+                'notes' => $rowData['notes'] ?? null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            $validator = Validator::make($payload, [
+                'id' => 'required|integer|min:1',
+                'cheque_date' => 'required|date',
+                'cheque_number' => 'required|string|max:255',
+                'amount' => 'required|numeric|min:0',
+                'banque' => 'nullable|string|max:255',
+                'file_path' => 'nullable|string|max:1000',
+                'pdf_name' => 'nullable|string|max:255',
+                'client_id' => 'required|integer|exists:certify_clients,id',
+                'company_id' => 'nullable|integer',
+                'notes' => 'nullable|string',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => $validator->errors()->all(),
+                ];
+                continue;
+            }
+
+            if (DB::table('cheques')->where('id', $payload['id'])->exists()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => ['Cheque id already exists in database.'],
+                ];
+                continue;
+            }
+
+            DB::table('cheques')->insert($payload);
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+        ]);
     }
 
     #[OA\Delete(

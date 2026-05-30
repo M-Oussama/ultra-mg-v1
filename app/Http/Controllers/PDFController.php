@@ -8,9 +8,81 @@ use App\Models\Company;
 use App\Http\Helpers\NumberToLetter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class PDFController extends Controller
 {
+    public function exportSaleDeliveryNote(Request $request, $id)
+    {
+        $businessId = (int) $request->query('business_id');
+        if ($businessId <= 0) {
+            return response()->json(['message' => 'business_id query parameter is required.'], 422);
+        }
+
+        $sale = Sale::with(['client', 'saleItems.product'])
+            ->where('id', $id)
+            ->where('department_id', $businessId)
+            ->first();
+
+        if (!$sale) {
+            return response()->json(['message' => 'Sale not found for this business_id.'], 404);
+        }
+
+        $company = Company::first();
+        $amountLetter = $this->convertAmoutToLetter((float) $sale->total_amount);
+
+        $departmentColumns = ['name'];
+        foreach (['address', 'phone', 'email', 'logo_url', 'logo'] as $optionalColumn) {
+            if (Schema::hasColumn('departments', $optionalColumn)) {
+                $departmentColumns[] = $optionalColumn;
+            }
+        }
+
+        $department = DB::table('departments')
+            ->select($departmentColumns)
+            ->where('id', $businessId)
+            ->first();
+
+        $departmentName = $department->name ?? ($company->name ?? '');
+        $departmentAddress = $department->address ?? ($company->address ?? '');
+        $departmentPhone = $department->phone ?? ($company->phone ?? '');
+        $departmentEmail = $department->email ?? ($company->email ?? '');
+
+        $logoPath = $department->logo_url ?? ($department->logo ?? null);
+        $logoAbsolutePath = null;
+        if (!empty($logoPath)) {
+            $cleanPath = ltrim((string) $logoPath, '/\\');
+            $publicCandidate = public_path($cleanPath);
+            $storageCandidate = storage_path('app/public/' . $cleanPath);
+            if (file_exists($publicCandidate)) {
+                $logoAbsolutePath = $publicCandidate;
+            } elseif (file_exists($storageCandidate)) {
+                $logoAbsolutePath = $storageCandidate;
+            }
+        }
+
+        $pdf = Pdf::loadView('sale_delivery_pdf', compact(
+            'sale',
+            'amountLetter',
+            'businessId',
+            'departmentName',
+            'departmentAddress',
+            'departmentPhone',
+            'departmentEmail',
+            'logoAbsolutePath'
+        ));
+
+        $pdf->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isFontSubsettingEnabled' => true,
+                'isRemoteEnabled' => true,
+            ]);
+
+        return $pdf->download('Bon_de_livraison_' . $sale->id . '.pdf');
+    }
+
     public function exportSale($saleId)
     {
         $sale = Sale::with(['client', 'saleItems.product'])->findOrFail($saleId);

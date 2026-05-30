@@ -17,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use App\Models\ProductStock;
 
 class POSController extends Controller
@@ -642,6 +643,443 @@ class POSController extends Controller
         return response()->json([
             'sale_id' => (int) $sale_id,
             'total_paid' => (float) ($direct_payment + $partial_payment)
+        ]);
+    }
+
+    /**
+     * Import sales from CSV with one department_id applied to all rows.
+     */
+    public function importCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+            'department_id' => 'required|integer|exists:departments,id',
+        ]);
+
+        $departmentId = (int) $request->input('department_id');
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+
+        foreach (['id', 'sale_date', 'client_id', 'total_amount', 'sale_statuses_id', 'regulation', 'payment', 'balance', 'notes', 'truck_driver_id', 'picked_up'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $inserted = 0;
+        $errors = [];
+        $warnings = [];
+        $rowNumber = 1;
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $paymentRaw = strtolower((string) ($rowData['payment'] ?? '0'));
+            $payment = in_array($paymentRaw, ['1', 'true', 'yes'], true) ? 1 : 0;
+            $pickedUpRaw = strtolower((string) ($rowData['picked_up'] ?? '0'));
+            $pickedUp = in_array($pickedUpRaw, ['1', 'true', 'yes'], true) ? 1 : 0;
+            $balanceValue = isset($rowData['balance']) ? (float) $rowData['balance'] : 0;
+
+            $payload = [
+                'id' => isset($rowData['id']) ? (int) $rowData['id'] : null,
+                'sale_date' => $rowData['sale_date'] ?? null,
+                'client_id' => isset($rowData['client_id']) ? (int) $rowData['client_id'] : null,
+                'total_amount' => isset($rowData['total_amount']) ? (float) $rowData['total_amount'] : null,
+                'sale_statuses_id' => isset($rowData['sale_statuses_id']) ? (int) $rowData['sale_statuses_id'] : null,
+                'regulation' => isset($rowData['regulation']) ? (float) $rowData['regulation'] : 0,
+                'payment' => $payment,
+                'balance' => $balanceValue,
+                'notes' => $rowData['notes'] ?? null,
+                'department_id' => $departmentId,
+                'truck_driver_id' => isset($rowData['truck_driver_id']) && trim((string) $rowData['truck_driver_id']) !== '' ? (int) $rowData['truck_driver_id'] : null,
+                'picked_up' => $pickedUp,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            if (in_array('paid_amount', $normalizedHeader, true) && isset($rowData['paid_amount']) && trim((string) $rowData['paid_amount']) !== '') {
+                $payload['paid_amount'] = (float) $rowData['paid_amount'];
+            }
+
+            if (!empty($payload['client_id'])) {
+                $clientExists = DB::table('clients')->where('id', $payload['client_id'])->exists();
+                if (!$clientExists) {
+                    $warnings[] = [
+                        'row' => $rowNumber,
+                        'warning' => 'client_id not found, set to null.',
+                    ];
+                    $payload['client_id'] = null;
+                }
+            }
+
+            $validator = Validator::make($payload, [
+                'id' => 'required|integer|min:1',
+                'sale_date' => 'required|date',
+                'client_id' => 'nullable|integer',
+                'total_amount' => 'required|numeric|min:0',
+                'sale_statuses_id' => 'required|integer|min:1',
+                'regulation' => 'required|numeric|min:0',
+                'payment' => 'required|boolean',
+                'balance' => 'required|numeric',
+                'notes' => 'nullable|string',
+                'department_id' => 'required|integer|exists:departments,id',
+                'paid_amount' => 'nullable|numeric|min:0',
+                'truck_driver_id' => 'nullable|integer',
+                'picked_up' => 'required|boolean',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => $validator->errors()->all(),
+                ];
+                continue;
+            }
+
+            if (!empty($payload['id']) && DB::table('sales')->where('id', $payload['id'])->exists()) {
+                $warnings[] = [
+                    'row' => $rowNumber,
+                    'warning' => 'Sale id exists, inserted with auto-generated id.',
+                ];
+                unset($payload['id']);
+            }
+
+            DB::table('sales')->insert($payload);
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+            'warnings' => $warnings,
+        ]);
+    }
+
+    /**
+     * Import sale items from CSV.
+     *
+     * Required CSV headers:
+     * id, sale_id, client_id, product_id, quantity, price, total_price, sale_date
+     */
+    public function importSaleItemsCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+
+        foreach (['id', 'sale_id', 'client_id', 'product_id', 'quantity', 'price', 'total_price', 'sale_date'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $inserted = 0;
+        $errors = [];
+        $warnings = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $payload = [
+                'id' => isset($rowData['id']) ? (int) $rowData['id'] : null,
+                'sale_id' => isset($rowData['sale_id']) ? (int) $rowData['sale_id'] : null,
+                'client_id' => isset($rowData['client_id']) ? (int) $rowData['client_id'] : null,
+                'product_id' => isset($rowData['product_id']) ? (int) $rowData['product_id'] : null,
+                'quantity' => isset($rowData['quantity']) ? (int) $rowData['quantity'] : 0,
+                'price' => isset($rowData['price']) ? (float) $rowData['price'] : 0,
+                'total_price' => isset($rowData['total_price']) ? (float) $rowData['total_price'] : 0,
+                'sale_date' => $rowData['sale_date'] ?? null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            $validator = Validator::make($payload, [
+                'id' => 'required|integer|min:1',
+                'sale_id' => 'required|integer',
+                'client_id' => 'required|integer',
+                'product_id' => 'required|integer',
+                'quantity' => 'required|integer|min:0',
+                'price' => 'required|numeric|min:0',
+                'total_price' => 'required|numeric|min:0',
+                'sale_date' => 'required|date',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => $validator->errors()->all(),
+                ];
+                continue;
+            }
+
+            if (!empty($payload['id']) && DB::table('sale_items')->where('id', $payload['id'])->exists()) {
+                $warnings[] = [
+                    'row' => $rowNumber,
+                    'warning' => 'Sale item id exists, inserted with auto-generated id.',
+                ];
+                unset($payload['id']);
+            }
+
+            DB::table('sale_items')->insert($payload);
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+            'warnings' => $warnings,
+        ]);
+    }
+
+    /**
+     * Import payments from CSV with one department_id for all rows.
+     *
+     * CSV columns:
+     * id, sale_id, client_id, amount_paid, payment_date, note, active
+     */
+    public function importPaymentsCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+            'department_id' => 'required|integer|exists:departments,id',
+        ]);
+
+        $departmentId = (int) $request->input('department_id');
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+        foreach (['id', 'sale_id', 'client_id', 'amount_paid', 'payment_date', 'note', 'active'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $inserted = 0;
+        $errors = [];
+        $warnings = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $activeRaw = strtolower((string) ($rowData['active'] ?? '0'));
+            $active = in_array($activeRaw, ['1', 'true', 'yes'], true) ? 1 : 0;
+
+            $payload = [
+                'id' => isset($rowData['id']) ? (int) $rowData['id'] : null,
+                'department_id' => $departmentId,
+                'sale_id' => isset($rowData['sale_id']) && trim((string) $rowData['sale_id']) !== '' ? (int) $rowData['sale_id'] : null,
+                'client_id' => isset($rowData['client_id']) && trim((string) $rowData['client_id']) !== '' ? (int) $rowData['client_id'] : null,
+                'amount_paid' => isset($rowData['amount_paid']) ? (float) $rowData['amount_paid'] : 0,
+                'payment_date' => $rowData['payment_date'] ?? null,
+                'note' => $rowData['note'] ?? null,
+                'active' => $active,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            $validator = Validator::make($payload, [
+                'id' => 'required|integer|min:1',
+                'department_id' => 'required|integer|exists:departments,id',
+                'sale_id' => 'nullable|integer',
+                'client_id' => 'nullable|integer',
+                'amount_paid' => 'required|numeric|min:0',
+                'payment_date' => 'required|date',
+                'note' => 'nullable|string|max:255',
+                'active' => 'required|boolean',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = ['row' => $rowNumber, 'errors' => $validator->errors()->all()];
+                continue;
+            }
+
+            if (!empty($payload['id']) && DB::table('payments')->where('id', $payload['id'])->exists()) {
+                $warnings[] = ['row' => $rowNumber, 'warning' => 'Payment id exists, inserted with auto-generated id.'];
+                unset($payload['id']);
+            }
+
+            DB::table('payments')->insert($payload);
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+            'warnings' => $warnings,
+        ]);
+    }
+
+    /**
+     * Import partial_payments from CSV with one department_id for all rows.
+     *
+     * CSV columns:
+     * id, payment_id, sale_id, amount
+     */
+    public function importPartialPaymentsCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+            'department_id' => 'required|integer|exists:departments,id',
+        ]);
+
+        $departmentId = (int) $request->input('department_id');
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+        foreach (['id', 'payment_id', 'sale_id', 'amount'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $inserted = 0;
+        $errors = [];
+        $warnings = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $payload = [
+                'id' => isset($rowData['id']) ? (int) $rowData['id'] : null,
+                'department_id' => $departmentId,
+                'payment_id' => isset($rowData['payment_id']) ? (int) $rowData['payment_id'] : null,
+                'sale_id' => isset($rowData['sale_id']) ? (int) $rowData['sale_id'] : null,
+                'amount' => isset($rowData['amount']) ? (float) $rowData['amount'] : 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            $validator = Validator::make($payload, [
+                'id' => 'required|integer|min:1',
+                'department_id' => 'required|integer|exists:departments,id',
+                'payment_id' => 'required|integer',
+                'sale_id' => 'required|integer',
+                'amount' => 'required|numeric|min:0',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = ['row' => $rowNumber, 'errors' => $validator->errors()->all()];
+                continue;
+            }
+
+            if (!empty($payload['id']) && DB::table('partial_payments')->where('id', $payload['id'])->exists()) {
+                $warnings[] = ['row' => $rowNumber, 'warning' => 'Partial payment id exists, inserted with auto-generated id.'];
+                unset($payload['id']);
+            }
+
+            DB::table('partial_payments')->insert($payload);
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+            'warnings' => $warnings,
         ]);
     }
 }

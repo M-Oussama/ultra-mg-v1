@@ -31,6 +31,9 @@ const router = createRouter({
             return { name: 'dashboards-analytics' }
         }
 
+        if (isUserLoggedIn())
+          return { name: 'not-authorized' }
+
         return { name: 'login', query: to.query }
       },
     },
@@ -51,6 +54,10 @@ const router = createRouter({
 // Docs: https://router.vuejs.org/guide/advanced/navigation-guards.html#global-before-guards
 router.beforeEach(to => {
   const isLoggedIn = isUserLoggedIn()
+  const publicRouteNames = ['login', 'not-authorized']
+
+  if (publicRouteNames.includes(String(to.name)))
+    return true
 
   /*
   

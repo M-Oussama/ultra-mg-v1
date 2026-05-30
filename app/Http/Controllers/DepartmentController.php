@@ -70,6 +70,10 @@ class DepartmentController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:departments,name',
+            'address' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'logo_url' => 'nullable|string|max:2048',
         ]);
 
         try {
@@ -89,6 +93,10 @@ class DepartmentController extends Controller
         $request->validate([
             'id' => 'required|exists:departments,id',
             'name' => 'required|string|max:255|unique:departments,name,' . $request->input('id'),
+            'address' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'logo_url' => 'nullable|string|max:2048',
         ]);
 
         try {

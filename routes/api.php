@@ -121,6 +121,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/clients/list', [ClientController::class, 'getClients'])->middleware('permission:list,clients')->name('getClients');
     Route::get('/clients/cities', [ClientController::class, 'getCities'])->middleware('permission:list,clients')->name('getClientCities');
     Route::post('/clients/store', [ClientController::class, 'store'])->middleware('permission:add,clients')->name('store');
+    Route::post('/clients/import-csv', [ClientController::class, 'importCsv'])->middleware('permission:add,clients')->name('importClientsCsv');
     Route::post('/clients/update/{id}', [ClientController::class, 'update'])->middleware('permission:edit,clients')->name('update');
     Route::delete('/clients/delete/{id}', [ClientController::class, 'delete'])->middleware('permission:delete,clients')->name('delete');
     Route::get('/clients/getClientsPerCity/{id}', [ClientController::class, 'getClientsPerCity'])->middleware('permission:list,clients')->name('getClientsPerCity');
@@ -128,6 +129,7 @@ Route::middleware('auth:sanctum')->group(function () {
     /** PRODUCTS  */
     Route::get('/products/list', [ProductController::class, 'getProducts'])->middleware('permission:list,products')->name('getProducts');
     Route::post('/products/store', [ProductController::class, 'store'])->middleware('permission:add,products')->name('store');
+    Route::post('/products/import-csv', [ProductController::class, 'importCsv'])->middleware('permission:add,products')->name('importProductsCsv');
     Route::post('/products/update/{id}', [ProductController::class, 'update'])->middleware('permission:edit,products')->name('update');
     Route::delete('/products/delete/{id}', [ProductController::class, 'delete'])->middleware('permission:delete,products')->name('delete');
 
@@ -135,6 +137,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/certifyInvoices/list', [CertifyInvoiceController::class, 'getInvoices'])->middleware('permission:list,certify_invoices')->name('getInvoices');
     Route::get('/certifyInvoices/getInvoice/{id}', [CertifyInvoiceController::class, 'getInvoice'])->middleware('permission:list,certify_invoices')->name('getInvoice');
     Route::post('/certifyInvoices/store', [CertifyInvoiceController::class, 'store'])->middleware('permission:add,certify_invoices')->name('store');
+    Route::post('/certifyInvoices/import-csv', [CertifyInvoiceController::class, 'importCsv'])->middleware('permission:add,certify_invoices')->name('importCertifyInvoiceCsv');
+    Route::post('/certifyInvoices/import-products-csv', [CertifyInvoiceController::class, 'importProductsCsv'])->middleware('permission:add,certify_invoices')->name('importCertifyInvoiceProductsCsv');
     Route::post('/certifyInvoices/update/{id}', [CertifyInvoiceController::class, 'update'])->middleware('permission:edit,certify_invoices')->name('update');
     Route::delete('/certifyInvoices/delete/{id}', [CertifyInvoiceController::class, 'delete'])->middleware('permission:delete,certify_invoices')->name('deleteCertifyInvoice');
     Route::get('/certifyInvoices/getInvoiceData', [CertifyInvoiceController::class, 'getData'])->middleware('permission:list,certify_invoices')->name('getData');
@@ -143,12 +147,14 @@ Route::middleware('auth:sanctum')->group(function () {
     /** Certify Clients */
     Route::get('/certify-clients/list', [\App\Http\Controllers\CertifyClientController::class, 'getClients'])->middleware('permission:list,certify_invoices')->name('getCertifyClients');
     Route::post('/certify-clients/store', [\App\Http\Controllers\CertifyClientController::class, 'store'])->middleware('permission:add,certify_invoices')->name('storeCertifyClient');
+    Route::post('/certify-clients/import-csv', [\App\Http\Controllers\CertifyClientController::class, 'importCsv'])->middleware('permission:add,certify_invoices')->name('importCertifyClientCsv');
     Route::post('/certify-clients/update/{id}', [\App\Http\Controllers\CertifyClientController::class, 'update'])->middleware('permission:edit,certify_invoices')->name('updateCertifyClient');
     Route::delete('/certify-clients/delete/{id}', [\App\Http\Controllers\CertifyClientController::class, 'delete'])->middleware('permission:delete,certify_invoices')->name('deleteCertifyClient');
 
     /** Certify Products */
     Route::get('/certify-products/list', [CertifyProductController::class, 'getProducts'])->middleware('permission:list,certify_invoices')->name('getCertifyProducts');
     Route::post('/certify-products/store', [CertifyProductController::class, 'store'])->middleware('permission:add,certify_invoices')->name('storeCertifyProduct');
+    Route::post('/certify-products/import-csv', [CertifyProductController::class, 'importCsv'])->middleware('permission:add,certify_invoices')->name('importCertifyProductCsv');
     Route::post('/certify-products/update/{id}', [CertifyProductController::class, 'update'])->middleware('permission:edit,certify_invoices')->name('updateCertifyProduct');
     Route::delete('/certify-products/delete/{id}', [CertifyProductController::class, 'delete'])->middleware('permission:delete,certify_invoices')->name('deleteCertifyProduct');
 
@@ -158,6 +164,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/cheques/status/{chequeId}/{excludeCommandId}', [\App\Http\Controllers\ChequeController::class, 'getStatusExcluding'])->middleware('permission:list,payments')->name('getChequeStatusExcluding');
     Route::get('/cheques/status/{chequeId}', [\App\Http\Controllers\ChequeController::class, 'getStatus'])->middleware('permission:list,payments')->name('getChequeStatus');
     Route::post('/cheques/store', [\App\Http\Controllers\ChequeController::class, 'store'])->middleware('permission:add,payments')->name('storeCheque');
+    Route::post('/cheques/import-csv', [\App\Http\Controllers\ChequeController::class, 'importCsv'])->middleware('permission:add,payments')->name('importChequeCsv');
     Route::post('/cheques/update/{id}', [\App\Http\Controllers\ChequeController::class, 'update'])->middleware('permission:edit,payments')->name('updateCheque');
     Route::post('/cheques/scan', [\App\Http\Controllers\ChequeController::class, 'scan'])->middleware('permission:add,payments')->name('scanCheque');
     Route::get('/cheques/unify-status', [\App\Http\Controllers\ChequeController::class, 'unifyStatuses'])->middleware('permission:edit,payments')->name('unifyChequeStatuses');
@@ -168,12 +175,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pos/sales/getPriceHistory/{clientId}/{productId}', [POSController::class, 'getPriceHistory'])->middleware('permission:list,sales')->name('getPriceHistory');
     Route::get('/pos/sales/getData', [POSController::class, 'getData'])->middleware('permission:list,sales')->name('getData');
     Route::post('/pos/sales/store', [POSController::class, 'store'])->middleware('permission:add,sales')->name('store');
+    Route::post('/pos/sales/import-csv', [POSController::class, 'importCsv'])->middleware('permission:add,sales')->name('importSalesCsv');
+    Route::post('/pos/sales/import-items-csv', [POSController::class, 'importSaleItemsCsv'])->middleware('permission:add,sales')->name('importSaleItemsCsv');
     Route::post('/pos/sales/delete', [POSController::class, 'deleteSale'])->middleware('permission:delete,sales')->name('deleteSale');
     Route::get('/pos/sale/getSale/{id}', [POSController::class, 'getSale'])->middleware('permission:list,sales')->name('getSale');
     Route::get('/pos/sale/getSaleData/{id}', [POSController::class, 'getSaleData'])->middleware('permission:list,sales')->name('getSale');
     Route::post('/pos/sales/update/{id}', [POSController::class, 'update'])->middleware('permission:edit,sales')->name('update');
     Route::post('/pos/sales/payment/create/{id}', [POSController::class, 'addPayment'])->middleware('permission:add,payments')->name('addPayment');
     Route::get('/pos/sales/payments/list', [POSController::class, 'listPayment'])->middleware('permission:list,payments')->name('listPayment');
+    Route::post('/pos/payments/import-csv', [POSController::class, 'importPaymentsCsv'])->middleware('permission:add,payments')->name('importPaymentsCsv');
+    Route::post('/pos/partial-payments/import-csv', [POSController::class, 'importPartialPaymentsCsv'])->middleware('permission:add,payments')->name('importPartialPaymentsCsv');
     Route::get('/pos/sales/payments/invoice/{sale_id}', [POSController::class, 'getSalePaymentsTotal'])->middleware('permission:list,payments');
     Route::post('/pos/sales/payment/create', [POSController::class, 'createPayment'])->middleware('permission:add,payments')->name('createPayment');
     Route::post('/pos/sales/payment/update', [POSController::class, 'updatePayment'])->middleware('permission:edit,payments')->name('updatePayment');
@@ -188,10 +199,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pos/client/{id}/sales', [POSController::class, 'getClientInvoices'])->middleware('permission:list,sales')->name('getClientInvoices');
     Route::get('/pos/client/{id}/sales/{paymentId}/paid', [POSController::class, 'getPaidInvoices'])->middleware('permission:list,sales')->name('getClientInvoices');
     Route::post('/sales/{sale}/toggle-pickup', [POSController::class, 'updatePickUp'])->middleware('permission:edit,sales')->name('updatePickUp');
+    Route::get('/pdf/sale/{id}', [PDFController::class, 'exportSaleDeliveryNote'])->middleware('permission:list,sales')->name('exportSaleDeliveryNote');
 
     /** EMPLOYEES */
     Route::get('/employees/list', [EmployeeController::class, 'getEmployees'])->middleware('permission:list,employees')->name('getEmployees');
     Route::post('/employees/store', [EmployeeController::class, 'store'])->middleware('permission:add,employees')->name('store');
+    Route::post('/employees/import-csv', [EmployeeController::class, 'importCsv'])->middleware('permission:add,employees')->name('importEmployeesCsv');
+    Route::post('/employees/import-careers-csv', [EmployeeController::class, 'importCareersCsv'])->middleware('permission:add,employees')->name('importEmployeeCareersCsv');
     Route::post('/employees/update/{id}', [EmployeeController::class, 'update'])->middleware('permission:edit,employees')->name('update');
     Route::delete('/employees/delete/{id}', [EmployeeController::class, 'destroy'])->middleware('permission:delete,employees')->name('destroy');
     Route::get('/employees/{id}', [EmployeeController::class, 'getEmployee'])->middleware('permission:list,employees')->name('getEmployee');
@@ -284,6 +298,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::group(['prefix' => 'returns'], function () {
         Route::get('/list', [ProductReturnController::class, 'getReturns'])->middleware('permission:list,returns');
         Route::post('/store', [ProductReturnController::class, 'store'])->middleware('permission:add,returns');
+        Route::post('/import-csv', [ProductReturnController::class, 'importReturnsCsv'])->middleware('permission:add,returns');
+        Route::post('/import-lists-csv', [ProductReturnController::class, 'importReturnListsCsv'])->middleware('permission:add,returns');
         Route::get('/getData', [ProductReturnController::class, 'getData'])->middleware('permission:list,returns');
         Route::post('/delete', [ProductReturnController::class, 'deleteReturn'])->middleware('permission:delete,returns');
         Route::post('/update/{id}', [ProductReturnController::class, 'update'])->middleware('permission:edit,returns');
@@ -293,6 +309,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::group(['prefix' => '/employees/vacation'], function () {
         Route::post('/store/{id}', [VacationController::class, 'store'])->middleware('permission:add,vacations');
+        Route::post('/import-csv', [VacationController::class, 'importCsv'])->middleware('permission:add,vacations');
         Route::post('/update/{id}', [VacationController::class, 'update'])->middleware('permission:edit,vacations');
         Route::get('/list/{id}', [VacationController::class, 'getVacationsByEmployee'])->middleware('permission:list,vacations');
         Route::get('/list', [VacationController::class, 'getVacations'])->middleware('permission:list,vacations');

@@ -12,8 +12,12 @@ class Payment extends Model
 
     protected $fillable = [
         'sale_id',
+        'client_id',
+        'department_id',
         'amount_paid',
-        'payment_date'
+        'payment_date',
+        'note',
+        'active',
     ];
 
     protected $with = [

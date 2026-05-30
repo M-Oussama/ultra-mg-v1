@@ -25,12 +25,16 @@ class Cheque extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'id',
         'cheque_date',
         'cheque_number',
         'client_id',
+        'company_id',
         'amount',
         'file_path',
+        'pdf_name',
         'banque',
+        'notes',
     ];
 
     public function client()

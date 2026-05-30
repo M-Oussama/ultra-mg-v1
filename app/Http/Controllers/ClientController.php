@@ -10,6 +10,8 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use OpenApi\Attributes as OA;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -360,5 +362,132 @@ class ClientController extends Controller
                 'isFontSubsettingEnabled' => true,
             ]);
         return $pdf->stream('ETAT '.$client->name.'.pdf');
+    }
+
+    /**
+     * Import clients from CSV.
+     *
+     * Expected CSV headers:
+     * id, name, surname, full_name, address, email, phone, NRC, NIF, NART, NIS, city_id
+     */
+    public function importCsv(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $handle = fopen($file->getRealPath(), 'r');
+
+        if ($handle === false) {
+            return response()->json(['message' => 'Unable to read CSV file'], 422);
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            return response()->json(['message' => 'CSV file is empty'], 422);
+        }
+
+        $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
+
+        foreach (['id', 'name', 'surname', 'address', 'email', 'phone', 'nrc', 'nif', 'nart', 'nis', 'city_id'] as $column) {
+            if (!in_array($column, $normalizedHeader, true)) {
+                fclose($handle);
+                return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
+            }
+        }
+
+        $userId = auth()->id();
+        $defaultDepartmentId = (int) ($request->input('department_id', 1));
+
+        $inserted = 0;
+        $errors = [];
+        $warnings = [];
+        $rowNumber = 1;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            $rowNumber++;
+
+            if (count(array_filter($row, fn($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $rowData = [];
+            foreach ($normalizedHeader as $index => $columnName) {
+                $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
+            }
+
+            $name = $rowData['name'] ?? null;
+            $surname = $rowData['surname'] ?? null;
+            $fullName = trim(($name ?? '') . ' ' . ($surname ?? ''));
+            $rawEmail = trim((string) ($rowData['email'] ?? ''));
+            $email = filter_var($rawEmail, FILTER_VALIDATE_EMAIL) ? $rawEmail : null;
+
+            $payload = [
+                'id' => isset($rowData['id']) ? (int) $rowData['id'] : null,
+                'department_id' => $defaultDepartmentId,
+                'name' => $name,
+                'surname' => $surname,
+                'full_name' => $fullName !== '' ? $fullName : null,
+                'address' => $rowData['address'] ?? null,
+                'email' => $email,
+                'phone' => $rowData['phone'] ?? null,
+                'NRC' => $rowData['nrc'] ?? null,
+                'NIF' => $rowData['nif'] ?? null,
+                'NART' => $rowData['nart'] ?? null,
+                'NIS' => $rowData['nis'] ?? null,
+                'city_id' => isset($rowData['city_id']) ? (int) $rowData['city_id'] : null,
+                'user_id' => $userId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            $validator = Validator::make($payload, [
+                'id' => 'required|integer|min:1',
+                'department_id' => 'nullable|integer',
+                'name' => 'required|string|max:255',
+                'surname' => 'nullable|string|max:255',
+                'full_name' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:255',
+                'email' => 'nullable|string|max:255',
+                'phone' => 'nullable|string|max:255',
+                'NRC' => 'nullable|string|max:255',
+                'NIF' => 'nullable|string|max:255',
+                'NART' => 'nullable|string|max:255',
+                'NIS' => 'nullable|string|max:255',
+                'city_id' => 'required|integer',
+                'user_id' => 'nullable|integer',
+            ]);
+
+            if ($validator->fails()) {
+                $errors[] = [
+                    'row' => $rowNumber,
+                    'errors' => $validator->errors()->all(),
+                ];
+                continue;
+            }
+
+            if (!empty($payload['id']) && DB::table('clients')->where('id', $payload['id'])->exists()) {
+                $warnings[] = [
+                    'row' => $rowNumber,
+                    'warning' => 'Client id exists, inserted with auto-generated id.',
+                ];
+                unset($payload['id']);
+            }
+
+            DB::table('clients')->insert($payload);
+            $inserted++;
+        }
+
+        fclose($handle);
+
+        return response()->json([
+            'message' => 'CSV import processed',
+            'inserted' => $inserted,
+            'failed' => count($errors),
+            'errors' => $errors,
+            'warnings' => $warnings,
+        ]);
     }
 }

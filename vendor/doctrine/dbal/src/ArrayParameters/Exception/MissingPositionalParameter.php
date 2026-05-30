@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 namespace Doctrine\DBAL\ArrayParameters\Exception;
 
 use Doctrine\DBAL\ArrayParameters\Exception;
@@ -9,11 +7,7 @@ use LogicException;
 
 use function sprintf;
 
-/**
- * @internal
- *
- * @psalm-immutable
- */
+/** @internal */
 class MissingPositionalParameter extends LogicException implements Exception
 {
     public static function new(int $index): self
