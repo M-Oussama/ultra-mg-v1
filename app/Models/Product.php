@@ -47,7 +47,9 @@ class Product extends Model
         'type_id',
         'stockable',
         'weight',
-        'department_id'
+        'department_id',
+        'package_type',
+        'units_per_package'
     ];
 
     protected $casts = [
@@ -56,6 +58,7 @@ class Product extends Model
         'tax_rate' => 'double',
         'weight' => 'double',
         'min_stock_level' => 'integer',
+        'units_per_package' => 'integer',
     ];
 
     protected $appends = ['stock'];
@@ -89,3 +92,4 @@ class Product extends Model
         });
     }
 }
+

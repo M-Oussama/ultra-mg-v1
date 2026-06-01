@@ -245,6 +245,11 @@ class POSController extends Controller
                     'total_price' => $product['quantity'] * $product['price'],
                     'sale_id' => $sale->id,
                     'sale_date' => $data['sale_date'],
+                    'package_type' => $product['package_type'] ?? ($product['product']['package_type'] ?? null),
+                    'units_per_package' => isset($product['units_per_package']) ? (int) $product['units_per_package'] : (isset($product['product']['units_per_package']) ? (int) $product['product']['units_per_package'] : null),
+                    'package_quantity' => isset($product['package_quantity']) ? (int) $product['package_quantity'] : null,
+                    'number_of_packages' => isset($product['number_of_packages']) ? (int) $product['number_of_packages'] : (isset($product['package_quantity']) ? (int) $product['package_quantity'] : null),
+                    'items_per_package' => isset($product['items_per_package']) ? (int) $product['items_per_package'] : (isset($product['units_per_package']) ? (int) $product['units_per_package'] : null),
                 ]);
                 $object->price = floatval($product['price']);
                 $object->save();
@@ -360,6 +365,11 @@ class POSController extends Controller
                     'sale_id' => $sale->id,
                     'client_id' => $client['id'],
                     'sale_date' => $data['sale_date'],
+                    'package_type' => $product['package_type'] ?? ($product['product']['package_type'] ?? null),
+                    'units_per_package' => isset($product['units_per_package']) ? (int) $product['units_per_package'] : (isset($product['product']['units_per_package']) ? (int) $product['product']['units_per_package'] : null),
+                    'package_quantity' => isset($product['package_quantity']) ? (int) $product['package_quantity'] : null,
+                    'number_of_packages' => isset($product['number_of_packages']) ? (int) $product['number_of_packages'] : (isset($product['package_quantity']) ? (int) $product['package_quantity'] : null),
+                    'items_per_package' => isset($product['items_per_package']) ? (int) $product['items_per_package'] : (isset($product['units_per_package']) ? (int) $product['units_per_package'] : null),
                 ]);
                 $object->price = floatval($product['price']);
                 $object->save();
@@ -736,6 +746,9 @@ class POSController extends Controller
             $validator = Validator::make($payload, [
                 'id' => 'required|integer|min:1',
                 'sale_date' => 'required|date',
+                'package_type' => 'nullable|string|max:255',
+                'units_per_package' => 'nullable|integer|min:0',
+                'package_quantity' => 'nullable|integer|min:0',
                 'client_id' => 'nullable|integer',
                 'total_amount' => 'required|numeric|min:0',
                 'sale_statuses_id' => 'required|integer|min:1',
@@ -807,7 +820,7 @@ class POSController extends Controller
 
         $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
 
-        foreach (['id', 'sale_id', 'client_id', 'product_id', 'quantity', 'price', 'total_price', 'sale_date'] as $column) {
+        foreach (['id', 'sale_id', 'client_id', 'product_id', 'quantity', 'price', 'total_price', 'sale_date', 'package_type', 'units_per_package', 'package_quantity'] as $column) {
             if (!in_array($column, $normalizedHeader, true)) {
                 fclose($handle);
                 return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
@@ -853,6 +866,9 @@ class POSController extends Controller
                 'price' => 'required|numeric|min:0',
                 'total_price' => 'required|numeric|min:0',
                 'sale_date' => 'required|date',
+                'package_type' => 'nullable|string|max:255',
+                'units_per_package' => 'nullable|integer|min:0',
+                'package_quantity' => 'nullable|integer|min:0',
             ]);
 
             if ($validator->fails()) {
@@ -1083,3 +1099,8 @@ class POSController extends Controller
         ]);
     }
 }
+
+
+
+
+

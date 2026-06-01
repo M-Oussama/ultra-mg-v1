@@ -17,7 +17,12 @@ class SaleItem extends Model
         'unit_price',
         'total_price',
         'client_id',
-        'sale_date'
+        'sale_date',
+        'package_type',
+        'units_per_package',
+        'package_quantity',
+        'number_of_packages',
+        'items_per_package'
     ];
     protected $with = ['product'];
 
@@ -31,3 +36,5 @@ class SaleItem extends Model
         return $this->belongsTo(Product::class);
     }
 }
+
+

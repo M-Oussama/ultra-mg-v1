@@ -111,6 +111,8 @@ class ProductController extends Controller
             'tax_rate' => 'nullable|numeric',
             'weight' => 'nullable',
             'department_id' => 'nullable|integer',
+            'package_type' => 'nullable|string|max:255',
+            'units_per_package' => 'nullable|integer|min:0',
         ]);
  
         $validatedData['department_id'] = $request->input('department_id', 1);
@@ -188,6 +190,8 @@ class ProductController extends Controller
             'type_id' => 'nullable|integer',
             'weight' => 'nullable',
             'department_id' => 'nullable|integer',
+            'package_type' => 'nullable|string|max:255',
+            'units_per_package' => 'nullable|integer|min:0',
         ]);
 
         $validatedData['department_id'] = $request->input('department_id', 1);
@@ -256,7 +260,7 @@ class ProductController extends Controller
 
         $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
 
-        foreach (['id', 'name', 'brand', 'description', 'product_code', 'category_id', 'sku', 'min_stock_level', 'price', 'weight', 'stockable', 'tax_rate'] as $column) {
+        foreach (['id', 'name', 'brand', 'description', 'product_code', 'category_id', 'sku', 'min_stock_level', 'price', 'weight', 'stockable', 'tax_rate', 'package_type', 'units_per_package'] as $column) {
             if (!in_array($column, $normalizedHeader, true)) {
                 fclose($handle);
                 return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
@@ -315,6 +319,8 @@ class ProductController extends Controller
                 'weight' => 'nullable|numeric|min:0',
                 'stockable' => 'nullable|boolean',
                 'tax_rate' => 'nullable|numeric|min:0',
+                'package_type' => 'nullable|string|max:255',
+                'units_per_package' => 'nullable|integer|min:0',
             ]);
 
             if ($validator->fails()) {
@@ -359,3 +365,5 @@ class ProductController extends Controller
         ]);
     }
 }
+
+
