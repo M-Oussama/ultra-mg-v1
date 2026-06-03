@@ -110,12 +110,14 @@ class ProductController extends Controller
             'stockable' => 'nullable|boolean',
             'tax_rate' => 'nullable|numeric',
             'weight' => 'nullable',
-            'department_id' => 'nullable|integer',
+            'department_id' => 'nullable|integer|exists:departments,id',
             'package_type' => 'nullable|string|max:255',
             'units_per_package' => 'nullable|integer|min:0',
         ]);
  
-        $validatedData['department_id'] = $request->input('department_id', 1);
+        if (!$request->filled('department_id')) {
+            unset($validatedData['department_id']);
+        }
 
 
 

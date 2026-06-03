@@ -142,7 +142,7 @@ class ClientController extends Controller
             'NART' => 'string|nullable|max:255',
             'NIS' => 'string|nullable|max:255',
             'email' => 'nullable|email|unique:users,email',
-            'department_id' => 'nullable|integer',
+            'department_id' => 'nullable|integer|exists:departments,id',
             'brand' => 'nullable|string|max:255',
             'company_name' => 'nullable|string|max:255',
             'preferred_product_ids' => 'nullable|array',
@@ -205,16 +205,15 @@ class ClientController extends Controller
             'NART' => 'nullable|string|max:255',
             'NIS' => 'nullable|string|max:255',
             'email' => 'nullable|email|unique:users,email',
-            'department_id' => 'nullable|integer',
+            'department_id' => 'nullable|integer|exists:departments,id',
             'city_id' => 'nullable|integer',
             'brand' => 'nullable|string|max:255',
             'company_name' => 'nullable|string|max:255',
             'preferred_product_ids' => 'nullable|array',
         ]);
 
-        // Do not default to 1; keep existing or use validated data
-        if ($request->has('department_id')) {
-            $validatedData['department_id'] = $request->input('department_id');
+        if (!$request->filled('department_id')) {
+            unset($validatedData['department_id']);
         }
 
         $client = Client::find($id);

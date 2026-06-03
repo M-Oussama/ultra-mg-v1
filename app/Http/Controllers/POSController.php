@@ -9,9 +9,11 @@ use App\Models\Company;
 use App\Models\PartialPayment;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\ProductReturnList;
 use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SaleStatus;
+use App\Models\SupplyItem;
 use App\Models\TruckDriver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -279,6 +281,10 @@ class POSController extends Controller
 
     public function update(Request $request): JsonResponse
     {
+        $request->validate([
+            'data.id' => 'required|integer|exists:sales,id',
+            'data.department_id' => 'nullable|integer|exists:departments,id',
+        ]);
 
         $data = $request->input('data');
 
@@ -287,7 +293,6 @@ class POSController extends Controller
 
         $payment = $data['payment'];
         $balance =  $data['total_amount'] - $data['paymentAmount'];
-        $department_id = $data['department_id'] ?? $request->input('department_id', 1);
 
         if($balance >= 0) {
             $sale_status = SaleStatus::PAID_ID;
@@ -300,6 +305,9 @@ class POSController extends Controller
             DB::beginTransaction();
 
             $sale = Sale::findOrFail($data['id']);
+            $department_id = array_key_exists('department_id', $data) && $data['department_id'] !== null && $data['department_id'] !== ''
+                ? $data['department_id']
+                : $request->input('department_id', $sale->department_id ?? 1);
 
             // Reverse old stock
             $oldItems = SaleItem::where('sale_id', $sale->id)->get();
@@ -337,6 +345,13 @@ class POSController extends Controller
                 $sale->save();
             }
 
+            Payment::where('sale_id', $sale->id)->update([
+                'department_id' => $department_id,
+            ]);
+            PartialPayment::where('sale_id', $sale->id)->update([
+                'department_id' => $department_id,
+            ]);
+
             if($data['truck_driver_id']){
                 $sale->truck_driver_id = $data['truck_driver_id'];
                 $sale->save();
@@ -351,6 +366,7 @@ class POSController extends Controller
                 $paymentObj->amount_paid = floatval($data['regulation']);
                 $paymentObj->sale_id = $sale->id;
                 $paymentObj->client_id = $client['id'];
+                $paymentObj->department_id = $department_id;
                 $paymentObj->active = true;
                 $paymentObj->save();
             }
@@ -586,6 +602,116 @@ class POSController extends Controller
         }
     }
 
+    public function recalculateStocks(Request $request): JsonResponse
+    {
+        $request->validate([
+            'include_deleted' => 'sometimes|boolean',
+            'department_id' => 'nullable|integer|exists:departments,id',
+        ]);
+
+        $includeDeleted = (bool) $request->input('include_deleted', false);
+        $departmentId = $request->input('department_id');
+
+        try {
+            DB::beginTransaction();
+
+            $now = now();
+
+            $productQuery = Product::query()->select('id');
+            if ($departmentId !== null && $departmentId !== '') {
+                $productQuery->where('department_id', $departmentId);
+            }
+            $productIds = $productQuery->pluck('id');
+
+            if ($productIds->isEmpty()) {
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'No products found for the selected department.',
+                    'products_processed' => 0,
+                ]);
+            }
+
+            DB::table('product_stocks')
+                ->whereIn('product_id', $productIds)
+                ->update([
+                    'quantity' => 0,
+                    'updated_at' => $now,
+                ]);
+
+            $saleTotals = SaleItem::query()
+                ->select('sale_items.product_id', DB::raw('COALESCE(SUM(sale_items.quantity), 0) as total_quantity'))
+                ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+                ->whereIn('sale_items.product_id', $productIds)
+                ->when($departmentId !== null && $departmentId !== '', function ($query) use ($departmentId) {
+                    $query->where('sales.department_id', $departmentId);
+                })
+                ->when(!$includeDeleted, function ($query) {
+                    $query->whereNull('sales.deleted_at');
+                })
+                ->groupBy('sale_items.product_id')
+                ->pluck('total_quantity', 'product_id');
+
+            $supplyTotals = SupplyItem::query()
+                ->select('supply_items.product_id', DB::raw('COALESCE(SUM(supply_items.quantity), 0) as total_quantity'))
+                ->join('supplies', 'supplies.id', '=', 'supply_items.supply_id')
+                ->whereIn('supply_items.product_id', $productIds)
+                ->when($departmentId !== null && $departmentId !== '', function ($query) use ($departmentId) {
+                    $query->where('supplies.departement_id', $departmentId);
+                })
+                ->when(!$includeDeleted, function ($query) {
+                    $query->whereNull('supplies.deleted_at');
+                })
+                ->groupBy('supply_items.product_id')
+                ->pluck('total_quantity', 'product_id');
+
+            $returnTotals = ProductReturnList::query()
+                ->select('product_return_lists.product_id', DB::raw('COALESCE(SUM(product_return_lists.quantity), 0) as total_quantity'))
+                ->join('product_returns', 'product_returns.id', '=', 'product_return_lists.return_id')
+                ->whereIn('product_return_lists.product_id', $productIds)
+                ->when($departmentId !== null && $departmentId !== '', function ($query) use ($departmentId) {
+                    $query->where('product_returns.department_id', $departmentId);
+                })
+                ->when(!$includeDeleted, function ($query) {
+                    $query->whereNull('product_returns.deleted_at');
+                })
+                ->groupBy('product_return_lists.product_id')
+                ->pluck('total_quantity', 'product_id');
+
+            foreach ($productIds as $productId) {
+                $quantity = (float) ($supplyTotals[$productId] ?? 0)
+                    + (float) ($returnTotals[$productId] ?? 0)
+                    - (float) ($saleTotals[$productId] ?? 0);
+
+                DB::table('product_stocks')->updateOrInsert(
+                    ['product_id' => $productId],
+                    [
+                        'quantity' => $quantity,
+                        'deleted_at' => null,
+                        'updated_at' => $now,
+                        'created_at' => $now,
+                    ]
+                );
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Stock recalculated successfully',
+                'products_processed' => $productIds->count(),
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to recalculate stock: ' . $e->getMessage(),
+            ], 400);
+        }
+    }
+
     public function getClientInvoices($id){
         $notPaidInvoices = Sale::where('balance', '>', 0)->where('client_id', $id)->get();
         return response()->json(["notPaidInvoices" => $notPaidInvoices]);
@@ -798,6 +924,8 @@ class POSController extends Controller
      *
      * Required CSV headers:
      * id, sale_id, client_id, product_id, quantity, price, total_price, sale_date
+     * Optional headers:
+     * package_type, units_per_package, package_quantity, number_of_packages, items_per_package
      */
     public function importSaleItemsCsv(Request $request): JsonResponse
     {
@@ -820,7 +948,7 @@ class POSController extends Controller
 
         $normalizedHeader = array_map(fn($col) => strtolower(trim((string) $col)), $header);
 
-        foreach (['id', 'sale_id', 'client_id', 'product_id', 'quantity', 'price', 'total_price', 'sale_date', 'package_type', 'units_per_package', 'package_quantity'] as $column) {
+        foreach (['id', 'sale_id', 'client_id', 'product_id', 'quantity', 'price', 'total_price', 'sale_date'] as $column) {
             if (!in_array($column, $normalizedHeader, true)) {
                 fclose($handle);
                 return response()->json(['message' => "Missing required CSV column: {$column}"], 422);
@@ -853,6 +981,11 @@ class POSController extends Controller
                 'price' => isset($rowData['price']) ? (float) $rowData['price'] : 0,
                 'total_price' => isset($rowData['total_price']) ? (float) $rowData['total_price'] : 0,
                 'sale_date' => $rowData['sale_date'] ?? null,
+                'package_type' => isset($rowData['package_type']) && $rowData['package_type'] !== '' ? $rowData['package_type'] : null,
+                'units_per_package' => isset($rowData['units_per_package']) && $rowData['units_per_package'] !== '' ? (int) $rowData['units_per_package'] : null,
+                'package_quantity' => isset($rowData['package_quantity']) && $rowData['package_quantity'] !== '' ? (int) $rowData['package_quantity'] : null,
+                'number_of_packages' => isset($rowData['number_of_packages']) && $rowData['number_of_packages'] !== '' ? (int) $rowData['number_of_packages'] : null,
+                'items_per_package' => isset($rowData['items_per_package']) && $rowData['items_per_package'] !== '' ? (int) $rowData['items_per_package'] : null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];

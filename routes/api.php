@@ -189,6 +189,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/pos/sales/payment/create', [POSController::class, 'createPayment'])->middleware('permission:add,payments')->name('createPayment');
     Route::post('/pos/sales/payment/update', [POSController::class, 'updatePayment'])->middleware('permission:edit,payments')->name('updatePayment');
     Route::post('/pos/sales/payment/delete', [POSController::class, 'deletePayment'])->middleware('permission:delete,payments')->name('deletePayment');
+    Route::post('/pos/stocks/recalculate', [POSController::class, 'recalculateStocks'])->middleware('permission:admin,dashboard')->name('recalculateStocks');
     Route::get('/pos/benefits/list', [BenefitController::class, 'getBenefits'])->middleware('permission:list,benefits')->name('getBenefits');
     Route::post('/pos/benefits/store', [BenefitController::class, 'store'])->middleware('permission:add,benefits')->name('store');
     Route::get('/pos/benefits/{id}', [BenefitController::class, 'getArticlesBenefit'])->middleware('permission:list,benefits')->name('getArticlesBenefit');
@@ -265,6 +266,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::group(['prefix' => 'supplies'], function () {
         Route::get('/list', [SupplyController::class, 'getSupplies'])->middleware('permission:list,suppliers');
         Route::get('/getData', [SupplyController::class, 'getData'])->middleware('permission:list,suppliers');
+        Route::get('/stock-batches', [SupplyController::class, 'getStockBatches'])->middleware('permission:list,suppliers');
         Route::post('/store', [SupplyController::class, 'store'])->middleware('permission:add,suppliers');
         Route::post('/update/{id}', [SupplyController::class, 'update'])->middleware('permission:edit,suppliers');
         Route::get('/show/{id}', [SupplyController::class, 'show'])->middleware('permission:list,suppliers');
