@@ -14,9 +14,11 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::table('supply_items', function (Blueprint $table) {
-            $table->string('reference', 20)->nullable()->after('sales_supplier_id');
-        });
+        if (!Schema::hasColumn('supply_items', 'reference')) {
+            Schema::table('supply_items', function (Blueprint $table) {
+                $table->string('reference', 20)->nullable()->after('sales_supplier_id');
+            });
+        }
 
         $rows = DB::table('supply_items')
             ->join('supplies', 'supplies.id', '=', 'supply_items.supply_id')
@@ -46,9 +48,7 @@ return new class extends Migration
                 ]);
         }
 
-        Schema::table('supply_items', function (Blueprint $table) {
-            $table->string('reference', 20)->nullable(false)->change();
-        });
+        DB::statement('ALTER TABLE supply_items MODIFY reference VARCHAR(20) NOT NULL');
     }
 
     /**
@@ -58,8 +58,10 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::table('supply_items', function (Blueprint $table) {
-            $table->dropColumn('reference');
-        });
+        if (Schema::hasColumn('supply_items', 'reference')) {
+            Schema::table('supply_items', function (Blueprint $table) {
+                $table->dropColumn('reference');
+            });
+        }
     }
 };
