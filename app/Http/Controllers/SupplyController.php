@@ -17,6 +17,40 @@ use Illuminate\Support\Facades\DB;
 
 class SupplyController extends Controller
 {
+    private function generateSupplyItemReference(int $productId, ?int $departmentId, array &$sequenceByKey): string
+    {
+        $key = ($departmentId ?? 'all') . ':' . $productId;
+
+        if (!array_key_exists($key, $sequenceByKey)) {
+            $query = SupplyItem::query()
+                ->join('supplies', 'supplies.id', '=', 'supply_items.supply_id')
+                ->where('supply_items.product_id', $productId);
+
+            if ($departmentId !== null) {
+                $query->where('supplies.departement_id', $departmentId);
+            }
+
+            $sequenceByKey[$key] = (int) $query
+                ->pluck('supply_items.reference')
+                ->map(static fn ($reference) => (int) $reference)
+                ->max();
+        }
+
+        $sequenceByKey[$key]++;
+
+        return str_pad((string) $sequenceByKey[$key], 4, '0', STR_PAD_LEFT);
+    }
+
+    private function resolveSupplyItemReference(array $item, int $productId, ?int $departmentId, array &$sequenceByKey): string
+    {
+        $manualReference = trim((string) ($item['reference'] ?? ''));
+        if ($manualReference !== '') {
+            return $manualReference;
+        }
+
+        return $this->generateSupplyItemReference($productId, $departmentId, $sequenceByKey);
+    }
+
     /**
      * Get a paginated list of supplies (buying invoices).
      */
@@ -118,6 +152,7 @@ class SupplyController extends Controller
                     'source_id' => $item->id,
                     'supply_id' => $supply->id,
                     'product_id' => $item->product_id,
+                    'reference' => $item->reference,
                     'product_name' => $item->product?->name ?? 'Product',
                     'received_quantity' => (float) $item->quantity,
                     'sold_quantity' => 0.0,
@@ -204,15 +239,16 @@ class SupplyController extends Controller
 
         foreach ($returnItems as $returnItem) {
             $productId = (string) $returnItem->product_id;
-            $batch = (object) [
-                'source_type' => 'return',
-                'source_id' => $returnItem->id,
-                'return_id' => $returnItem->return_id,
-                'product_id' => $returnItem->product_id,
-                'product_name' => $returnItem->product?->name ?? 'Product',
-                'received_quantity' => (float) $returnItem->quantity,
-                'sold_quantity' => 0.0,
-                'remaining_quantity' => (float) $returnItem->quantity,
+                $batch = (object) [
+                    'source_type' => 'return',
+                    'source_id' => $returnItem->id,
+                    'return_id' => $returnItem->return_id,
+                    'product_id' => $returnItem->product_id,
+                    'reference' => null,
+                    'product_name' => $returnItem->product?->name ?? 'Product',
+                    'received_quantity' => (float) $returnItem->quantity,
+                    'sold_quantity' => 0.0,
+                    'remaining_quantity' => (float) $returnItem->quantity,
                 'unit_price' => (float) $returnItem->price,
                 'date' => $returnItem->return_date,
             ];
@@ -337,6 +373,7 @@ class SupplyController extends Controller
         
         try {
             DB::beginTransaction();
+            $referenceSequenceByKey = [];
 
             $supply = Supply::create([
                 'supply_date' => $data['supply_date'],
@@ -348,10 +385,18 @@ class SupplyController extends Controller
 
             if (isset($data['supply_items'])) {
                 foreach ($data['supply_items'] as $item) {
+                    $reference = $this->resolveSupplyItemReference(
+                        $item,
+                        (int) $item['product']['id'],
+                        isset($data['departement_id']) ? (int) $data['departement_id'] : null,
+                        $referenceSequenceByKey
+                    );
+
                     SupplyItem::create([
                         'supply_id' => $supply->id,
                         'product_id' => $item['product']['id'],
                         'sales_supplier_id' => $data['supplier']['id'],
+                        'reference' => $reference,
                         'quantity' => $item['quantity'],
                         'unit_price' => $item['unit_price'],
                         'total_price' => $item['quantity'] * $item['unit_price'],
@@ -384,6 +429,7 @@ class SupplyController extends Controller
         
         try {
             DB::beginTransaction();
+            $referenceSequenceByKey = [];
 
             $supply = Supply::findOrFail($id);
             $supply->update([
@@ -406,10 +452,18 @@ class SupplyController extends Controller
 
             if (isset($data['supply_items'])) {
                 foreach ($data['supply_items'] as $item) {
+                    $reference = $this->resolveSupplyItemReference(
+                        $item,
+                        (int) $item['product']['id'],
+                        isset($data['departement_id']) ? (int) $data['departement_id'] : null,
+                        $referenceSequenceByKey
+                    );
+
                     SupplyItem::create([
                         'supply_id' => $supply->id,
                         'product_id' => $item['product']['id'],
                         'sales_supplier_id' => $data['supplier']['id'],
+                        'reference' => $reference,
                         'quantity' => $item['quantity'],
                         'unit_price' => $item['unit_price'],
                         'total_price' => $item['quantity'] * $item['unit_price'],

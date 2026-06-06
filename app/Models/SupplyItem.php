@@ -14,6 +14,7 @@ class SupplyItem extends Model
         'supply_id',
         'product_id',
         'sales_supplier_id',
+        'reference',
         'quantity',
         'unit_price',
         'total_price',

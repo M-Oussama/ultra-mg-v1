@@ -33,7 +33,10 @@ class CompanyController extends Controller
             'NART' => 'required|string',
             'NIS' => 'required|string',
             'capitale' => 'required|string',
+            'show_company_info' => 'sometimes|boolean',
         ]);
+
+        $validated['show_company_info'] = $request->boolean('show_company_info', true);
 
         $company = Company::create($validated);
 
@@ -68,7 +71,12 @@ class CompanyController extends Controller
             'NART' => 'sometimes|required|string',
             'NIS' => 'sometimes|required|string',
             'capitale' => 'sometimes|required|string',
+            'show_company_info' => 'sometimes|boolean',
         ]);
+
+        if ($request->has('show_company_info')) {
+            $validated['show_company_info'] = $request->boolean('show_company_info');
+        }
 
         $company->update($validated);
 

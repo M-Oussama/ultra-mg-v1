@@ -69,8 +69,40 @@
         table.items thead th.c { text-align: center; }
         table.items tbody tr { border-bottom: 1px solid #f4f4f4; }
         table.items tbody td { font-size: 11.5px; padding: 11px 10px; color: #1e1e1e; }
-        table.items tbody td.r { text-align: right; }
+        table.items tbody td.r {
+            text-align: right;
+            white-space: nowrap;
+            font-size: 10px;
+            line-height: 1.15;
+        }
         table.items tbody td.c { text-align: center; }
+        table.items tbody td.qty-cell {
+            white-space: normal;
+            font-size: 10px;
+            line-height: 1.1;
+            letter-spacing: 0;
+        }
+        .qty-main {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.1;
+            margin-bottom: 2px;
+        }
+        .qty-sub {
+            display: block;
+            font-size: 9px;
+            line-height: 1.1;
+            color: #6b7280;
+            white-space: nowrap;
+        }
+        .qty-ref {
+            display: block;
+            margin-top: 4px;
+            font-size: 9.5px;
+            line-height: 1.2;
+            color: #6b7280;
+        }
         table.items tbody td.muted { color: #ccc; font-size: 11px; }
 
         /* ── BOTTOM ── */
@@ -111,21 +143,23 @@
     {{-- ── HEADER ── --}}
     <div class="hdr">
         <div class="hdr-l">
-            @if(!empty($logoAbsolutePath))
-                <img src="{{ $logoAbsolutePath }}" alt="Logo" class="logo">
-            @endif
-            <div class="co-name">{{ $departmentName }}</div>
-            @if(!empty($departmentProfession))
-                <div class="co-line"><strong>{{ $departmentProfession }}</strong></div>
-            @endif
-            @if(!empty($departmentAddress))
-                <div class="co-line">{{ $departmentAddress }}</div>
-            @endif
-            @if(!empty($departmentEmail))
-                <div class="co-line">{{ $departmentEmail }}</div>
-            @endif
-            @if(!empty($departmentPhone))
-                <div class="co-line">{{ $departmentPhone }}</div>
+            @if($showCompanyInfo)
+                @if(!empty($logoAbsolutePath))
+                    <img src="{{ $logoAbsolutePath }}" alt="Logo" class="logo">
+                @endif
+                <div class="co-name">{{ $departmentName }}</div>
+                @if(!empty($departmentProfession))
+                    <div class="co-line"><strong>{{ $departmentProfession }}</strong></div>
+                @endif
+                @if(!empty($departmentAddress))
+                    <div class="co-line">{{ $departmentAddress }}</div>
+                @endif
+                @if(!empty($departmentEmail))
+                    <div class="co-line">{{ $departmentEmail }}</div>
+                @endif
+                @if(!empty($departmentPhone))
+                    <div class="co-line">{{ $departmentPhone }}</div>
+                @endif
             @endif
         </div>
         <div class="hdr-r">
@@ -185,20 +219,28 @@
         <thead>
             <tr>
                 <th style="width:5%">#</th>
-                <th style="width:47%">Désignation</th>
-                <th class="r" style="width:16%">Prix unit.</th>
-                <th class="c" style="width:12%">Qté</th>
+                <th style="width:44%">Désignation</th>
+                <th class="r" style="width:15%">Prix unit.</th>
+                <th class="c" style="width:15%">Qté</th>
                 <th class="r" style="width:20%">Montant</th>
             </tr>
         </thead>
         <tbody>
         @forelse($sale->saleItems as $index => $item)
+            @php
+                $showPrice = (bool) ($item->price_active ?? true);
+                $quantityTotal = number_format((float) $item->quantity, 0, ',', ' ');
+                $quantitySummary = $item->hasPackaging() ? $item->packagingLabel() : $quantityTotal;
+            @endphp
             <tr>
                 <td class="muted c">{{ $index + 1 }}</td>
                 <td>{{ $item->product->name ?? '-' }}</td>
-                <td class="r">{{ number_format((float) $item->price, 2, ',', ' ') }} DZD</td>
-                <td class="c">{{ number_format((float) $item->quantity, 0, ',', ' ') }}</td>
-                <td class="r">{{ number_format((float) $item->total_price, 2, ',', ' ') }} DZD</td>
+                <td class="r amount-cell">{{ $showPrice ? number_format((float) $item->price, 2, ',', ' ') . ' DZD' : '' }}</td>
+                <td class="c qty-cell">
+                    <span >{{ $quantityTotal }} </br> <small class="qty-sub"> {{ $quantitySummary }} </small></span>
+                
+                </td>
+                <td class="r amount-cell">{{ $showPrice ? number_format((float) $item->total_price, 2, ',', ' ') . ' DZD' : '' }}</td>
             </tr>
         @empty
             <tr>

@@ -21,12 +21,14 @@ class Sale extends Model
         'driver_id',
         'picked_up',
         'department_id',
+        'show_company_info',
         'user_id',
         'paid_amount',
     ];
     protected $casts = [
         'payment' => 'boolean',
         'paid_amount' => 'double',
+        'show_company_info' => 'boolean',
     ];
     protected $with = ['client','saleStatus','saleItems', 'driver', 'department', 'user'];
 

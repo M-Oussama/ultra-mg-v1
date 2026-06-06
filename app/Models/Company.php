@@ -19,7 +19,11 @@ class Company extends Model
         'NIF',
         'NART',
         'NIS',
-        'capitale'
+        'capitale',
+        'show_company_info',
+    ];
+
+    protected $casts = [
+        'show_company_info' => 'boolean',
     ];
 }
-

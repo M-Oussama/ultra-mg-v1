@@ -119,6 +119,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /** CLIENTS  */
     Route::get('/clients/list', [ClientController::class, 'getClients'])->middleware('permission:list,clients')->name('getClients');
+    Route::get('/clients/all', [ClientController::class, 'getAllClients'])->middleware('permission:list,clients')->name('getAllClients');
     Route::get('/clients/cities', [ClientController::class, 'getCities'])->middleware('permission:list,clients')->name('getClientCities');
     Route::post('/clients/store', [ClientController::class, 'store'])->middleware('permission:add,clients')->name('store');
     Route::post('/clients/import-csv', [ClientController::class, 'importCsv'])->middleware('permission:add,clients')->name('importClientsCsv');
@@ -128,6 +129,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /** PRODUCTS  */
     Route::get('/products/list', [ProductController::class, 'getProducts'])->middleware('permission:list,products')->name('getProducts');
+    Route::get('/products/get/{id}', [ProductController::class, 'getProduct'])->middleware('permission:list,products')->name('getProduct');
     Route::post('/products/store', [ProductController::class, 'store'])->middleware('permission:add,products')->name('store');
     Route::post('/products/import-csv', [ProductController::class, 'importCsv'])->middleware('permission:add,products')->name('importProductsCsv');
     Route::post('/products/update/{id}', [ProductController::class, 'update'])->middleware('permission:edit,products')->name('update');
@@ -201,6 +203,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pos/client/{id}/sales/{paymentId}/paid', [POSController::class, 'getPaidInvoices'])->middleware('permission:list,sales')->name('getClientInvoices');
     Route::post('/sales/{sale}/toggle-pickup', [POSController::class, 'updatePickUp'])->middleware('permission:edit,sales')->name('updatePickUp');
     Route::get('/pdf/sale/{id}', [PDFController::class, 'exportSaleDeliveryNote'])->middleware('permission:list,sales')->name('exportSaleDeliveryNote');
+    Route::get('/pdf/sale-delivery/{id}', [PDFController::class, 'exportSaleDeliveryNote'])->middleware('permission:list,sales')->name('exportSaleDeliveryPdf');
+    Route::get('/pdf/sale-preparation/{id}', [PDFController::class, 'exportSalePreparationNote'])->middleware('permission:list,sales')->name('exportSalePreparationNote');
+    Route::get('/pdf/products/list', [PDFController::class, 'exportProductsList'])->middleware('permission:list,products')->name('exportProductsList');
+    Route::get('/pdf/clients/list', [PDFController::class, 'exportClientsList'])->middleware('permission:list,clients')->name('exportClientsList');
+    Route::get('/pdf/suppliers/list', [PDFController::class, 'exportSuppliersList'])->middleware('permission:list,suppliers')->name('exportSuppliersList');
+    Route::get('/pdf/sales-suppliers/list', [PDFController::class, 'exportSalesSuppliersList'])->middleware('permission:list,suppliers')->name('exportSalesSuppliersList');
+    Route::get('/pdf/employees/list', [PDFController::class, 'exportEmployeesList'])->middleware('permission:list,employees')->name('exportEmployeesList');
+    Route::get('/pdf/attendances/list', [PDFController::class, 'exportAttendancesList'])->middleware('permission:list,attendances')->name('exportAttendancesList');
+    Route::get('/pdf/attendance-plans/monthly-work-days', [PDFController::class, 'exportMonthlyWorkDays'])->middleware('permission:list,attendances')->name('exportMonthlyWorkDays');
+    Route::get('/pdf/stock/report', [PDFController::class, 'exportStockReport'])->middleware('permission:list,sales')->name('exportStockReport');
 
     /** EMPLOYEES */
     Route::get('/employees/list', [EmployeeController::class, 'getEmployees'])->middleware('permission:list,employees')->name('getEmployees');
@@ -227,6 +239,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('attendances/updateEndDate/{id}', [AttendanceController::class, 'updateEndDate'])->middleware('permission:edit,attendances')->name('updateEndDate');
     Route::post('attendances/addNewEmployeeAttendanceRecord/{id}', [AttendanceController::class, 'NewEmployeeAttendanceRecord'])->middleware('permission:edit,attendances')->name('NewEmployeeAttendanceRecord');
     Route::get('/attendances/career/delete/{id}', [AttendanceController::class, 'deleteEmployeeCareer'])->middleware('permission:delete,attendances')->name('deleteEmployeeCareer');
+
+    /** Attendance planning */
+    Route::get('/attendance-plans/active-employees', [\App\Http\Controllers\AttendancePlanningController::class, 'getActiveEmployees'])->middleware('permission:list,attendances')->name('getAttendanceActiveEmployees');
+    Route::post('/attendance-plans/active-employees', [\App\Http\Controllers\AttendancePlanningController::class, 'saveActiveEmployees'])->middleware('permission:edit,attendances')->name('saveAttendanceActiveEmployees');
+    Route::get('/attendance-plans/monthly-work-days', [\App\Http\Controllers\AttendancePlanningController::class, 'getMonthlyWorkDays'])->middleware('permission:list,attendances')->name('getAttendanceMonthlyWorkDays');
+    Route::post('/attendance-plans/monthly-work-days', [\App\Http\Controllers\AttendancePlanningController::class, 'saveMonthlyWorkDays'])->middleware('permission:edit,attendances')->name('saveAttendanceMonthlyWorkDays');
 
     /** LOGS */
     Route::post('/clients/log', [ClientLogController::class, 'getLog'])->name('getLog');

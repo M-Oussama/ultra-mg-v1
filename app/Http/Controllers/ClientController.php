@@ -88,6 +88,69 @@ class ClientController extends Controller
     }
 
     /**
+     * Get all clients for dropdowns and directory-style pickers.
+     *
+     * Returns the full accessible client set without pagination, optionally filtered by searchValue.
+     */
+    #[OA\Get(
+        path: "/api/clients/all",
+        operationId: "getAllClients",
+        description: "Returns the full accessible list of clients without pagination",
+        tags: ["clients"],
+    )]
+    #[OA\Response(response:200, description: "Success", content: [new OA\JsonContent(
+        ref: "#/components/schemas/IClient",
+        type: 'object'
+    )])]
+    public function getAllClients(Request $request): JsonResponse
+    {
+        $searchValue = $request->input('searchValue', '');
+        $department_id = $request->input('department_id', '');
+
+        $clients = Client::query();
+
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $clients->whereIn('department_id', $deptIds);
+            } else {
+                $clients->where('user_id', $user->id);
+            }
+        }
+
+        $clients->with(['balance', 'sales', 'payments'])
+            ->withSum(['sales as total_spent' => function ($query) use ($department_id) {
+                if ($department_id) {
+                    $query->where('department_id', $department_id);
+                }
+            }], 'total_amount')
+            ->when($searchValue, function ($queryBuilder) use ($searchValue) {
+                $queryBuilder->where(function ($query) use ($searchValue) {
+                    $query->where('name', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('surname', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhereRaw("CONCAT(COALESCE(name, ''), ' ', COALESCE(surname, '')) LIKE ?", ['%' . $searchValue . '%']);
+                });
+            })->when($department_id, function ($queryBuilder) use ($department_id) {
+                $queryBuilder->where('department_id', $department_id);
+            })
+            ->orderBy('name')
+            ->orderBy('surname');
+
+        $allClients = $clients->get();
+
+        foreach ($allClients as $client) {
+            $this->calculateClientBalance($client);
+        }
+
+        return response()->json([
+            'clients' => $allClients,
+            'totalClients' => $allClients->count(),
+            'totalPage' => 1,
+        ]);
+    }
+
+    /**
      * Get all cities for city picker dropdown.
      */
     public function getCities(): JsonResponse
@@ -132,7 +195,7 @@ class ClientController extends Controller
 
         // Validate the incoming request data
         $validatedData = $request->validate([
-            'name' => 'string|max:255',
+            'name' => 'required|string|max:255',
             'city_id' => 'required|integer',
             'surname' => 'string|nullable|max:255',
             'phone' => 'string|nullable|max:255',
@@ -153,9 +216,7 @@ class ClientController extends Controller
 
         // Create a new user record in the database using User::create()
         $client = Client::create($validatedData);
-
-        $client->full_name = $client->surname ? $client->name.' '.$client->surname : $client->name;
-        $client->save();
+        $this->syncClientFullName($client);
 
         //$this->calculateClientBalance($client);
 
@@ -220,8 +281,7 @@ class ClientController extends Controller
 
 
         $client->update($validatedData);
-        $client->full_name = $client->surname ? $client->name.' '.$client->surname : $client->name;
-        $client->save();
+        $this->syncClientFullName($client);
         // Optionally, you can return a response, redirect the user, or perform any other actions here
         return response()->json(['message' => 'Client updated successfully', 'client' => $client]);
 
@@ -488,5 +548,12 @@ class ClientController extends Controller
             'errors' => $errors,
             'warnings' => $warnings,
         ]);
+    }
+    private function syncClientFullName(Client $client): void
+    {
+        $name = trim((string) $client->name);
+        $surname = trim((string) $client->surname);
+        $client->full_name = trim($name . ' ' . $surname);
+        $client->save();
     }
 }

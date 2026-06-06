@@ -2,9 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Client;
+use App\Models\AttendanceActiveEmployee;
+use App\Models\Attendance;
+use App\Models\Employee;
+use App\Models\EmployeeMonthlyWorkDay;
+use App\Models\Product;
 use App\Models\Sale;
+use App\Models\SaleItem;
+use App\Models\SupplyItem;
+use App\Models\SalesSupplier;
 use App\Models\CertifyInvoices;
 use App\Models\Company;
+use App\Models\Supplier;
 use App\Http\Helpers\NumberToLetter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -13,24 +23,351 @@ use Illuminate\Support\Facades\Schema;
 
 class PDFController extends Controller
 {
-    public function exportSaleDeliveryNote(Request $request, $id)
+    private function shouldShowCompanyInfo(?Company $company): bool
     {
-        $businessId = (int) $request->query('business_id');
-        if ($businessId <= 0) {
-            return response()->json(['message' => 'business_id query parameter is required.'], 422);
+        return (bool) ($company?->show_company_info ?? true);
+    }
+
+    private function resolveShowCompanyInfo(Request $request, ?Company $company, ?bool $fallback = null): bool
+    {
+        $requested = $request->query('show_company_info');
+
+        if ($requested !== null) {
+            $normalized = strtolower(trim((string) $requested));
+
+            if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+                return true;
+            }
+
+            if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
+                return false;
+            }
         }
 
-        $sale = Sale::with(['client', 'saleItems.product'])
-            ->where('id', $id)
-            ->where('department_id', $businessId)
-            ->first();
-
-        if (!$sale) {
-            return response()->json(['message' => 'Sale not found for this business_id.'], 404);
+        if ($fallback !== null) {
+            return $fallback;
         }
 
+        return $this->shouldShowCompanyInfo($company);
+    }
+
+    private function formatAllocatedQuantity(float $quantity): string
+    {
+        $formatted = number_format($quantity, 2, '.', '');
+        $formatted = rtrim(rtrim($formatted, '0'), '.');
+
+        return $formatted === '' ? '0' : $formatted;
+    }
+
+    private function formatRawQuantity(float $quantity): string
+    {
+        return number_format($quantity, 0, ',', ' ');
+    }
+
+    private function resolvedPackageType(SaleItem $saleItem): string
+    {
+        $type = trim((string) ($saleItem->package_type ?? $saleItem->product?->package_type ?? ''));
+
+        return $type !== '' ? $type : 'package';
+    }
+
+    private function resolvedUnitsPerPackage(SaleItem $saleItem): int
+    {
+        return (int) ($saleItem->units_per_package ?? $saleItem->product?->units_per_package ?? 0);
+    }
+
+    private function formatQuantityForDisplay(SaleItem $saleItem, float $quantity): string
+    {
+        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem);
+
+        if ($unitsPerPackage > 0 && $saleItem->hasPackaging()) {
+            $packageType = $this->resolvedPackageType($saleItem);
+            $packages = (int) floor($quantity / $unitsPerPackage);
+            $remainder = (int) round(fmod($quantity, $unitsPerPackage));
+
+            if ($remainder > 0) {
+                return $packages . ' ' . $packageType . ' (' . $unitsPerPackage . ') + ' . $remainder . ' pieces';
+            }
+
+            return $packages . ' ' . $packageType . ' (' . $unitsPerPackage . ')';
+        }
+
+        return $this->formatAllocatedQuantity($quantity);
+    }
+
+
+    private function formatAllocatedStockLine(SaleItem $saleItem, float $quantity, string $reference): string
+    {
+        if ($saleItem->hasPackaging()) {
+            return $this->formatQuantityForDisplay($saleItem, $quantity) . ' - #' . $reference;
+        }
+
+        return $this->formatRawQuantity($quantity) . ' - #' . $reference;
+    }
+
+    private function buildSaleItemStockReferences(Sale $sale): array
+    {
+        $departmentId = $sale->department_id;
+        $saleDate = (string) $sale->sale_date;
+
+        $supplyItems = SupplyItem::query()
+            ->select([
+                'supply_items.id',
+                'supply_items.product_id',
+                'supply_items.reference',
+                'supply_items.quantity',
+                'supplies.id as supply_id',
+                'supplies.supply_date',
+            ])
+            ->join('supplies', 'supplies.id', '=', 'supply_items.supply_id')
+            ->whereNull('supply_items.deleted_at')
+            ->whereNull('supplies.deleted_at')
+            ->when($departmentId !== null, function ($query) use ($departmentId) {
+                $query->where('supplies.departement_id', $departmentId);
+            })
+            ->whereDate('supplies.supply_date', '<=', $saleDate)
+            ->orderBy('supplies.supply_date')
+            ->orderBy('supplies.id')
+            ->orderBy('supply_items.id')
+            ->get();
+
+        $saleItems = SaleItem::query()
+            ->select([
+                'sale_items.id',
+                'sale_items.sale_id',
+                'sale_items.product_id',
+                'sale_items.quantity',
+                'sales.sale_date',
+            ])
+            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->whereNull('sale_items.deleted_at')
+            ->whereNull('sales.deleted_at')
+            ->when($departmentId !== null, function ($query) use ($departmentId) {
+                $query->where('sales.department_id', $departmentId);
+            })
+            ->where(function ($query) use ($saleDate, $sale) {
+                $query->whereDate('sales.sale_date', '<', $saleDate)
+                    ->orWhere(function ($innerQuery) use ($saleDate, $sale) {
+                        $innerQuery->whereDate('sales.sale_date', '=', $saleDate)
+                            ->where('sales.id', '<=', $sale->id);
+                    });
+            })
+            ->orderBy('sales.sale_date')
+            ->orderBy('sales.id')
+            ->orderBy('sale_items.id')
+            ->get();
+
+        $queues = [];
+        foreach ($supplyItems as $supplyItem) {
+            $productId = (string) $supplyItem->product_id;
+            if (!isset($queues[$productId])) {
+                $queues[$productId] = [];
+            }
+
+            $queues[$productId][] = [
+                'reference' => (string) ($supplyItem->reference ?? ''),
+                'remaining_quantity' => (float) $supplyItem->quantity,
+            ];
+        }
+
+        $allocations = [];
+
+        foreach ($saleItems as $saleItem) {
+            $productId = (string) $saleItem->product_id;
+            $remainingToAllocate = (float) $saleItem->quantity;
+
+            if (!isset($queues[$productId])) {
+                continue;
+            }
+
+            foreach ($queues[$productId] as &$batch) {
+                if ($remainingToAllocate <= 0) {
+                    break;
+                }
+
+                if ($batch['remaining_quantity'] <= 0) {
+                    continue;
+                }
+
+                $consumed = min($batch['remaining_quantity'], $remainingToAllocate);
+                $batch['remaining_quantity'] -= $consumed;
+                $remainingToAllocate -= $consumed;
+
+                if ((int) $saleItem->sale_id === (int) $sale->id && $consumed > 0) {
+                    $allocations[$saleItem->id][] = [
+                        'quantity_total' => $this->formatPreparationTotalQuantity($saleItem, $consumed),
+                        'carton_breakdown' => $this->formatPreparationCartonBreakdown($saleItem, $consumed),
+                        'reference' => '#' . (string) $batch['reference'],
+                    ];
+                }
+            }
+            unset($batch);
+        }
+
+        return $allocations;
+    }
+
+    private function formatPreparationTotalQuantity(SaleItem $saleItem, float $quantity): string
+    {
+        $formatted = $this->formatRawQuantity($quantity);
+
+        if ($saleItem->hasPackaging()) {
+            return $formatted . ' pcs';
+        }
+
+        return $formatted;
+    }
+
+    private function formatPreparationCartonBreakdown(SaleItem $saleItem, float $quantity): string
+    {
+        if (!$saleItem->hasPackaging()) {
+            return $this->formatRawQuantity($quantity);
+        }
+
+        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem);
+        if ($unitsPerPackage <= 0) {
+            return $this->formatRawQuantity($quantity);
+        }
+
+        $cartons = (int) floor($quantity / $unitsPerPackage);
+        $remainder = (int) round(fmod($quantity, $unitsPerPackage));
+        $label = $cartons . ' Cartons (' . $unitsPerPackage . ')';
+
+        if ($remainder > 0) {
+            $label .= ' + ' . $remainder . ' pcs isolées';
+        }
+
+        return $label;
+    }
+
+    private function buildPreparationSaleItemStockReferences(Sale $sale): array
+    {
+        $departmentId = $sale->department_id;
+        $saleDate = (string) $sale->sale_date;
+
+        $supplyItems = SupplyItem::query()
+            ->select([
+                'supply_items.id',
+                'supply_items.product_id',
+                'supply_items.reference',
+                'supply_items.quantity',
+                'supplies.id as supply_id',
+                'supplies.supply_date',
+            ])
+            ->join('supplies', 'supplies.id', '=', 'supply_items.supply_id')
+            ->whereNull('supply_items.deleted_at')
+            ->whereNull('supplies.deleted_at')
+            ->when($departmentId !== null, function ($query) use ($departmentId) {
+                $query->where('supplies.departement_id', $departmentId);
+            })
+            ->whereDate('supplies.supply_date', '<=', $saleDate)
+            ->orderBy('supplies.supply_date')
+            ->orderBy('supplies.id')
+            ->orderBy('supply_items.id')
+            ->get();
+
+        $saleItems = SaleItem::query()
+            ->select([
+                'sale_items.id',
+                'sale_items.sale_id',
+                'sale_items.product_id',
+                'sale_items.quantity',
+                'sale_items.package_type',
+                'sale_items.units_per_package',
+                'sales.sale_date',
+            ])
+            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->whereNull('sale_items.deleted_at')
+            ->whereNull('sales.deleted_at')
+            ->when($departmentId !== null, function ($query) use ($departmentId) {
+                $query->where('sales.department_id', $departmentId);
+            })
+            ->where(function ($query) use ($saleDate, $sale) {
+                $query->whereDate('sales.sale_date', '<', $saleDate)
+                    ->orWhere(function ($innerQuery) use ($saleDate, $sale) {
+                        $innerQuery->whereDate('sales.sale_date', '=', $saleDate)
+                            ->where('sales.id', '<=', $sale->id);
+                    });
+            })
+            ->orderBy('sales.sale_date')
+            ->orderBy('sales.id')
+            ->orderBy('sale_items.id')
+            ->get();
+
+        $queues = [];
+        foreach ($supplyItems as $supplyItem) {
+            $productId = (string) $supplyItem->product_id;
+            if (!isset($queues[$productId])) {
+                $queues[$productId] = [];
+            }
+
+            $queues[$productId][] = [
+                'reference' => (string) ($supplyItem->reference ?? ''),
+                'remaining_quantity' => (float) $supplyItem->quantity,
+            ];
+        }
+
+        $allocations = [];
+
+        foreach ($saleItems as $saleItem) {
+            $productId = (string) $saleItem->product_id;
+            $remainingToAllocate = (float) $saleItem->quantity;
+
+            if (!isset($queues[$productId])) {
+                continue;
+            }
+
+            foreach ($queues[$productId] as &$batch) {
+                if ($remainingToAllocate <= 0) {
+                    break;
+                }
+
+                if ($batch['remaining_quantity'] <= 0) {
+                    continue;
+                }
+
+                $consumed = min($batch['remaining_quantity'], $remainingToAllocate);
+                $batch['remaining_quantity'] -= $consumed;
+                $remainingToAllocate -= $consumed;
+
+                if ((int) $saleItem->sale_id === (int) $sale->id && $consumed > 0) {
+                    $allocations[$saleItem->id][] = [
+                        'quantity_total' => $this->formatPreparationTotalQuantity($saleItem, $consumed),
+                        'carton_breakdown' => $this->formatPreparationCartonBreakdown($saleItem, $consumed),
+                        'reference' => '#' . (string) $batch['reference'],
+                    ];
+                }
+            }
+            unset($batch);
+        }
+
+        return $allocations;
+    }
+
+    private function pdfOptions(): array
+    {
+        return [
+            'defaultFont' => 'DejaVu Sans',
+            'isFontSubsettingEnabled' => true,
+            'isRemoteEnabled' => true,
+        ];
+    }
+
+    private function companyInfoContext(): array
+    {
         $company = Company::first();
-        $amountLetter = $this->convertAmoutToLetter((float) $sale->total_amount);
+
+        return [
+            'company' => $company,
+            'showCompanyInfo' => $this->shouldShowCompanyInfo($company),
+        ];
+    }
+
+    private function departmentHeaderContext(Request $request): array
+    {
+        $company = Company::first();
+        $showCompanyInfo = $this->shouldShowCompanyInfo($company);
+        $businessId = (int) $request->query('business_id', $request->query('department_id', 0));
 
         $departmentColumns = ['name'];
         foreach (['profession', 'address', 'phone', 'email', 'logo_url', 'logo'] as $optionalColumn) {
@@ -39,18 +376,342 @@ class PDFController extends Controller
             }
         }
 
-        $department = DB::table('departments')
-            ->select($departmentColumns)
-            ->where('id', $businessId)
-            ->first();
+        $department = $businessId > 0
+            ? DB::table('departments')->select($departmentColumns)->where('id', $businessId)->first()
+            : null;
 
-        $departmentName = $department->name ?? ($company->name ?? '');
-        $departmentProfession = $department->profession ?? null;
-        $departmentAddress = $department->address ?? ($company->address ?? '');
-        $departmentPhone = $department->phone ?? ($company->phone ?? '');
-        $departmentEmail = $department->email ?? ($company->email ?? '');
+        $departmentName = $department?->name ?? ($company->name ?? '');
+        $departmentProfession = $department?->profession ?? null;
+        $departmentAddress = $department?->address ?? ($company->address ?? '');
+        $departmentPhone = $department?->phone ?? ($company->phone ?? '');
+        $departmentEmail = $department?->email ?? ($company->email ?? '');
 
-        $logoPath = $department->logo_url ?? ($department->logo ?? null);
+        $logoPath = $department?->logo_url ?? ($department?->logo ?? null);
+        $logoAbsolutePath = null;
+        if (!empty($logoPath)) {
+            $cleanPath = ltrim((string) $logoPath, '/\\');
+            $publicCandidate = public_path($cleanPath);
+            $storageCandidate = storage_path('app/public/' . $cleanPath);
+
+            if (file_exists($publicCandidate)) {
+                $logoAbsolutePath = $publicCandidate;
+            } elseif (file_exists($storageCandidate)) {
+                $logoAbsolutePath = $storageCandidate;
+            }
+        }
+
+        return compact(
+            'company',
+            'showCompanyInfo',
+            'businessId',
+            'departmentName',
+            'departmentProfession',
+            'departmentAddress',
+            'departmentPhone',
+            'departmentEmail',
+            'logoAbsolutePath'
+        );
+    }
+
+    public function exportProductsList(Request $request)
+    {
+        $searchValue = trim((string) $request->query('searchValue', ''));
+        $departmentId = $request->query('department_id');
+        $lowStockOnly = filter_var($request->query('low_stock', false), FILTER_VALIDATE_BOOLEAN);
+
+        $products = Product::with(['productStock', 'department'])
+            ->when($searchValue !== '', function ($query) use ($searchValue) {
+                $query->where(function ($innerQuery) use ($searchValue) {
+                    $innerQuery->where('name', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('brand', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('SKU', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('product_code', 'LIKE', '%' . $searchValue . '%');
+                });
+            })
+            ->when($departmentId !== null && $departmentId !== '', function ($query) use ($departmentId) {
+                $query->where('department_id', $departmentId);
+            })
+            ->when($lowStockOnly, function ($query) {
+                $query->where('stockable', true)
+                    ->whereHas('productStock', function ($stockQuery) {
+                        $stockQuery->whereColumn('quantity', '<=', 'products.min_stock_level');
+                    });
+            })
+            ->orderBy('name')
+            ->get();
+
+        $context = $this->companyInfoContext();
+        $pdf = Pdf::loadView('exports.products_list_pdf', array_merge($context, [
+            'products' => $products,
+            'searchValue' => $searchValue,
+            'departmentId' => $departmentId,
+            'lowStockOnly' => $lowStockOnly,
+        ]));
+
+        $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
+
+        return $pdf->download('Products_List.pdf');
+    }
+
+    public function exportClientsList(Request $request)
+    {
+        $searchValue = trim((string) $request->query('searchValue', ''));
+        $departmentId = $request->query('department_id');
+
+        $query = Client::query()
+            ->with(['city', 'department', 'balance', 'sales', 'payments'])
+            ->withSum(['sales as total_spent' => function ($salesQuery) use ($departmentId) {
+                if ($departmentId !== null && $departmentId !== '') {
+                    $salesQuery->where('department_id', $departmentId);
+                }
+            }], 'total_amount');
+
+        $user = auth()->user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $query->whereIn('department_id', $deptIds);
+            } else {
+                $query->where('user_id', $user->id);
+            }
+        }
+
+        if ($searchValue !== '') {
+            $query->where(function ($innerQuery) use ($searchValue) {
+                $innerQuery->where('name', 'LIKE', '%' . $searchValue . '%')
+                    ->orWhere('surname', 'LIKE', '%' . $searchValue . '%')
+                    ->orWhere('phone', 'LIKE', '%' . $searchValue . '%')
+                    ->orWhere('email', 'LIKE', '%' . $searchValue . '%');
+            });
+        }
+
+        if ($departmentId !== null && $departmentId !== '') {
+            $query->where('department_id', $departmentId);
+        }
+
+        $clients = $query->orderBy('name')->get();
+
+        foreach ($clients as $client) {
+            $this->calculateClientBalance($client);
+        }
+
+        $context = $this->companyInfoContext();
+        $pdf = Pdf::loadView('exports.clients_list_pdf', array_merge($context, [
+            'clients' => $clients,
+            'searchValue' => $searchValue,
+            'departmentId' => $departmentId,
+        ]));
+
+        $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
+
+        return $pdf->download('Clients_List.pdf');
+    }
+
+    public function exportSuppliersList(Request $request)
+    {
+        $searchValue = trim((string) $request->query('searchValue', ''));
+
+        $suppliers = Supplier::with(['city'])
+            ->when($searchValue !== '', function ($query) use ($searchValue) {
+                $query->where(function ($innerQuery) use ($searchValue) {
+                    $innerQuery->where('name', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('surname', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('phone', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('email', 'LIKE', '%' . $searchValue . '%');
+                });
+            })
+            ->orderBy('name')
+            ->get();
+
+        $context = $this->companyInfoContext();
+        $pdf = Pdf::loadView('exports.suppliers_list_pdf', array_merge($context, [
+            'suppliers' => $suppliers,
+            'searchValue' => $searchValue,
+        ]));
+
+        $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
+
+        return $pdf->download('Suppliers_List.pdf');
+    }
+
+    public function exportSalesSuppliersList(Request $request)
+    {
+        $searchValue = trim((string) $request->query('searchValue', ''));
+        $departmentId = $request->query('department_id', $request->query('departement_id'));
+
+        $suppliers = SalesSupplier::with(['city', 'department'])
+            ->when($departmentId !== null && $departmentId !== '', function ($query) use ($departmentId) {
+                $query->where('departement_id', $departmentId);
+            })
+            ->when($searchValue !== '', function ($query) use ($searchValue) {
+                $query->where(function ($innerQuery) use ($searchValue) {
+                    $innerQuery->where('name', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('surname', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('full_name', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('phone', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('email', 'LIKE', '%' . $searchValue . '%');
+                });
+            })
+            ->orderBy('name')
+            ->get();
+
+        $context = $this->companyInfoContext();
+        $pdf = Pdf::loadView('exports.suppliers_list_pdf', array_merge($context, [
+            'suppliers' => $suppliers,
+            'searchValue' => $searchValue,
+        ]));
+
+        $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
+
+        return $pdf->download('Sales_Suppliers_List.pdf');
+    }
+
+    public function exportEmployeesList(Request $request)
+    {
+        $searchValue = trim((string) $request->query('searchValue', ''));
+
+        $employees = Employee::with(['birthCity', 'cardIssuedCity'])
+            ->when($searchValue !== '', function ($query) use ($searchValue) {
+                $query->where(function ($innerQuery) use ($searchValue) {
+                    $innerQuery->where('name', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('surname', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('email', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('phone', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('NIN', 'LIKE', '%' . $searchValue . '%');
+                });
+            })
+            ->orderBy('name')
+            ->get();
+
+        $context = $this->companyInfoContext();
+        $pdf = Pdf::loadView('exports.employees_list_pdf', array_merge($context, [
+            'employees' => $employees,
+            'searchValue' => $searchValue,
+        ]));
+
+        $pdf->setPaper('a4', 'landscape')->setOptions($this->pdfOptions());
+
+        return $pdf->download('Employees_List.pdf');
+    }
+
+    public function exportAttendancesList(Request $request)
+    {
+        $searchValue = trim((string) $request->query('searchValue', ''));
+
+        $attendances = Attendance::query()
+            ->withCount('employees')
+            ->when($searchValue !== '', function ($query) use ($searchValue) {
+                $query->where(function ($innerQuery) use ($searchValue) {
+                    $innerQuery->where('month', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('year', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhereRaw("CONCAT(month, '/', year) LIKE ?", ['%' . $searchValue . '%']);
+                });
+            })
+            ->orderByDesc('year')
+            ->orderByDesc('month')
+            ->get();
+
+        $context = $this->companyInfoContext();
+        $pdf = Pdf::loadView('exports.attendances_list_pdf', array_merge($context, [
+            'attendances' => $attendances,
+            'searchValue' => $searchValue,
+        ]));
+
+        $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
+
+        return $pdf->download('Attendances_List.pdf');
+    }
+
+    public function exportMonthlyWorkDays(Request $request)
+    {
+        $month = (int) $request->query('month', now()->month);
+        $year = (int) $request->query('year', now()->year);
+
+        $activeIds = AttendanceActiveEmployee::query()
+            ->where('month', $month)
+            ->where('year', $year)
+            ->where('is_active', true)
+            ->pluck('employee_id')
+            ->values()
+            ->all();
+
+        $employees = Employee::query()
+            ->whereIn('id', $activeIds)
+            ->orderBy('name')
+            ->get();
+
+        $entries = EmployeeMonthlyWorkDay::query()
+            ->where('month', $month)
+            ->where('year', $year)
+            ->get()
+            ->keyBy('employee_id');
+
+        $employees->each(function (Employee $employee) use ($entries) {
+            $employee->setAttribute('work_days', (int) ($entries[$employee->id]->work_days ?? 0));
+        });
+
+        $context = $this->companyInfoContext();
+        $pdf = Pdf::loadView('exports.employee_monthly_work_days_pdf', array_merge($context, [
+            'employees' => $employees,
+            'month' => $month,
+            'year' => $year,
+        ]));
+
+        $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
+
+        return $pdf->download('Employee_Monthly_Work_Days.pdf');
+    }
+
+    public function exportStockReport(Request $request)
+    {
+        $stockResponse = app(SupplyController::class)->getStockBatches($request);
+        $stockData = json_decode($stockResponse->getContent(), true) ?? [];
+
+        $context = $this->departmentHeaderContext($request);
+        $pdf = Pdf::loadView('exports.stock_report_pdf', array_merge($context, [
+            'summary' => $stockData['summary'] ?? [],
+            'products' => $stockData['products'] ?? [],
+            'containers' => $stockData['containers'] ?? [],
+            'search' => trim((string) $request->query('search', '')),
+        ]));
+
+        $pdf->setPaper('a4', 'landscape')->setOptions($this->pdfOptions());
+
+        return $pdf->download('Stock_Report.pdf');
+    }
+
+    public function exportSaleDeliveryNote(Request $request, $id)
+    {
+        $sale = Sale::with(['client', 'saleItems.product'])->findOrFail($id);
+        $businessId = (int) $request->query('business_id', $sale->department_id ?? 0);
+
+        $company = Company::first();
+        $showCompanyInfo = $this->resolveShowCompanyInfo(
+            $request,
+            $company,
+            $sale->show_company_info ?? null
+        );
+        $amountLetter = $this->convertAmoutToLetter((float) $sale->total_amount);
+        $saleItemStockReferences = $this->buildPreparationSaleItemStockReferences($sale);
+
+        $departmentColumns = ['name'];
+        foreach (['profession', 'address', 'phone', 'email', 'logo_url', 'logo'] as $optionalColumn) {
+            if (Schema::hasColumn('departments', $optionalColumn)) {
+                $departmentColumns[] = $optionalColumn;
+            }
+        }
+
+        $department = $businessId > 0
+            ? DB::table('departments')->select($departmentColumns)->where('id', $businessId)->first()
+            : null;
+
+        $departmentName = $department?->name ?? ($company->name ?? '');
+        $departmentProfession = $department?->profession ?? null;
+        $departmentAddress = $department?->address ?? ($company->address ?? '');
+        $departmentPhone = $department?->phone ?? ($company->phone ?? '');
+        $departmentEmail = $department?->email ?? ($company->email ?? '');
+
+        $logoPath = $department?->logo_url ?? ($department?->logo ?? null);
         $logoAbsolutePath = null;
         if (!empty($logoPath)) {
             $cleanPath = ltrim((string) $logoPath, '/\\');
@@ -72,7 +733,9 @@ class PDFController extends Controller
             'departmentAddress',
             'departmentPhone',
             'departmentEmail',
-            'logoAbsolutePath'
+            'logoAbsolutePath',
+            'showCompanyInfo',
+            'saleItemStockReferences'
         ));
 
         $pdf->setPaper('a4', 'portrait')
@@ -85,14 +748,82 @@ class PDFController extends Controller
         return $pdf->download('Bon_de_livraison_' . $sale->id . '.pdf');
     }
 
+    public function exportSalePreparationNote(Request $request, $id)
+    {
+        $sale = Sale::with(['saleItems.product'])->findOrFail($id);
+        $businessId = (int) $request->query('business_id', $sale->department_id ?? 0);
+
+        $company = Company::first();
+        $showCompanyInfo = $this->resolveShowCompanyInfo(
+            $request,
+            $company,
+            $sale->show_company_info ?? null
+        );
+        $saleItemStockReferences = $this->buildSaleItemStockReferences($sale);
+
+        $departmentColumns = ['name'];
+        foreach (['profession', 'address', 'phone', 'email', 'logo_url', 'logo'] as $optionalColumn) {
+            if (Schema::hasColumn('departments', $optionalColumn)) {
+                $departmentColumns[] = $optionalColumn;
+            }
+        }
+
+        $department = $businessId > 0
+            ? DB::table('departments')->select($departmentColumns)->where('id', $businessId)->first()
+            : null;
+
+        $departmentName = $department?->name ?? ($company->name ?? '');
+        $departmentProfession = $department?->profession ?? null;
+        $departmentAddress = $department?->address ?? ($company->address ?? '');
+        $departmentPhone = $department?->phone ?? ($company->phone ?? '');
+        $departmentEmail = $department?->email ?? ($company->email ?? '');
+
+        $logoPath = $department?->logo_url ?? ($department?->logo ?? null);
+        $logoAbsolutePath = null;
+        if (!empty($logoPath)) {
+            $cleanPath = ltrim((string) $logoPath, '/\\');
+            $publicCandidate = public_path($cleanPath);
+            $storageCandidate = storage_path('app/public/' . $cleanPath);
+            if (file_exists($publicCandidate)) {
+                $logoAbsolutePath = $publicCandidate;
+            } elseif (file_exists($storageCandidate)) {
+                $logoAbsolutePath = $storageCandidate;
+            }
+        }
+
+        $pdf = Pdf::loadView('sale_preparation_pdf', compact(
+            'sale',
+            'businessId',
+            'departmentName',
+            'departmentProfession',
+            'departmentAddress',
+            'departmentPhone',
+            'departmentEmail',
+            'logoAbsolutePath',
+            'showCompanyInfo',
+            'saleItemStockReferences'
+        ));
+
+        $pdf->setPaper('a4', 'portrait')
+            ->setOptions([
+                'defaultFont' => 'DejaVu Sans',
+                'isFontSubsettingEnabled' => true,
+                'isRemoteEnabled' => true,
+            ]);
+
+        return $pdf->stream('Preparation_commande_' . $sale->id . '.pdf');
+    }
+
     public function exportSale($saleId)
     {
         $sale = Sale::with(['client', 'saleItems.product'])->findOrFail($saleId);
         $company = Company::first();
+        $showCompanyInfo = $sale->show_company_info ?? $this->shouldShowCompanyInfo($company);
+        $saleItemStockReferences = $this->buildSaleItemStockReferences($sale);
         
         $amountLetter = $this->convertAmoutToLetter($sale->total_amount * 1.19);
         
-        $pdf = Pdf::loadView('sale_pdf', compact('sale', 'company', 'amountLetter'));
+        $pdf = Pdf::loadView('sale_pdf', compact('sale', 'company', 'amountLetter', 'showCompanyInfo', 'saleItemStockReferences'));
         
         $pdf->setPaper('a4', 'portrait')
             ->setOptions([
@@ -108,11 +839,12 @@ class PDFController extends Controller
     {
         $invoice = CertifyInvoices::with(['client', 'certifyInvoiceProducts.product'])->findOrFail($invoiceId);
         $company = Company::first();
+        $showCompanyInfo = $this->shouldShowCompanyInfo($company);
         
         $totalTTC = $invoice->amount + ($invoice->tva_amount ?: ($invoice->amount * 0.19)) + ($invoice->timbre_amount ?: 0);
         $amountLetter = $this->convertAmoutToLetter($totalTTC);
         
-        $pdf = Pdf::loadView('certify_invoice_pdf', compact('invoice', 'company', 'amountLetter'));
+        $pdf = Pdf::loadView('certify_invoice_pdf', compact('invoice', 'company', 'amountLetter', 'showCompanyInfo'));
         
         $pdf->setPaper('a4', 'portrait')
             ->setOptions([
@@ -136,12 +868,13 @@ class PDFController extends Controller
 
         $sales = Sale::with(['client', 'saleItems.product'])->whereIn('id', $ids)->get();
         $company = Company::first();
+        $showCompanyInfo = $this->shouldShowCompanyInfo($company);
 
         foreach ($sales as $sale) {
             $sale->amountLetter = $this->convertAmoutToLetter($sale->total_amount * 1.19);
         }
 
-        $pdf = Pdf::loadView('multi_sale_pdf', compact('sales', 'company'));
+        $pdf = Pdf::loadView('multi_sale_pdf', compact('sales', 'company', 'showCompanyInfo'));
 
         $pdf->setPaper('a4', 'portrait')
             ->setOptions([
@@ -166,13 +899,14 @@ class PDFController extends Controller
 
         $invoices = CertifyInvoices::with(['client', 'certifyInvoiceProducts.product'])->whereIn('id', $ids)->get();
         $company = Company::first();
+        $showCompanyInfo = $this->shouldShowCompanyInfo($company);
 
         foreach ($invoices as $invoice) {
             $totalTTC = $invoice->amount + ($invoice->tva_amount ?: ($invoice->amount * 0.19)) + ($invoice->timbre_amount ?: 0);
             $invoice->amountLetter = $this->convertAmoutToLetter($totalTTC);
         }
 
-        $pdf = Pdf::loadView('multi_certify_invoice_pdf', compact('invoices', 'company'));
+        $pdf = Pdf::loadView('multi_certify_invoice_pdf', compact('invoices', 'company', 'showCompanyInfo'));
 
         $pdf->setPaper('a4', 'portrait')
             ->setOptions([
@@ -187,11 +921,12 @@ class PDFController extends Controller
     {
         $invoice = \App\Models\SubCertifyInvoices::with(['client', 'subCertifyInvoiceProducts.product'])->findOrFail($invoiceId);
         $company = Company::first();
+        $showCompanyInfo = $this->shouldShowCompanyInfo($company);
         
         $totalTTC = $invoice->amount + ($invoice->tva_amount ?: ($invoice->amount * 0.19)) + ($invoice->timbre_amount ?: 0);
         $amountLetter = $this->convertAmoutToLetter($totalTTC);
         
-        $pdf = Pdf::loadView('sub_certify_invoice_pdf', compact('invoice', 'company', 'amountLetter'));
+        $pdf = Pdf::loadView('sub_certify_invoice_pdf', compact('invoice', 'company', 'amountLetter', 'showCompanyInfo'));
         
         $pdf->setPaper('a4', 'portrait')
             ->setOptions([

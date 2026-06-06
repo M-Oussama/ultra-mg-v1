@@ -55,6 +55,36 @@ class ProductController extends Controller
     }
 
     /**
+     * Get a single product with fresh stock values.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    #[OA\Get(
+        path: "/api/products/get/{id}",
+        operationId: "getProduct",
+        description: "Returns a single product",
+        tags: ["products"],
+    )]
+    #[OA\Parameter(name: "id", in: "path", required: true, schema: new OA\Schema(type: 'integer'))]
+    #[OA\Response(
+        response: 200,
+        description: "Success",
+        content: [
+            new OA\JsonContent(
+                ref: "#/components/schemas/IProduct",
+                type: 'object'
+            )
+        ]
+    )]
+    public function getProduct(int $id): JsonResponse
+    {
+        $product = Product::findOrFail($id);
+
+        return response()->json($product);
+    }
+
+    /**
      * Create a new product
      *
      * @param Request $request
@@ -113,6 +143,7 @@ class ProductController extends Controller
             'department_id' => 'nullable|integer|exists:departments,id',
             'package_type' => 'nullable|string|max:255',
             'units_per_package' => 'nullable|integer|min:0',
+            'price_active' => 'nullable|boolean',
         ]);
  
         if (!$request->filled('department_id')) {
@@ -194,6 +225,7 @@ class ProductController extends Controller
             'department_id' => 'nullable|integer',
             'package_type' => 'nullable|string|max:255',
             'units_per_package' => 'nullable|integer|min:0',
+            'price_active' => 'nullable|boolean',
         ]);
 
         $validatedData['department_id'] = $request->input('department_id', 1);
@@ -303,6 +335,7 @@ class ProductController extends Controller
                 'weight' => isset($rowData['weight']) ? (float) $rowData['weight'] : 0,
                 'stockable' => $stockable,
                 'tax_rate' => isset($rowData['tax_rate']) ? (float) $rowData['tax_rate'] : 0,
+                'price_active' => isset($rowData['price_active']) ? in_array(strtolower((string) $rowData['price_active']), ['1', 'true', 'yes'], true) : true,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];
@@ -323,6 +356,7 @@ class ProductController extends Controller
                 'tax_rate' => 'nullable|numeric|min:0',
                 'package_type' => 'nullable|string|max:255',
                 'units_per_package' => 'nullable|integer|min:0',
+                'price_active' => 'nullable|boolean',
             ]);
 
             if ($validator->fails()) {

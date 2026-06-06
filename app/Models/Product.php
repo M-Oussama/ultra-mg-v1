@@ -49,7 +49,8 @@ class Product extends Model
         'weight',
         'department_id',
         'package_type',
-        'units_per_package'
+        'units_per_package',
+        'price_active'
     ];
 
     protected $casts = [
@@ -59,6 +60,7 @@ class Product extends Model
         'weight' => 'double',
         'min_stock_level' => 'integer',
         'units_per_package' => 'integer',
+        'price_active' => 'boolean',
     ];
 
     protected $appends = ['stock'];
@@ -84,7 +86,7 @@ class Product extends Model
     {
         return static::all()->map(function ($product) {
             return [
-                'quantity' => $product->productStock->quantity, // You can set the quantity to 0 or any default value you want
+                'quantity' => $product->productStock?->quantity ?? 0, // Default to 0 when no stock row exists
                 'price' => $product->price,    // You can set the price to 0 or any default value you want
                 'product' => $product,
                 'id' => $product->id,

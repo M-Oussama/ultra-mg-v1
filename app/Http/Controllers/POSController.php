@@ -25,6 +25,148 @@ use App\Models\ProductStock;
 class POSController extends Controller
 {
     //
+    private function resolvedPackageType(SaleItem $saleItem): string
+    {
+        $type = trim((string) ($saleItem->package_type ?? $saleItem->product?->package_type ?? ''));
+
+        return $type !== '' ? $type : 'package';
+    }
+
+    private function resolvedUnitsPerPackage(SaleItem $saleItem): int
+    {
+        return (int) ($saleItem->units_per_package ?? $saleItem->product?->units_per_package ?? 0);
+    }
+
+    private function formatSaleItemCartonBreakdown(SaleItem $saleItem, float $quantity): string
+    {
+        if (!$saleItem->hasPackaging()) {
+            return number_format($quantity, 0, ',', ' ');
+        }
+
+        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem);
+        if ($unitsPerPackage <= 0) {
+            return number_format($quantity, 0, ',', ' ');
+        }
+
+        $cartons = (int) floor($quantity / $unitsPerPackage);
+        $remainder = (int) round(fmod($quantity, $unitsPerPackage));
+        $label = $cartons . ' ' . $this->resolvedPackageType($saleItem) . ' (' . $unitsPerPackage . ')';
+
+        if ($remainder > 0) {
+            $label .= ' + ' . $remainder . ' pcs isolées';
+        }
+
+        return $label;
+    }
+
+    private function formatSaleItemQuantityTotal(SaleItem $saleItem, float $quantity): string
+    {
+        $formatted = number_format($quantity, 0, ',', ' ');
+
+        return $saleItem->hasPackaging() ? $formatted . ' pcs' : $formatted;
+    }
+
+    private function buildSaleItemStockReferences(Sale $sale): array
+    {
+        $departmentId = $sale->department_id;
+        $saleDate = (string) $sale->sale_date;
+
+        $supplyItems = SupplyItem::query()
+            ->select([
+                'supply_items.id',
+                'supply_items.product_id',
+                'supply_items.reference',
+                'supply_items.quantity',
+                'supplies.id as supply_id',
+                'supplies.supply_date',
+            ])
+            ->join('supplies', 'supplies.id', '=', 'supply_items.supply_id')
+            ->whereNull('supply_items.deleted_at')
+            ->whereNull('supplies.deleted_at')
+            ->when($departmentId !== null, function ($query) use ($departmentId) {
+                $query->where('supplies.departement_id', $departmentId);
+            })
+            ->whereDate('supplies.supply_date', '<=', $saleDate)
+            ->orderBy('supplies.supply_date')
+            ->orderBy('supplies.id')
+            ->orderBy('supply_items.id')
+            ->get();
+
+        $saleItems = SaleItem::query()
+            ->select([
+                'sale_items.id',
+                'sale_items.sale_id',
+                'sale_items.product_id',
+                'sale_items.quantity',
+                'sale_items.package_type',
+                'sale_items.units_per_package',
+                'sales.sale_date',
+            ])
+            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->whereNull('sale_items.deleted_at')
+            ->whereNull('sales.deleted_at')
+            ->when($departmentId !== null, function ($query) use ($departmentId) {
+                $query->where('sales.department_id', $departmentId);
+            })
+            ->where(function ($query) use ($saleDate, $sale) {
+                $query->whereDate('sales.sale_date', '<', $saleDate)
+                    ->orWhere(function ($innerQuery) use ($saleDate, $sale) {
+                        $innerQuery->whereDate('sales.sale_date', '=', $saleDate)
+                            ->where('sales.id', '<=', $sale->id);
+                    });
+            })
+            ->orderBy('sales.sale_date')
+            ->orderBy('sales.id')
+            ->orderBy('sale_items.id')
+            ->get();
+
+        $queues = [];
+        foreach ($supplyItems as $supplyItem) {
+            $productId = (string) $supplyItem->product_id;
+            $queues[$productId] ??= [];
+            $queues[$productId][] = [
+                'reference' => (string) ($supplyItem->reference ?? ''),
+                'remaining_quantity' => (float) $supplyItem->quantity,
+            ];
+        }
+
+        $allocations = [];
+
+        foreach ($saleItems as $saleItem) {
+            $productId = (string) $saleItem->product_id;
+            $remainingToAllocate = (float) $saleItem->quantity;
+
+            if (!isset($queues[$productId])) {
+                continue;
+            }
+
+            foreach ($queues[$productId] as &$batch) {
+                if ($remainingToAllocate <= 0) {
+                    break;
+                }
+
+                if ($batch['remaining_quantity'] <= 0) {
+                    continue;
+                }
+
+                $consumed = min($batch['remaining_quantity'], $remainingToAllocate);
+                $batch['remaining_quantity'] -= $consumed;
+                $remainingToAllocate -= $consumed;
+
+                if ((int) $saleItem->sale_id === (int) $sale->id && $consumed > 0) {
+                    $allocations[$saleItem->id][] = [
+                        'quantity_total' => $this->formatSaleItemQuantityTotal($saleItem, $consumed),
+                        'carton_breakdown' => $this->formatSaleItemCartonBreakdown($saleItem, $consumed),
+                        'reference' => '#' . (string) $batch['reference'],
+                    ];
+                }
+            }
+            unset($batch);
+        }
+
+        return $allocations;
+    }
+
     public function getSales(Request $request): JsonResponse
     {
         $searchValue = $request->input('searchValue', ''); // search value
@@ -129,7 +271,14 @@ class POSController extends Controller
 
     public function getSale($saleId) {
 
-        $sale = Sale::find($saleId);
+        $sale = Sale::with(['saleItems.product'])->findOrFail($saleId);
+        $saleItemStockReferences = $this->buildSaleItemStockReferences($sale);
+
+        foreach ($sale->saleItems as $saleItem) {
+            $saleItem->stock_allocation = $saleItemStockReferences[$saleItem->id] ?? [];
+        }
+        $sale->sale_item_stock_references = $saleItemStockReferences;
+
         $payment_total =  Payment::where('sale_id', $saleId)
             ->sum('amount_paid');
         $sale->payment_total = $payment_total;
@@ -149,7 +298,13 @@ class POSController extends Controller
 
     public function getSaleData($saleId) {
 
-        $sale = Sale::find($saleId);
+        $sale = Sale::with(['saleItems.product'])->findOrFail($saleId);
+        $saleItemStockReferences = $this->buildSaleItemStockReferences($sale);
+
+        foreach ($sale->saleItems as $saleItem) {
+            $saleItem->stock_allocation = $saleItemStockReferences[$saleItem->id] ?? [];
+        }
+        $sale->sale_item_stock_references = $saleItemStockReferences;
 
         $sale->amount_letter = $this->convertAmoutToLetter(($sale->total_amount*1.19));
 
@@ -207,6 +362,7 @@ class POSController extends Controller
                     'regulation' => $data['paymentAmount'],
                     'payment' => 1,
                     'department_id' => $department_id,
+                    'show_company_info' => (bool) ($data['show_company_info'] ?? false),
                     'user_id' => \Illuminate\Support\Facades\Auth::id(),
                 ]);
             } else {
@@ -217,6 +373,7 @@ class POSController extends Controller
                     'sale_statuses_id' => $sale_status,
                     'balance' => $balance,
                     'department_id' => $department_id,
+                    'show_company_info' => (bool) ($data['show_company_info'] ?? false),
                     'user_id' => \Illuminate\Support\Facades\Auth::id(),
                 ]);
             }
@@ -240,20 +397,37 @@ class POSController extends Controller
             $products = $data['sale_items'];
 
             foreach ($products as $product) {
+                $unitsPerPackage = isset($product['units_per_package'])
+                    ? (int) $product['units_per_package']
+                    : (isset($product['product']['units_per_package']) ? (int) $product['product']['units_per_package'] : null);
+                $packageType = $product['package_type'] ?? ($product['product']['package_type'] ?? null);
+                $packageQuantity = isset($product['package_quantity'])
+                    ? (int) $product['package_quantity']
+                    : (($unitsPerPackage && $unitsPerPackage > 0) ? (int) floor(((float) $product['quantity']) / $unitsPerPackage) : null);
+                $numberOfPackages = isset($product['number_of_packages'])
+                    ? (int) $product['number_of_packages']
+                    : $packageQuantity;
+                $itemsPerPackage = isset($product['items_per_package'])
+                    ? (int) $product['items_per_package']
+                    : $unitsPerPackage;
+                $priceActive = array_key_exists('price_active', $product)
+                    ? filter_var($product['price_active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
+                    : (isset($product['product']['price_active']) ? filter_var($product['product']['price_active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : true);
                 $object = SaleItem::create([
                     'product_id' => $product['product']['id'],
                     'client_id' => $client['id'],
                     'quantity' => $product['quantity'],
+                    'price' => floatval($product['price']),
                     'total_price' => $product['quantity'] * $product['price'],
                     'sale_id' => $sale->id,
                     'sale_date' => $data['sale_date'],
-                    'package_type' => $product['package_type'] ?? ($product['product']['package_type'] ?? null),
-                    'units_per_package' => isset($product['units_per_package']) ? (int) $product['units_per_package'] : (isset($product['product']['units_per_package']) ? (int) $product['product']['units_per_package'] : null),
-                    'package_quantity' => isset($product['package_quantity']) ? (int) $product['package_quantity'] : null,
-                    'number_of_packages' => isset($product['number_of_packages']) ? (int) $product['number_of_packages'] : (isset($product['package_quantity']) ? (int) $product['package_quantity'] : null),
-                    'items_per_package' => isset($product['items_per_package']) ? (int) $product['items_per_package'] : (isset($product['units_per_package']) ? (int) $product['units_per_package'] : null),
+                    'package_type' => $packageType,
+                    'units_per_package' => $unitsPerPackage,
+                    'package_quantity' => $packageQuantity,
+                    'number_of_packages' => $numberOfPackages,
+                    'items_per_package' => $itemsPerPackage,
+                    'price_active' => $priceActive === null ? true : $priceActive,
                 ]);
-                $object->price = floatval($product['price']);
                 $object->save();
 
                 // Decrement Stock
@@ -309,15 +483,20 @@ class POSController extends Controller
                 ? $data['department_id']
                 : $request->input('department_id', $sale->department_id ?? 1);
 
-            // Reverse old stock
-            $oldItems = SaleItem::where('sale_id', $sale->id)->get();
-            foreach ($oldItems as $oldItem) {
-                $stock = ProductStock::where('product_id', $oldItem->product_id)->first();
-                if ($stock) {
-                    $stock->increment('quantity', $oldItem->quantity);
+            $products = $data['sale_items'] ?? null;
+            $hasSaleItems = is_array($products) && count($products) > 0;
+
+            if ($hasSaleItems) {
+                // Reverse old stock only when we are replacing the line items.
+                $oldItems = SaleItem::where('sale_id', $sale->id)->get();
+                foreach ($oldItems as $oldItem) {
+                    $stock = ProductStock::where('product_id', $oldItem->product_id)->first();
+                    if ($stock) {
+                        $stock->increment('quantity', $oldItem->quantity);
+                    }
                 }
+                SaleItem::where('sale_id', $sale->id)->delete();
             }
-            SaleItem::where('sale_id', $sale->id)->delete();
 
             if($sale_status != SaleStatus::NOT_PAID_ID && $payment == 1) {
                 $sale->update([
@@ -327,6 +506,7 @@ class POSController extends Controller
                     'sale_statuses_id' => $sale_status,
                     'balance' => $balance - floatval($data['regulation']),
                     'department_id' => $department_id,
+                    'show_company_info' => (bool) ($data['show_company_info'] ?? $sale->show_company_info ?? false),
                 ]);
                 $sale->payment = 1;
                 $sale->regulation = floatval($data['regulation']);
@@ -339,6 +519,7 @@ class POSController extends Controller
                     'sale_statuses_id' => $sale_status,
                     'balance' => $balance,
                     'department_id' => $department_id,
+                    'show_company_info' => (bool) ($data['show_company_info'] ?? $sale->show_company_info ?? false),
                 ]);
                 $sale->payment = 0;
                 $sale->regulation = 0;
@@ -371,29 +552,46 @@ class POSController extends Controller
                 $paymentObj->save();
             }
 
-            $products = $data['sale_items'];
+            if ($hasSaleItems) {
+                foreach ($products as $product) {
+                    $unitsPerPackage = isset($product['units_per_package'])
+                        ? (int) $product['units_per_package']
+                        : (isset($product['product']['units_per_package']) ? (int) $product['product']['units_per_package'] : null);
+                    $packageType = $product['package_type'] ?? ($product['product']['package_type'] ?? null);
+                    $packageQuantity = isset($product['package_quantity'])
+                        ? (int) $product['package_quantity']
+                        : (($unitsPerPackage && $unitsPerPackage > 0) ? (int) floor(((float) $product['quantity']) / $unitsPerPackage) : null);
+                    $numberOfPackages = isset($product['number_of_packages'])
+                        ? (int) $product['number_of_packages']
+                        : $packageQuantity;
+                    $itemsPerPackage = isset($product['items_per_package'])
+                        ? (int) $product['items_per_package']
+                        : $unitsPerPackage;
+                    $priceActive = array_key_exists('price_active', $product)
+                        ? filter_var($product['price_active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
+                        : (isset($product['product']['price_active']) ? filter_var($product['product']['price_active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : true);
+                    $object = SaleItem::create([
+                        'product_id' => $product['product']['id'],
+                        'quantity' => $product['quantity'],
+                        'price' => floatval($product['price']),
+                        'total_price' => $product['quantity'] * $product['price'],
+                        'sale_id' => $sale->id,
+                        'client_id' => $client['id'],
+                        'sale_date' => $data['sale_date'],
+                        'package_type' => $packageType,
+                        'units_per_package' => $unitsPerPackage,
+                        'package_quantity' => $packageQuantity,
+                        'number_of_packages' => $numberOfPackages,
+                        'items_per_package' => $itemsPerPackage,
+                        'price_active' => $priceActive === null ? true : $priceActive,
+                    ]);
+                    $object->save();
 
-            foreach ($products as $product) {
-                $object = SaleItem::create([
-                    'product_id' => $product['product']['id'],
-                    'quantity' => $product['quantity'],
-                    'total_price' => $product['quantity'] * $product['price'],
-                    'sale_id' => $sale->id,
-                    'client_id' => $client['id'],
-                    'sale_date' => $data['sale_date'],
-                    'package_type' => $product['package_type'] ?? ($product['product']['package_type'] ?? null),
-                    'units_per_package' => isset($product['units_per_package']) ? (int) $product['units_per_package'] : (isset($product['product']['units_per_package']) ? (int) $product['product']['units_per_package'] : null),
-                    'package_quantity' => isset($product['package_quantity']) ? (int) $product['package_quantity'] : null,
-                    'number_of_packages' => isset($product['number_of_packages']) ? (int) $product['number_of_packages'] : (isset($product['package_quantity']) ? (int) $product['package_quantity'] : null),
-                    'items_per_package' => isset($product['items_per_package']) ? (int) $product['items_per_package'] : (isset($product['units_per_package']) ? (int) $product['units_per_package'] : null),
-                ]);
-                $object->price = floatval($product['price']);
-                $object->save();
-
-                // Decrement Stock
-                $stock = ProductStock::where('product_id', $product['product']['id'])->first();
-                if ($stock) {
-                    $stock->decrement('quantity', $product['quantity']);
+                    // Decrement Stock
+                    $stock = ProductStock::where('product_id', $product['product']['id'])->first();
+                    if ($stock) {
+                        $stock->decrement('quantity', $product['quantity']);
+                    }
                 }
             }
 

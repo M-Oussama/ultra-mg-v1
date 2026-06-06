@@ -13,6 +13,56 @@
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th { background: #444; color: #fff; padding: 8px; text-align: left; }
         td { padding: 8px; border: 1px solid #ddd; }
+        td.quantity-cell, td.amount-cell {
+            white-space: nowrap;
+            font-size: 10px;
+            line-height: 1.15;
+        }
+        td.quantity-cell {
+            white-space: normal;
+        }
+        .qty-main {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+        .qty-sub {
+            display: block;
+            font-size: 9px;
+            line-height: 1.1;
+            color: #666;
+            white-space: nowrap;
+        }
+        .qty-breakdown-title {
+            display: block;
+            margin-top: 6px;
+            font-size: 9px;
+            font-weight: 700;
+            line-height: 1.15;
+            color: #444;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .qty-ref {
+            display: block;
+            margin-top: 4px;
+            font-size: 9.5px;
+            line-height: 1.2;
+            color: #666;
+        }
+        .stock-lines {
+            display: block;
+            margin-top: 4px;
+            text-align: right;
+        }
+        .stock-line {
+            display: block;
+            font-size: 9px;
+            line-height: 1.2;
+            color: #666;
+            white-space: normal;
+        }
         .text-right { text-align: right; }
         .totals { margin-top: 20px; float: right; width: 30%; }
         .totals table td { border: none; padding: 5px 0; }
@@ -22,15 +72,17 @@
 </head>
 <body>
     <div class="header">
-        <div class="company-info">
-            <strong>{{ $company->name }}</strong><br>
-            {{ $company->address }}<br>
-            {{ $company->phone }}<br>
-            {{ $company->email }}
-        </div>
+        @if($showCompanyInfo ?? true)
+            <div class="company-info">
+                <strong>{{ $company->name }}</strong><br>
+                {{ $company->address }}<br>
+                {{ $company->phone }}<br>
+                {{ $company->email }}
+            </div>
+        @endif
         <div class="invoice-info">
             <h2 style="margin: 0; color: #444;">FACTURE</h2>
-            №: {{ $sale->id }}<br>
+            â„–: {{ $sale->id }}<br>
             Date: {{ $sale->sale_date }}
         </div>
         <div class="clear"></div>
@@ -48,17 +100,39 @@
             <tr>
                 <th>Produit</th>
                 <th class="text-right">Prix Unitaire</th>
-                <th class="text-right">Quantité</th>
+                <th class="text-right">QuantitÃ©</th>
                 <th class="text-right">Total</th>
             </tr>
         </thead>
         <tbody>
             @foreach($sale->saleItems as $item)
+            @php
+                $showPrice = (bool) ($item->price_active ?? true);
+                $quantityTotal = number_format((float) $item->quantity, 0);
+                $stockLines = $saleItemStockReferences[$item->id] ?? [];
+            @endphp
             <tr>
-                <td>{{ $item->product->name }}</td>
-                <td class="text-right">{{ number_format($item->price, 2) }} Da</td>
-                <td class="text-right">{{ $item->quantity }}</td>
-                <td class="text-right">{{ number_format($item->total_price, 2) }} Da</td>
+                <td>
+                    {{ $item->product->name }}
+                </td>
+                <td class="text-right amount-cell">
+                    {{ $showPrice ? number_format($item->price, 2) . ' Da' : '' }}
+                </td>
+                <td class="text-right quantity-cell">
+                    <span class="qty-main">{{ $quantityTotal }} pcs</span>
+                    <span class="qty-sub">Total requis</span>
+                    @if(!empty($stockLines))
+                        <span class="qty-breakdown-title">Répartition cartons</span>
+                        <div class="stock-lines">
+                            @foreach($stockLines as $line)
+                                <span class="stock-line">• {{ $line['carton_breakdown'] }} - {{ $line['reference'] }}</span>
+                            @endforeach
+                        </div>
+                    @endif
+                </td>
+                <td class="text-right amount-cell">
+                    {{ $showPrice ? number_format($item->total_price, 2) . ' Da' : '' }}
+                </td>
             </tr>
             @endforeach
         </tbody>
@@ -83,7 +157,7 @@
     <div class="clear"></div>
 
     <div class="amount-letter">
-        Arrêtée la présente facture à la somme de : {{ $amountLetter }}
+        ArrÃªtÃ©e la prÃ©sente facture Ã  la somme de : {{ $amountLetter }}
     </div>
 
     <div class="footer">
