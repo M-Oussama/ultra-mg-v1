@@ -36,10 +36,47 @@ class CertifyInvoiceController extends Controller
     )])]
     public function getInvoices(Request $request): JsonResponse
     {
-        $searchValue = $request->input('searchValue', ''); // search value
+        $searchValue = trim((string) $request->input('searchValue', ''));
+        $clientId = $request->input('client_id');
+        $startDate = $request->input('start_date');
+        $endDate = $request->input('end_date');
+        $modifiedOnly = filter_var($request->input('modified_only', false), FILTER_VALIDATE_BOOLEAN);
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
         $invoices = CertifyInvoices::orderBy('date', 'desc');
+
+        if ($searchValue !== '') {
+            $invoices->where(function ($query) use ($searchValue) {
+                $query->where('fac_id', 'LIKE', '%' . $searchValue . '%')
+                    ->orWhere('payment_type', 'LIKE', '%' . $searchValue . '%')
+                    ->orWhere('amount', 'LIKE', '%' . $searchValue . '%')
+                    ->orWhere('custom_cheque_number', 'LIKE', '%' . $searchValue . '%')
+                    ->orWhereHas('client', function ($clientQuery) use ($searchValue) {
+                        $clientQuery->where('name', 'LIKE', '%' . $searchValue . '%')
+                            ->orWhere('surname', 'LIKE', '%' . $searchValue . '%')
+                            ->orWhereRaw(
+                                "CONCAT(COALESCE(name, ''), ' ', COALESCE(surname, '')) LIKE ?",
+                                ['%' . $searchValue . '%']
+                            );
+                    });
+            });
+        }
+
+        if (!empty($clientId) && $clientId !== 'all') {
+            $invoices->where('client_id', $clientId);
+        }
+
+        if (!empty($startDate)) {
+            $invoices->whereDate('date', '>=', $startDate);
+        }
+
+        if (!empty($endDate)) {
+            $invoices->whereDate('date', '<=', $endDate);
+        }
+
+        if ($modifiedOnly) {
+            $invoices->whereColumn('updated_at', '>', 'created_at');
+        }
 
         // Hierarchical Data Isolation
         $user = \Illuminate\Support\Facades\Auth::user();
@@ -221,6 +258,7 @@ class CertifyInvoiceController extends Controller
        $invoice = CertifyInvoices::find($invoiceData['id']);
 
          $invoice->update([
+             'fac_id' => $fac_id,
              'date' => $invoiceData['date'],
              'client_id' => $client['id'],
              'amount' => $invoiceData['total'] ?? $invoiceData['amount'] ?? 0,

@@ -840,11 +840,24 @@ class PDFController extends Controller
         $invoice = CertifyInvoices::with(['client', 'certifyInvoiceProducts.product'])->findOrFail($invoiceId);
         $company = Company::first();
         $showCompanyInfo = $this->shouldShowCompanyInfo($company);
+        $logoAbsolutePath = file_exists(public_path('logo.png')) ? public_path('logo.png') : null;
+        $logoDataUri = null;
+
+        if (!empty($logoAbsolutePath) && file_exists($logoAbsolutePath)) {
+            $mimeType = @mime_content_type($logoAbsolutePath) ?: 'image/png';
+            $logoDataUri = 'data:' . $mimeType . ';base64,' . base64_encode(file_get_contents($logoAbsolutePath));
+        }
         
         $totalTTC = $invoice->amount + ($invoice->tva_amount ?: ($invoice->amount * 0.19)) + ($invoice->timbre_amount ?: 0);
         $amountLetter = $this->convertAmoutToLetter($totalTTC);
         
-        $pdf = Pdf::loadView('certify_invoice_pdf', compact('invoice', 'company', 'amountLetter', 'showCompanyInfo'));
+        $pdf = Pdf::loadView('certify_invoice_pdf', compact(
+            'invoice',
+            'company',
+            'amountLetter',
+            'showCompanyInfo',
+            'logoDataUri'
+        ));
         
         $pdf->setPaper('a4', 'portrait')
             ->setOptions([
@@ -900,13 +913,25 @@ class PDFController extends Controller
         $invoices = CertifyInvoices::with(['client', 'certifyInvoiceProducts.product'])->whereIn('id', $ids)->get();
         $company = Company::first();
         $showCompanyInfo = $this->shouldShowCompanyInfo($company);
+        $logoAbsolutePath = file_exists(public_path('logo.png')) ? public_path('logo.png') : null;
+        $logoDataUri = null;
+
+        if (!empty($logoAbsolutePath) && file_exists($logoAbsolutePath)) {
+            $mimeType = @mime_content_type($logoAbsolutePath) ?: 'image/png';
+            $logoDataUri = 'data:' . $mimeType . ';base64,' . base64_encode(file_get_contents($logoAbsolutePath));
+        }
 
         foreach ($invoices as $invoice) {
             $totalTTC = $invoice->amount + ($invoice->tva_amount ?: ($invoice->amount * 0.19)) + ($invoice->timbre_amount ?: 0);
             $invoice->amountLetter = $this->convertAmoutToLetter($totalTTC);
         }
 
-        $pdf = Pdf::loadView('multi_certify_invoice_pdf', compact('invoices', 'company', 'showCompanyInfo'));
+        $pdf = Pdf::loadView('multi_certify_invoice_pdf', compact(
+            'invoices',
+            'company',
+            'showCompanyInfo',
+            'logoDataUri'
+        ));
 
         $pdf->setPaper('a4', 'portrait')
             ->setOptions([

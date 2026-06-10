@@ -169,6 +169,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/cheques/import-csv', [\App\Http\Controllers\ChequeController::class, 'importCsv'])->middleware('permission:add,payments')->name('importChequeCsv');
     Route::post('/cheques/update/{id}', [\App\Http\Controllers\ChequeController::class, 'update'])->middleware('permission:edit,payments')->name('updateCheque');
     Route::post('/cheques/scan', [\App\Http\Controllers\ChequeController::class, 'scan'])->middleware('permission:add,payments')->name('scanCheque');
+    Route::get('/cheques/preview-file', [\App\Http\Controllers\ChequeController::class, 'previewFile'])->middleware('permission:list,payments')->name('previewChequeFile');
     Route::get('/cheques/unify-status', [\App\Http\Controllers\ChequeController::class, 'unifyStatuses'])->middleware('permission:edit,payments')->name('unifyChequeStatuses');
     Route::delete('/cheques/delete/{id}', [\App\Http\Controllers\ChequeController::class, 'delete'])->middleware('permission:delete,payments')->name('deleteCheque');
 
@@ -205,6 +206,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pdf/sale/{id}', [PDFController::class, 'exportSaleDeliveryNote'])->middleware('permission:list,sales')->name('exportSaleDeliveryNote');
     Route::get('/pdf/sale-delivery/{id}', [PDFController::class, 'exportSaleDeliveryNote'])->middleware('permission:list,sales')->name('exportSaleDeliveryPdf');
     Route::get('/pdf/sale-preparation/{id}', [PDFController::class, 'exportSalePreparationNote'])->middleware('permission:list,sales')->name('exportSalePreparationNote');
+    Route::get('/pdf/certify-invoice/{id}', [PDFController::class, 'exportCertifyInvoice'])->middleware('permission:list,certify_invoices')->name('exportCertifyInvoice');
+    Route::get('/pdf/multi-certify-invoices', [PDFController::class, 'exportMultiCertifyInvoices'])->middleware('permission:list,certify_invoices')->name('exportMultiCertifyInvoices');
     Route::get('/pdf/products/list', [PDFController::class, 'exportProductsList'])->middleware('permission:list,products')->name('exportProductsList');
     Route::get('/pdf/clients/list', [PDFController::class, 'exportClientsList'])->middleware('permission:list,clients')->name('exportClientsList');
     Route::get('/pdf/suppliers/list', [PDFController::class, 'exportSuppliersList'])->middleware('permission:list,suppliers')->name('exportSuppliersList');

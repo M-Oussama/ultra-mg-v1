@@ -162,12 +162,11 @@
             <tr>
                 <th style="width:5%;">#</th>
                 <th style="width:14%;">Reference</th>
-                <th style="width:18%;">Supplier</th>
-                <th style="width:12%;">Date</th>
-                <th style="width:11%;" class="num">Received</th>
-                <th style="width:11%;" class="num">Sold</th>
-                <th style="width:11%;" class="num">Remaining</th>
-                <th style="width:18%;">Items</th>
+                <th style="width:15%;">Date</th>
+                <th style="width:12%;" class="num">Received</th>
+                <th style="width:12%;" class="num">Sold</th>
+                <th style="width:12%;" class="num">Remaining</th>
+                <th style="width:30%;">Items</th>
             </tr>
         </thead>
         <tbody>
@@ -175,7 +174,6 @@
                 <tr>
                     <td class="center">{{ $index + 1 }}</td>
                     <td class="nowrap">{{ $container['reference'] ?? '-' }}</td>
-                    <td>{{ $container['supplier_name'] ?? '-' }}</td>
                     <td class="nowrap">{{ $container['supply_date'] ?? '-' }}</td>
                     <td class="num">{{ number_format((float) ($container['received_total'] ?? 0), 0, ',', ' ') }}</td>
                     <td class="num">{{ number_format((float) ($container['sold_total'] ?? 0), 0, ',', ' ') }}</td>
@@ -198,7 +196,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="8" class="center muted" style="padding:18px;">No containers found</td>
+                    <td colspan="7" class="center muted" style="padding:18px;">No containers found</td>
                 </tr>
             @endforelse
         </tbody>

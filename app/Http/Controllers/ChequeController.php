@@ -367,6 +367,54 @@ class ChequeController extends Controller
         return response()->json($cheques);
     }
 
+    #[OA\Get(
+        path: "/api/cheques/preview-file",
+        summary: "Preview a cheque PDF file",
+        tags: ["Cheques"],
+        parameters: [
+            new OA\Parameter(
+                name: "path",
+                in: "query",
+                required: true,
+                description: "Relative storage path to the cheque PDF",
+                schema: new OA\Schema(type: "string")
+            )
+        ],
+        responses: [
+            new OA\Response(response: 200, description: "PDF file stream"),
+            new OA\Response(response: 404, description: "File not found")
+        ]
+    )]
+    public function previewFile(Request $request)
+    {
+        $rawPath = trim((string) $request->query('path', ''));
+        if ($rawPath === '') {
+            return response()->json(['message' => 'Missing file path'], 422);
+        }
+
+        $path = $rawPath;
+        $path = preg_replace('#^https?://[^/]+/#i', '', $path) ?? $path;
+        $path = preg_replace('#^storage/#i', '', $path) ?? $path;
+        $path = ltrim($path, '/');
+
+        if (!Storage::disk('public')->exists($path)) {
+            $publicPath = public_path($path);
+            if (file_exists($publicPath)) {
+                return response()->file($publicPath, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'inline; filename="' . basename($publicPath) . '"',
+                ]);
+            }
+
+            return response()->json(['message' => 'File not found'], 404);
+        }
+
+        return response()->file(Storage::disk('public')->path($path), [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
+        ]);
+    }
+
     public function scan(Request $request)
     {
         $validator = Validator::make($request->all(), [
