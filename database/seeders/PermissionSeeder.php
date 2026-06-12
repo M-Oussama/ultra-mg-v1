@@ -20,31 +20,11 @@ class PermissionSeeder extends Seeder
     {
         // 1. Setup Admin Role
         $adminRole = Role::firstOrCreate(['role' => 'admin']);
-        foreach (Permission::ADMIN_PERMISSIONS as $permission) {
-            $perm = Permission::firstOrCreate([
-                'action' => $permission['ACTION'],
-                'subject' => $permission['SUBJECT']
-            ]);
-
-            RoleHasPermissions::firstOrCreate([
-                'role_id' => $adminRole->id,
-                'permission_id' => $perm->id
-            ]);
-        }
+        $this->syncPermissionsToRole($adminRole, Permission::PERMISSIONS);
 
         // 2. Setup Sales Role (Crucial for unblocking Sales users)
         $salesRole = Role::firstOrCreate(['role' => 'Sales']);
-        foreach (Permission::SALES_PERMISSIONS as $permission) {
-            $perm = Permission::firstOrCreate([
-                'action' => $permission['ACTION'],
-                'subject' => $permission['SUBJECT']
-            ]);
-
-            RoleHasPermissions::firstOrCreate([
-                'role_id' => $salesRole->id,
-                'permission_id' => $perm->id
-            ]);
-        }
+        $this->syncPermissionsToRole($salesRole, Permission::SALES_PERMISSIONS);
 
         // 3. Sync Root Admin User
         User::updateOrCreate(
@@ -56,5 +36,26 @@ class PermissionSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
+    }
+
+    /**
+     * Create any missing permissions and attach them to the provided role.
+     *
+     * @param  array<int, array{ACTION:string,SUBJECT:string}>  $permissionSets
+     * @return void
+     */
+    private function syncPermissionsToRole(Role $role, array $permissionSets): void
+    {
+        foreach ($permissionSets as $permission) {
+            $perm = Permission::firstOrCreate([
+                'action' => $permission['ACTION'],
+                'subject' => $permission['SUBJECT'],
+            ]);
+
+            RoleHasPermissions::firstOrCreate([
+                'role_id' => $role->id,
+                'permission_id' => $perm->id,
+            ]);
+        }
     }
 }

@@ -145,10 +145,12 @@ Base URL: `/api/real-logistics-invoices`
 
 ## PDF Generation
 
-### 1. Preview PDF (From Request Data)
-- **Endpoint:** `POST /api/real-logistics-invoices/preview-pdf`
-- **Description:** Generates a PDF stream from raw invoice data without saving it.
-- **Body:** Same as `POST /store`.
+### 1. Preview PDF (From Stored Data)
+- **Endpoint:** `GET /api/real-logistics-invoices/preview/{id}`
+- **Alternative:** `POST /api/real-logistics-invoices/preview-pdf/{id}`
+- **Description:** Generates a PDF stream from the saved invoice and its related client/items in the database.
+- **Parameters:**
+  - `id` (path): The saved invoice ID.
 - **Response:** PDF Stream.
 
 ### 2. Export PDF (From Stored Data)

@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class CheckPermission
 {
@@ -18,9 +19,9 @@ class CheckPermission
      */
     public function handle(Request $request, Closure $next, $action, $subject)
     {
-        $user = $request->user();
+        $user = $request->user() ?? Auth::guard('sanctum')->user();
 
-        if (!$user || !$user->hasPermission($action, $subject)) {
+        if (!$user || (!$user->isGlobalAdmin() && !$user->hasPermission($action, $subject))) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthorized. You do not have permission to ' . $action . ' ' . $subject . '.'

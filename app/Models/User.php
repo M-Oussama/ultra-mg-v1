@@ -86,9 +86,10 @@ class User extends Authenticatable
     {
         // Emergency Fallback: Ensure the primary admin always has access
         if ($this->email === 'admin@gmail.com') return true;
+        if ((int) ($this->role_id ?? 0) === Role::ADMIN) return true;
 
         if (!$this->role) return false;
-        $role = strtolower($this->role->role);
+        $role = strtolower(trim($this->role->role));
         return in_array($role, ['admin', 'super-admin', 'super admin', 'director']);
     }
 

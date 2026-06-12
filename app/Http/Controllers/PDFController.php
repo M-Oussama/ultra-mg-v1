@@ -105,6 +105,136 @@ class PDFController extends Controller
         return $this->formatRawQuantity($quantity) . ' - #' . $reference;
     }
 
+    private function recordAllocationLine(
+        array &$allocations,
+        SaleItem $saleItem,
+        float $consumed,
+        string $reference
+    ): void {
+        $referenceKey = ltrim($reference, '#');
+        $existingLines = $allocations[$saleItem->id] ?? [];
+
+        if (isset($existingLines[$referenceKey])) {
+            $existingLines[$referenceKey]['quantity_value'] += $consumed;
+        } else {
+            $existingLines[$referenceKey] = [
+                'quantity_value' => $consumed,
+                'reference' => '#' . $referenceKey,
+            ];
+        }
+
+        $existingLines[$referenceKey]['quantity_total'] = $this->formatPreparationTotalQuantity(
+            $saleItem,
+            (float) $existingLines[$referenceKey]['quantity_value']
+        );
+        $existingLines[$referenceKey]['carton_breakdown'] = $this->formatPreparationCartonBreakdown(
+            $saleItem,
+            (float) $existingLines[$referenceKey]['quantity_value']
+        );
+
+        $allocations[$saleItem->id] = $existingLines;
+    }
+
+    private function isFullPackageOrder(SaleItem $saleItem, float $quantity): bool
+    {
+        if (!$saleItem->hasPackaging()) {
+            return false;
+        }
+
+        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem);
+        if ($unitsPerPackage <= 0) {
+            return false;
+        }
+
+        $remainder = fmod($quantity, $unitsPerPackage);
+        return abs($remainder) < 0.00001 || abs($remainder - $unitsPerPackage) < 0.00001;
+    }
+
+    private function allocateFromQueue(
+        array &$queue,
+        SaleItem $saleItem,
+        int $saleId,
+        float &$remainingToAllocate,
+        array &$allocations,
+        string $allocationPreference = 'all'
+    ): void {
+        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem);
+
+        foreach ($queue as &$batch) {
+            if ($remainingToAllocate <= 0) {
+                break;
+            }
+
+            $availableQuantity = (float) ($batch['remaining_quantity'] ?? 0);
+            if ($availableQuantity <= 0) {
+                continue;
+            }
+
+            if ($allocationPreference === 'cartons') {
+                if (!$saleItem->hasPackaging() || $unitsPerPackage <= 0) {
+                    continue;
+                }
+
+                $availableQuantity = (float) (floor($availableQuantity / $unitsPerPackage) * $unitsPerPackage);
+            } elseif ($allocationPreference === 'loose') {
+                if (!$saleItem->hasPackaging() || $unitsPerPackage <= 0) {
+                    continue;
+                }
+
+                $availableQuantity = fmod($availableQuantity, $unitsPerPackage);
+            }
+
+            if ($availableQuantity <= 0) {
+                continue;
+            }
+
+            $consumed = min($availableQuantity, $remainingToAllocate);
+            $batch['remaining_quantity'] -= $consumed;
+            $remainingToAllocate -= $consumed;
+
+            if ($consumed > 0 && (int) $saleItem->sale_id === $saleId) {
+                $this->recordAllocationLine(
+                    $allocations,
+                    $saleItem,
+                    $consumed,
+                    (string) $batch['reference']
+                );
+            }
+        }
+
+        unset($batch);
+    }
+
+    private function allocateStockReferencesForSaleItem(
+        array &$queues,
+        SaleItem $saleItem,
+        int $saleId,
+        array &$allocations
+    ): void {
+        $productId = (string) $saleItem->product_id;
+        if (!isset($queues[$productId])) {
+            return;
+        }
+
+        $remainingToAllocate = (float) $saleItem->quantity;
+
+        if (!$saleItem->hasPackaging()) {
+            $this->allocateFromQueue($queues[$productId], $saleItem, $saleId, $remainingToAllocate, $allocations, 'all');
+            return;
+        }
+
+        if ($this->isFullPackageOrder($saleItem, (float) $saleItem->quantity)) {
+            $this->allocateFromQueue($queues[$productId], $saleItem, $saleId, $remainingToAllocate, $allocations, 'cartons');
+            return;
+        }
+
+        $this->allocateFromQueue($queues[$productId], $saleItem, $saleId, $remainingToAllocate, $allocations, 'loose');
+
+        if ($remainingToAllocate > 0) {
+            $this->allocateFromQueue($queues[$productId], $saleItem, $saleId, $remainingToAllocate, $allocations, 'cartons');
+        }
+    }
+
     private function buildSaleItemStockReferences(Sale $sale): array
     {
         $departmentId = $sale->department_id;
@@ -173,35 +303,13 @@ class PDFController extends Controller
         $allocations = [];
 
         foreach ($saleItems as $saleItem) {
-            $productId = (string) $saleItem->product_id;
-            $remainingToAllocate = (float) $saleItem->quantity;
+            $this->allocateStockReferencesForSaleItem($queues, $saleItem, (int) $sale->id, $allocations);
+        }
 
-            if (!isset($queues[$productId])) {
-                continue;
+        foreach ($allocations as $saleItemId => $lines) {
+            if (is_array($lines)) {
+                $allocations[$saleItemId] = array_values($lines);
             }
-
-            foreach ($queues[$productId] as &$batch) {
-                if ($remainingToAllocate <= 0) {
-                    break;
-                }
-
-                if ($batch['remaining_quantity'] <= 0) {
-                    continue;
-                }
-
-                $consumed = min($batch['remaining_quantity'], $remainingToAllocate);
-                $batch['remaining_quantity'] -= $consumed;
-                $remainingToAllocate -= $consumed;
-
-                if ((int) $saleItem->sale_id === (int) $sale->id && $consumed > 0) {
-                    $allocations[$saleItem->id][] = [
-                        'quantity_total' => $this->formatPreparationTotalQuantity($saleItem, $consumed),
-                        'carton_breakdown' => $this->formatPreparationCartonBreakdown($saleItem, $consumed),
-                        'reference' => '#' . (string) $batch['reference'],
-                    ];
-                }
-            }
-            unset($batch);
         }
 
         return $allocations;
@@ -310,35 +418,13 @@ class PDFController extends Controller
         $allocations = [];
 
         foreach ($saleItems as $saleItem) {
-            $productId = (string) $saleItem->product_id;
-            $remainingToAllocate = (float) $saleItem->quantity;
+            $this->allocateStockReferencesForSaleItem($queues, $saleItem, (int) $sale->id, $allocations);
+        }
 
-            if (!isset($queues[$productId])) {
-                continue;
+        foreach ($allocations as $saleItemId => $lines) {
+            if (is_array($lines)) {
+                $allocations[$saleItemId] = array_values($lines);
             }
-
-            foreach ($queues[$productId] as &$batch) {
-                if ($remainingToAllocate <= 0) {
-                    break;
-                }
-
-                if ($batch['remaining_quantity'] <= 0) {
-                    continue;
-                }
-
-                $consumed = min($batch['remaining_quantity'], $remainingToAllocate);
-                $batch['remaining_quantity'] -= $consumed;
-                $remainingToAllocate -= $consumed;
-
-                if ((int) $saleItem->sale_id === (int) $sale->id && $consumed > 0) {
-                    $allocations[$saleItem->id][] = [
-                        'quantity_total' => $this->formatPreparationTotalQuantity($saleItem, $consumed),
-                        'carton_breakdown' => $this->formatPreparationCartonBreakdown($saleItem, $consumed),
-                        'reference' => '#' . (string) $batch['reference'],
-                    ];
-                }
-            }
-            unset($batch);
         }
 
         return $allocations;

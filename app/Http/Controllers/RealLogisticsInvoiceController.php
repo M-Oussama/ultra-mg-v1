@@ -9,7 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Company;
 use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\Client;
 
 class RealLogisticsInvoiceController extends Controller
 {
@@ -60,6 +59,7 @@ class RealLogisticsInvoiceController extends Controller
         $validated = $request->validate([
             'invoice_date' => 'required|date',
             'client_id' => 'required|exists:clients,id',
+            'company_id' => 'nullable|exists:companies,id',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'nullable|exists:products,id',
@@ -78,6 +78,7 @@ class RealLogisticsInvoiceController extends Controller
                 $invoice = RealLogisticsInvoice::create([
                     'invoice_date' => $validated['invoice_date'],
                     'client_id' => $validated['client_id'],
+                    'company_id' => $validated['company_id'] ?? null,
                     'total_amount' => $totalAmount,
                     'notes' => $validated['notes'] ?? null,
                     'status' => 'completed'
@@ -109,7 +110,7 @@ class RealLogisticsInvoiceController extends Controller
      */
     public function show(RealLogisticsInvoice $realLogisticsInvoice): JsonResponse
     {
-        return response()->json($realLogisticsInvoice->load(['client', 'items.product']));
+        return response()->json($realLogisticsInvoice->load(['client', 'company', 'items.product']));
     }
 
     /**
@@ -120,6 +121,7 @@ class RealLogisticsInvoiceController extends Controller
         $validated = $request->validate([
             'invoice_date' => 'sometimes|required|date',
             'client_id' => 'sometimes|required|exists:clients,id',
+            'company_id' => 'sometimes|nullable|exists:companies,id',
             'notes' => 'nullable|string',
             'status' => 'sometimes|required|string',
             'items' => 'sometimes|required|array|min:1',
@@ -140,6 +142,9 @@ class RealLogisticsInvoiceController extends Controller
                 }
 
                 $realLogisticsInvoice->fill($request->only(['invoice_date', 'client_id', 'notes', 'status']));
+                if (array_key_exists('company_id', $validated)) {
+                    $realLogisticsInvoice->company_id = $validated['company_id'];
+                }
                 $realLogisticsInvoice->save();
 
                 if (isset($validated['items'])) {
@@ -187,48 +192,23 @@ class RealLogisticsInvoiceController extends Controller
             return response()->json(['message' => 'Error deleting invoice: ' . $e->getMessage()], 500);
         }
     }
-    public function previewPdf(Request $request)
+    public function previewPdf(Request $request, $id = null)
     {
-        $data = $request->all();
-        $dbCompany = Company::first();
-        $dbClient = isset($data['client_id']) ? Client::find($data['client_id']) : null;
+        $invoiceId = $id
+            ?? $request->input('invoice_id')
+            ?? $request->input('real_logistics_invoice_id')
+            ?? $request->input('invoiceId');
 
-        $company = $dbCompany ? (object) array_merge($dbCompany->toArray(), $data['issuer_data'] ?? []) : (object)($data['issuer_data'] ?? []);
-        $client = $dbClient ? (object) array_merge($dbClient->toArray(), $data['client_data'] ?? []) : (object)($data['client_data'] ?? []);
+        if (!$invoiceId) {
+            $draft = $this->buildDraftPreviewInvoice($request);
+            $company = $this->buildDraftPreviewCompany($request);
 
+            return $this->streamInvoicePdf($draft, $company, 'Preview_Logistics_Invoice.pdf');
+        }
 
-        // 1. Calculate the HT Total
-    $total_ht = collect($data['items'])->sum(function($item) {
-        return $item['price'] * $item['quantity'];
-    });
+        $invoice = RealLogisticsInvoice::with(['client', 'company', 'items.product'])->findOrFail($invoiceId);
 
-    // 2. Calculate the TTC (HT + 19% TVA)
-    $total_ttc = $total_ht * 1.19;
-
-
-        // 3. Convert TTC to French Words
-       $total_in_words = $this->numberToFrenchWords($total_ttc);
-        // Mocking an invoice object for the view
-        $invoice = (object)[
-            'invoice_date' => $data['invoice_date'] ?? now()->format('Y-m-d'),
-'id' => (isset($data['invoice_date']) ? \Carbon\Carbon::parse($data['invoice_date'])->format('Y') : now()->format('Y')) . '/' . str_pad($data['id'] ?? '', 2, '0', STR_PAD_LEFT),
-            'client' => $client,
-            'notes' => $data['notes'] ?? '',
-            'items' => collect($data['items'])->map(function($item) {
-                return (object)[
-                    'product_name' => $item['product_name'] ?? ($item['product_id'] ? \App\Models\Product::find($item['product_id'])->name : 'Produit'),
-                    'price' => $item['price'],
-                    'quantity' => $item['quantity'],
-                    'total_price' => $item['price'] * $item['quantity']
-                ];
-            }),
-            'total_amount' => collect($data['items'])->sum(function($item) {
-                return $item['price'] * $item['quantity'];
-            })
-        ];
-
-        $pdf = Pdf::loadView('real_logistics_invoice_pdf',  compact('invoice', 'company', 'total_in_words'));
-        return $pdf->stream('Preview_Logistics_Invoice.pdf');
+        return $this->streamInvoicePdf($invoice, $this->resolveInvoiceCompany($invoice), 'Preview_Logistics_Invoice.pdf');
     }
 
 
@@ -240,15 +220,115 @@ class RealLogisticsInvoiceController extends Controller
     }
     public function exportPdf($id)
     {
-        $invoice = RealLogisticsInvoice::with(['client', 'items'])->findOrFail($id);
-        $company = Company::first();
+        $invoice = RealLogisticsInvoice::with(['client', 'company', 'items.product'])->findOrFail($id);
 
-        // Calculate TTC and words for the view
-        $total_ttc = $invoice->total_amount * 1.19;
+        return $this->streamInvoicePdf($invoice, $this->resolveInvoiceCompany($invoice), 'Logistics_Invoice_' . $invoice->id . '.pdf');
+    }
+
+    private function streamInvoicePdf($invoice, $company = null, string $filename = 'Logistics_Invoice.pdf')
+    {
+        if ($invoice instanceof RealLogisticsInvoice) {
+            $invoice->loadMissing(['client', 'company', 'items.product']);
+        }
+        $company = $company ?: (object) [
+            'name' => '',
+            'email' => '',
+            'NART' => '',
+            'NRC' => '',
+            'NIS' => '',
+            'NIF' => '',
+        ];
+
+        $totalAmount = data_get($invoice, 'total_amount');
+
+        if ($totalAmount === null) {
+            $items = collect(data_get($invoice, 'items', []));
+            $totalAmount = $items->sum(function ($item) {
+                return (float) ($item->total_price ?? ((float) $item->quantity * (float) $item->price));
+            });
+        }
+
+        if ($invoice instanceof RealLogisticsInvoice) {
+            $invoice->total_amount = $totalAmount;
+        } else {
+            $invoice->total_amount = $totalAmount;
+        }
+
+        $total_ttc = $totalAmount * 1.19;
         $total_in_words = $this->numberToFrenchWords($total_ttc);
 
         $pdf = Pdf::loadView('real_logistics_invoice_pdf', compact('invoice', 'company', 'total_in_words'));
-        return $pdf->stream('Logistics_Invoice_' . $invoice->id . '.pdf');
+        return $pdf->stream($filename);
+    }
+
+    private function resolveInvoiceCompany(RealLogisticsInvoice $invoice): object
+    {
+        if ($invoice->relationLoaded('company') && $invoice->company) {
+            return $invoice->company;
+        }
+
+        if (!empty($invoice->company_id)) {
+            $company = Company::find($invoice->company_id);
+            if ($company) {
+                return $company;
+            }
+        }
+
+        return Company::first() ?: (object) [
+            'name' => '',
+            'email' => '',
+            'NART' => '',
+            'NRC' => '',
+            'NIS' => '',
+            'NIF' => '',
+        ];
+    }
+
+    private function buildDraftPreviewCompany(Request $request): object
+    {
+        $dbCompany = Company::first();
+        $issuerData = $request->input('issuer_data', []);
+
+        return $dbCompany
+            ? (object) array_merge($dbCompany->toArray(), $issuerData)
+            : (object) $issuerData;
+    }
+
+    private function buildDraftPreviewInvoice(Request $request): object
+    {
+        $data = $request->all();
+        $clientData = $data['client_data'] ?? [];
+        $items = collect($data['items'] ?? [])->map(function ($item) {
+            return (object) [
+                'product_name' => $item['product_name'] ?? 'Produit',
+                'price' => (float) ($item['price'] ?? 0),
+                'quantity' => (float) ($item['quantity'] ?? 0),
+                'total_price' => (float) ($item['price'] ?? 0) * (float) ($item['quantity'] ?? 0),
+            ];
+        });
+
+        $client = (object) array_merge([
+            'name' => '',
+            'surname' => '',
+            'address' => '',
+            'NRC' => '',
+            'NIF' => '',
+            'NART' => '',
+            'NIS' => '',
+        ], is_array($clientData) ? $clientData : []);
+
+        $totalAmount = $items->sum(function ($item) {
+            return (float) $item->total_price;
+        });
+
+        return (object) [
+            'invoice_date' => $data['invoice_date'] ?? now()->format('Y-m-d'),
+            'id' => $data['id'] ?? ('PREVIEW/' . now()->format('YmdHis')),
+            'client' => $client,
+            'notes' => $data['notes'] ?? '',
+            'items' => $items,
+            'total_amount' => $totalAmount,
+        ];
     }
 }
 

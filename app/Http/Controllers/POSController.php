@@ -66,6 +66,136 @@ class POSController extends Controller
         return $saleItem->hasPackaging() ? $formatted . ' pcs' : $formatted;
     }
 
+    private function recordAllocationLine(
+        array &$allocations,
+        SaleItem $saleItem,
+        float $consumed,
+        string $reference
+    ): void {
+        $referenceKey = ltrim($reference, '#');
+        $existingLines = $allocations[$saleItem->id] ?? [];
+
+        if (isset($existingLines[$referenceKey])) {
+            $existingLines[$referenceKey]['quantity_value'] += $consumed;
+        } else {
+            $existingLines[$referenceKey] = [
+                'quantity_value' => $consumed,
+                'reference' => '#' . $referenceKey,
+            ];
+        }
+
+        $existingLines[$referenceKey]['quantity_total'] = $this->formatSaleItemQuantityTotal(
+            $saleItem,
+            (float) $existingLines[$referenceKey]['quantity_value']
+        );
+        $existingLines[$referenceKey]['carton_breakdown'] = $this->formatSaleItemCartonBreakdown(
+            $saleItem,
+            (float) $existingLines[$referenceKey]['quantity_value']
+        );
+
+        $allocations[$saleItem->id] = $existingLines;
+    }
+
+    private function isFullPackageOrder(SaleItem $saleItem, float $quantity): bool
+    {
+        if (!$saleItem->hasPackaging()) {
+            return false;
+        }
+
+        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem);
+        if ($unitsPerPackage <= 0) {
+            return false;
+        }
+
+        $remainder = fmod($quantity, $unitsPerPackage);
+        return abs($remainder) < 0.00001 || abs($remainder - $unitsPerPackage) < 0.00001;
+    }
+
+    private function allocateFromQueue(
+        array &$queue,
+        SaleItem $saleItem,
+        int $saleId,
+        float &$remainingToAllocate,
+        array &$allocations,
+        string $allocationPreference = 'all'
+    ): void {
+        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem);
+
+        foreach ($queue as &$batch) {
+            if ($remainingToAllocate <= 0) {
+                break;
+            }
+
+            $availableQuantity = (float) ($batch['remaining_quantity'] ?? 0);
+            if ($availableQuantity <= 0) {
+                continue;
+            }
+
+            if ($allocationPreference === 'cartons') {
+                if (!$saleItem->hasPackaging() || $unitsPerPackage <= 0) {
+                    continue;
+                }
+
+                $availableQuantity = (float) (floor($availableQuantity / $unitsPerPackage) * $unitsPerPackage);
+            } elseif ($allocationPreference === 'loose') {
+                if (!$saleItem->hasPackaging() || $unitsPerPackage <= 0) {
+                    continue;
+                }
+
+                $availableQuantity = fmod($availableQuantity, $unitsPerPackage);
+            }
+
+            if ($availableQuantity <= 0) {
+                continue;
+            }
+
+            $consumed = min($availableQuantity, $remainingToAllocate);
+            $batch['remaining_quantity'] -= $consumed;
+            $remainingToAllocate -= $consumed;
+
+            if ($consumed > 0 && (int) $saleItem->sale_id === $saleId) {
+                $this->recordAllocationLine(
+                    $allocations,
+                    $saleItem,
+                    $consumed,
+                    (string) $batch['reference']
+                );
+            }
+        }
+
+        unset($batch);
+    }
+
+    private function allocateStockReferencesForSaleItem(
+        array &$queues,
+        SaleItem $saleItem,
+        int $saleId,
+        array &$allocations
+    ): void {
+        $productId = (string) $saleItem->product_id;
+        if (!isset($queues[$productId])) {
+            return;
+        }
+
+        $remainingToAllocate = (float) $saleItem->quantity;
+
+        if (!$saleItem->hasPackaging()) {
+            $this->allocateFromQueue($queues[$productId], $saleItem, $saleId, $remainingToAllocate, $allocations, 'all');
+            return;
+        }
+
+        if ($this->isFullPackageOrder($saleItem, (float) $saleItem->quantity)) {
+            $this->allocateFromQueue($queues[$productId], $saleItem, $saleId, $remainingToAllocate, $allocations, 'cartons');
+            return;
+        }
+
+        $this->allocateFromQueue($queues[$productId], $saleItem, $saleId, $remainingToAllocate, $allocations, 'loose');
+
+        if ($remainingToAllocate > 0) {
+            $this->allocateFromQueue($queues[$productId], $saleItem, $saleId, $remainingToAllocate, $allocations, 'cartons');
+        }
+    }
+
     private function buildSaleItemStockReferences(Sale $sale): array
     {
         $departmentId = $sale->department_id;
@@ -133,35 +263,13 @@ class POSController extends Controller
         $allocations = [];
 
         foreach ($saleItems as $saleItem) {
-            $productId = (string) $saleItem->product_id;
-            $remainingToAllocate = (float) $saleItem->quantity;
+            $this->allocateStockReferencesForSaleItem($queues, $saleItem, (int) $sale->id, $allocations);
+        }
 
-            if (!isset($queues[$productId])) {
-                continue;
+        foreach ($allocations as $saleItemId => $lines) {
+            if (is_array($lines)) {
+                $allocations[$saleItemId] = array_values($lines);
             }
-
-            foreach ($queues[$productId] as &$batch) {
-                if ($remainingToAllocate <= 0) {
-                    break;
-                }
-
-                if ($batch['remaining_quantity'] <= 0) {
-                    continue;
-                }
-
-                $consumed = min($batch['remaining_quantity'], $remainingToAllocate);
-                $batch['remaining_quantity'] -= $consumed;
-                $remainingToAllocate -= $consumed;
-
-                if ((int) $saleItem->sale_id === (int) $sale->id && $consumed > 0) {
-                    $allocations[$saleItem->id][] = [
-                        'quantity_total' => $this->formatSaleItemQuantityTotal($saleItem, $consumed),
-                        'carton_breakdown' => $this->formatSaleItemCartonBreakdown($saleItem, $consumed),
-                        'reference' => '#' . (string) $batch['reference'],
-                    ];
-                }
-            }
-            unset($batch);
         }
 
         return $allocations;
@@ -430,11 +538,18 @@ class POSController extends Controller
                 ]);
                 $object->save();
 
-                // Decrement Stock
-                $stock = ProductStock::where('product_id', $product['product']['id'])->first();
-                if ($stock) {
-                    $stock->decrement('quantity', $product['quantity']);
-                }
+                $this->adjustProductStock(
+                    (int) $product['product']['id'],
+                    -(float) $product['quantity'],
+                    'sale_created',
+                    'sale_item',
+                    (int) $object->id,
+                    (int) $department_id,
+                    'Stock decreased from sale creation.',
+                    [
+                        'sale_id' => $sale->id,
+                    ]
+                );
             }
 
             DB::commit();
@@ -490,10 +605,18 @@ class POSController extends Controller
                 // Reverse old stock only when we are replacing the line items.
                 $oldItems = SaleItem::where('sale_id', $sale->id)->get();
                 foreach ($oldItems as $oldItem) {
-                    $stock = ProductStock::where('product_id', $oldItem->product_id)->first();
-                    if ($stock) {
-                        $stock->increment('quantity', $oldItem->quantity);
-                    }
+                    $this->adjustProductStock(
+                        (int) $oldItem->product_id,
+                        (float) $oldItem->quantity,
+                        'sale_reversed',
+                        'sale_item',
+                        (int) $oldItem->id,
+                        (int) $department_id,
+                        'Stock restored while updating a sale.',
+                        [
+                            'sale_id' => $sale->id,
+                        ]
+                    );
                 }
                 SaleItem::where('sale_id', $sale->id)->delete();
             }
@@ -587,11 +710,18 @@ class POSController extends Controller
                     ]);
                     $object->save();
 
-                    // Decrement Stock
-                    $stock = ProductStock::where('product_id', $product['product']['id'])->first();
-                    if ($stock) {
-                        $stock->decrement('quantity', $product['quantity']);
-                    }
+                    $this->adjustProductStock(
+                        (int) $product['product']['id'],
+                        -(float) $product['quantity'],
+                        'sale_updated',
+                        'sale_item',
+                        (int) $object->id,
+                        (int) $department_id,
+                        'Stock decreased from sale update.',
+                        [
+                            'sale_id' => $sale->id,
+                        ]
+                    );
                 }
             }
 
@@ -782,10 +912,18 @@ class POSController extends Controller
             $items = SaleItem::where('sale_id', $id)->get();
 
             foreach ($items as $item) {
-                $stock = ProductStock::where('product_id', $item->product_id)->first();
-                if ($stock) {
-                    $stock->increment('quantity', $item->quantity);
-                }
+                $this->adjustProductStock(
+                    (int) $item->product_id,
+                    (float) $item->quantity,
+                    'sale_deleted',
+                    'sale_item',
+                    (int) $item->id,
+                    (int) $sale->department_id,
+                    'Stock restored because the sale was deleted.',
+                    [
+                        'sale_id' => $sale->id,
+                    ]
+                );
             }
 
             SaleItem::where('sale_id', $id)->delete();
@@ -831,13 +969,6 @@ class POSController extends Controller
                 ]);
             }
 
-            DB::table('product_stocks')
-                ->whereIn('product_id', $productIds)
-                ->update([
-                    'quantity' => 0,
-                    'updated_at' => $now,
-                ]);
-
             $saleTotals = SaleItem::query()
                 ->select('sale_items.product_id', DB::raw('COALESCE(SUM(sale_items.quantity), 0) as total_quantity'))
                 ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
@@ -882,13 +1013,18 @@ class POSController extends Controller
                     + (float) ($returnTotals[$productId] ?? 0)
                     - (float) ($saleTotals[$productId] ?? 0);
 
-                DB::table('product_stocks')->updateOrInsert(
-                    ['product_id' => $productId],
+                $this->setProductStock(
+                    (int) $productId,
+                    $quantity,
+                    'stock_recalculated',
+                    'stock_rebuild',
+                    null,
+                    $departmentId !== null && $departmentId !== '' ? (int) $departmentId : null,
+                    $includeDeleted
+                        ? 'Stock recalculated including deleted records.'
+                        : 'Stock recalculated from active records only.',
                     [
-                        'quantity' => $quantity,
-                        'deleted_at' => null,
-                        'updated_at' => $now,
-                        'created_at' => $now,
+                        'include_deleted' => $includeDeleted,
                     ]
                 );
             }
@@ -906,6 +1042,44 @@ class POSController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to recalculate stock: ' . $e->getMessage(),
+            ], 400);
+        }
+    }
+
+    public function adjustStock(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|integer|exists:products,id',
+            'delta_quantity' => 'required|numeric',
+            'department_id' => 'nullable|integer|exists:departments,id',
+            'reason' => 'required|string|max:100',
+            'note' => 'nullable|string',
+            'source_type' => 'nullable|string|max:100',
+            'source_id' => 'nullable|integer',
+            'meta' => 'nullable|array',
+        ]);
+
+        try {
+            $stock = $this->adjustProductStock(
+                (int) $validated['product_id'],
+                (float) $validated['delta_quantity'],
+                $validated['reason'],
+                $validated['source_type'] ?? 'manual_adjustment',
+                isset($validated['source_id']) ? (int) $validated['source_id'] : null,
+                isset($validated['department_id']) ? (int) $validated['department_id'] : null,
+                $validated['note'] ?? 'Manual stock adjustment.',
+                $validated['meta'] ?? []
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Stock adjusted successfully.',
+                'stock' => $stock,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to adjust stock: ' . $e->getMessage(),
             ], 400);
         }
     }

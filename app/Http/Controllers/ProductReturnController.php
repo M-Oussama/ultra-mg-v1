@@ -101,12 +101,18 @@ class ProductReturnController extends Controller
                     'date' => $data['sale_date'],
                 ]);
 
-                // Increment Stock
-                $stock = ProductStock::firstOrCreate(
-                    ['product_id' => $product['product']['id']],
-                    ['quantity' => 0]
+                $this->adjustProductStock(
+                    (int) $product['product']['id'],
+                    (float) $product['quantity'],
+                    'return_received',
+                    'product_return_item',
+                    null,
+                    isset($data['department_id']) ? (int) $data['department_id'] : (int) $return->department_id,
+                    'Stock increased from returned goods.',
+                    [
+                        'return_id' => $return->id,
+                    ]
                 );
-                $stock->increment('quantity', $product['quantity']);
             }
 
             DB::commit();
@@ -126,10 +132,18 @@ class ProductReturnController extends Controller
             $items = ProductReturnList::where('return_id', $id)->get();
 
             foreach ($items as $item) {
-                $stock = ProductStock::where('product_id', $item->product_id)->first();
-                if ($stock) {
-                    $stock->decrement('quantity', $item->quantity);
-                }
+                $this->adjustProductStock(
+                    (int) $item->product_id,
+                    -(float) $item->quantity,
+                    'return_deleted',
+                    'product_return_item',
+                    (int) $item->id,
+                    (int) $return->department_id,
+                    'Stock decreased because the return was deleted.',
+                    [
+                        'return_id' => $return->id,
+                    ]
+                );
             }
 
             ProductReturnList::where('return_id', $id)->delete();
@@ -156,10 +170,18 @@ class ProductReturnController extends Controller
             // Reverse old stock
             $oldItems = ProductReturnList::where('return_id', $return->id)->get();
             foreach ($oldItems as $oldItem) {
-                $stock = ProductStock::where('product_id', $oldItem->product_id)->first();
-                if ($stock) {
-                    $stock->decrement('quantity', $oldItem->quantity);
-                }
+                $this->adjustProductStock(
+                    (int) $oldItem->product_id,
+                    -(float) $oldItem->quantity,
+                    'return_reversed',
+                    'product_return_item',
+                    (int) $oldItem->id,
+                    (int) $return->department_id,
+                    'Stock reversed while updating a return.',
+                    [
+                        'return_id' => $return->id,
+                    ]
+                );
             }
             ProductReturnList::where('return_id', $return->id)->delete();
 
@@ -184,12 +206,18 @@ class ProductReturnController extends Controller
                     'date' => $data['sale_date'],
                 ]);
 
-                // Increment Stock
-                $stock = ProductStock::firstOrCreate(
-                    ['product_id' => $product['product']['id']],
-                    ['quantity' => 0]
+                $this->adjustProductStock(
+                    (int) $product['product']['id'],
+                    (float) $product['quantity'],
+                    'return_received',
+                    'product_return_item',
+                    null,
+                    isset($data['department_id']) ? (int) $data['department_id'] : (int) $return->department_id,
+                    'Stock increased from returned goods update.',
+                    [
+                        'return_id' => $return->id,
+                    ]
                 );
-                $stock->increment('quantity', $product['quantity']);
             }
 
             DB::commit();

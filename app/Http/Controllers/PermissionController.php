@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Permission;
+use App\Models\Role;
+use App\Models\RoleHasPermissions;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
@@ -29,6 +31,13 @@ class PermissionController extends Controller
         $permission = Permission::create([
             'action' => $validatedData['action'],
             'subject' => $validatedData['subject'],
+        ]);
+
+        // Keep admin fully privileged when new permissions are added through the UI.
+        $adminRole = Role::firstOrCreate(['role' => 'admin']);
+        RoleHasPermissions::firstOrCreate([
+            'role_id' => $adminRole->id,
+            'permission_id' => $permission->id,
         ]);
 
         // Optionally, you can return a response, redirect the user, or perform any other actions here

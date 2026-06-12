@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Helpers\NumberToLetter;
 use App\Models\ClientBalance;
 use App\Models\Payment;
+use App\Models\ProductStock;
+use App\Models\ProductStockAdjustment;
 use App\Models\Sale;
 use App\Models\User;
 
@@ -13,6 +15,7 @@ use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\Auth;
 use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Http\Request;
 /**
@@ -174,5 +177,76 @@ class Controller extends BaseController
             $user_id = $current_user->tokenable_id;
         }
         return User::find($user_id);
+    }
+
+    protected function adjustProductStock(
+        int $productId,
+        float $deltaQuantity,
+        string $reason,
+        ?string $sourceType = null,
+        ?int $sourceId = null,
+        ?int $departmentId = null,
+        ?string $note = null,
+        array $meta = []
+    ): ProductStock {
+        $stock = ProductStock::firstOrCreate(
+            ['product_id' => $productId],
+            ['quantity' => 0]
+        );
+
+        $before = (float) $stock->quantity;
+        $after = $before + $deltaQuantity;
+        $stock->quantity = $after;
+        $stock->save();
+
+        ProductStockAdjustment::create([
+            'product_id' => $productId,
+            'department_id' => $departmentId,
+            'user_id' => Auth::id(),
+            'before_quantity' => $before,
+            'delta_quantity' => $deltaQuantity,
+            'after_quantity' => $after,
+            'reason' => $reason,
+            'source_type' => $sourceType,
+            'source_id' => $sourceId,
+            'note' => $note,
+            'meta' => $meta ?: null,
+        ]);
+
+        return $stock;
+    }
+
+    protected function setProductStock(
+        int $productId,
+        float $targetQuantity,
+        string $reason,
+        ?string $sourceType = null,
+        ?int $sourceId = null,
+        ?int $departmentId = null,
+        ?string $note = null,
+        array $meta = []
+    ): ProductStock {
+        $stock = ProductStock::firstOrCreate(
+            ['product_id' => $productId],
+            ['quantity' => 0]
+        );
+
+        $before = (float) $stock->quantity;
+        $delta = $targetQuantity - $before;
+
+        if (abs($delta) < 0.00001) {
+            return $stock;
+        }
+
+        return $this->adjustProductStock(
+            $productId,
+            $delta,
+            $reason,
+            $sourceType,
+            $sourceId,
+            $departmentId,
+            $note,
+            $meta
+        );
     }
 }

@@ -17,6 +17,122 @@ use Illuminate\Support\Facades\DB;
 
 class SupplyController extends Controller
 {
+    private function resolvedUnitsPerPackage(?Product $product): int
+    {
+        return (int) ($product?->units_per_package ?? 0);
+    }
+
+    private function packagingAvailabilityFromUnits(float $remainingQuantity, int $unitsPerPackage): array
+    {
+        if ($unitsPerPackage <= 0) {
+            return [
+                'available_cartons' => 0,
+                'loose_quantity' => $remainingQuantity,
+                'carton_size' => 0,
+            ];
+        }
+
+        $availableCartons = (int) floor($remainingQuantity / $unitsPerPackage);
+
+        return [
+            'available_cartons' => $availableCartons,
+            'loose_quantity' => $remainingQuantity - ($availableCartons * $unitsPerPackage),
+            'carton_size' => $unitsPerPackage,
+        ];
+    }
+
+    private function packagingAvailability(float $remainingQuantity, ?Product $product): array
+    {
+        return $this->packagingAvailabilityFromUnits(
+            $remainingQuantity,
+            $this->resolvedUnitsPerPackage($product)
+        );
+    }
+
+    private function isFullPackageOrder(SaleItem $saleItem, float $quantity): bool
+    {
+        if (!$saleItem->hasPackaging()) {
+            return false;
+        }
+
+        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem->product);
+        if ($unitsPerPackage <= 0) {
+            return false;
+        }
+
+        $remainder = fmod($quantity, $unitsPerPackage);
+        return abs($remainder) < 0.00001 || abs($remainder - $unitsPerPackage) < 0.00001;
+    }
+
+    private function allocateFromQueue(
+        array &$queue,
+        SaleItem $saleItem,
+        float &$remainingToAllocate,
+        string $allocationPreference = 'all'
+    ): void {
+        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem->product);
+
+        foreach ($queue as &$batch) {
+            if ($remainingToAllocate <= 0) {
+                break;
+            }
+
+            $availableQuantity = (float) ($batch->remaining_quantity ?? 0);
+            if ($availableQuantity <= 0) {
+                continue;
+            }
+
+            if ($allocationPreference === 'cartons') {
+                if (!$saleItem->hasPackaging() || $unitsPerPackage <= 0) {
+                    continue;
+                }
+
+                $availableQuantity = (float) (floor($availableQuantity / $unitsPerPackage) * $unitsPerPackage);
+            } elseif ($allocationPreference === 'loose') {
+                if (!$saleItem->hasPackaging() || $unitsPerPackage <= 0) {
+                    continue;
+                }
+
+                $availableQuantity = fmod($availableQuantity, $unitsPerPackage);
+            }
+
+            if ($availableQuantity <= 0) {
+                continue;
+            }
+
+            $consumed = min($availableQuantity, $remainingToAllocate);
+            $batch->remaining_quantity -= $consumed;
+            $batch->sold_quantity += $consumed;
+            $remainingToAllocate -= $consumed;
+        }
+
+        unset($batch);
+    }
+
+    private function applySaleConsumption(array &$queue, SaleItem $saleItem): void
+    {
+        $remainingToAllocate = (float) $saleItem->quantity;
+
+        if (!$saleItem->hasPackaging()) {
+            $this->allocateFromQueue($queue, $saleItem, $remainingToAllocate, 'all');
+            return;
+        }
+
+        if ($this->isFullPackageOrder($saleItem, (float) $saleItem->quantity)) {
+            $this->allocateFromQueue($queue, $saleItem, $remainingToAllocate, 'cartons');
+            if ($remainingToAllocate > 0) {
+                $this->allocateFromQueue($queue, $saleItem, $remainingToAllocate, 'loose');
+            }
+            return;
+        }
+
+        $this->allocateFromQueue($queue, $saleItem, $remainingToAllocate, 'loose');
+
+        if ($remainingToAllocate > 0) {
+            $this->allocateFromQueue($queue, $saleItem, $remainingToAllocate, 'cartons');
+        }
+    }
+
     private function generateSupplyItemReference(int $productId, ?int $departmentId, array &$sequenceByKey): string
     {
         $key = ($departmentId ?? 'all') . ':' . $productId;
@@ -157,9 +273,19 @@ class SupplyController extends Controller
                     'received_quantity' => (float) $item->quantity,
                     'sold_quantity' => 0.0,
                     'remaining_quantity' => (float) $item->quantity,
+                    'available_cartons' => 0,
+                    'loose_quantity' => 0.0,
+                    'carton_size' => $this->resolvedUnitsPerPackage($item->product),
                     'unit_price' => (float) $item->unit_price,
                     'date' => $supply->supply_date,
                 ];
+
+                $containerAvailability = $this->packagingAvailability(
+                    $batch->remaining_quantity,
+                    $item->product
+                );
+                $batch->available_cartons = $containerAvailability['available_cartons'];
+                $batch->loose_quantity = $containerAvailability['loose_quantity'];
 
                 $container->items[] = $batch;
 
@@ -179,6 +305,8 @@ class SupplyController extends Controller
                         'sold_quantity' => 0.0,
                         'remaining_quantity' => 0.0,
                         'container_count' => 0,
+                        'available_cartons' => 0,
+                        'loose_quantity' => 0.0,
                     ];
                 }
 
@@ -208,6 +336,7 @@ class SupplyController extends Controller
                 'date' => $saleItem->sale_date,
                 'order' => $saleItem->id,
                 'quantity' => (float) $saleItem->quantity,
+                'sale_item' => $saleItem,
             ];
 
             if (!isset($productsSummary[$productId])) {
@@ -218,6 +347,8 @@ class SupplyController extends Controller
                     'sold_quantity' => 0.0,
                     'remaining_quantity' => 0.0,
                     'container_count' => 0,
+                    'available_cartons' => 0,
+                    'loose_quantity' => 0.0,
                 ];
             }
 
@@ -239,19 +370,29 @@ class SupplyController extends Controller
 
         foreach ($returnItems as $returnItem) {
             $productId = (string) $returnItem->product_id;
-                $batch = (object) [
-                    'source_type' => 'return',
-                    'source_id' => $returnItem->id,
-                    'return_id' => $returnItem->return_id,
-                    'product_id' => $returnItem->product_id,
-                    'reference' => null,
-                    'product_name' => $returnItem->product?->name ?? 'Product',
-                    'received_quantity' => (float) $returnItem->quantity,
-                    'sold_quantity' => 0.0,
-                    'remaining_quantity' => (float) $returnItem->quantity,
+            $batch = (object) [
+                'source_type' => 'return',
+                'source_id' => $returnItem->id,
+                'return_id' => $returnItem->return_id,
+                'product_id' => $returnItem->product_id,
+                'reference' => null,
+                'product_name' => $returnItem->product?->name ?? 'Product',
+                'received_quantity' => (float) $returnItem->quantity,
+                'sold_quantity' => 0.0,
+                'remaining_quantity' => (float) $returnItem->quantity,
+                'available_cartons' => 0,
+                'loose_quantity' => 0.0,
+                'carton_size' => $this->resolvedUnitsPerPackage($returnItem->product),
                 'unit_price' => (float) $returnItem->price,
                 'date' => $returnItem->return_date,
             ];
+
+            $returnAvailability = $this->packagingAvailability(
+                $batch->remaining_quantity,
+                $returnItem->product
+            );
+            $batch->available_cartons = $returnAvailability['available_cartons'];
+            $batch->loose_quantity = $returnAvailability['loose_quantity'];
 
             $eventsByProduct[$productId][] = [
                 'type' => 'supply',
@@ -268,6 +409,8 @@ class SupplyController extends Controller
                     'sold_quantity' => 0.0,
                     'remaining_quantity' => 0.0,
                     'container_count' => 0,
+                    'available_cartons' => 0,
+                    'loose_quantity' => 0.0,
                 ];
             }
 
@@ -298,21 +441,19 @@ class SupplyController extends Controller
                     continue;
                 }
 
-                $remainingToAllocate = (float) $event['quantity'];
-                foreach ($queue as $batch) {
-                    if ($remainingToAllocate <= 0) {
-                        break;
-                    }
+                $saleItem = $event['sale_item'];
+                $this->applySaleConsumption($queue, $saleItem);
+            }
+        }
 
-                    if ($batch->remaining_quantity <= 0) {
-                        continue;
-                    }
-
-                    $consumed = min($batch->remaining_quantity, $remainingToAllocate);
-                    $batch->remaining_quantity -= $consumed;
-                    $batch->sold_quantity += $consumed;
-                    $remainingToAllocate -= $consumed;
-                }
+        foreach ($containers as $container) {
+            foreach ($container->items as $item) {
+                $availability = $this->packagingAvailabilityFromUnits(
+                    (float) $item->remaining_quantity,
+                    (int) ($item->carton_size ?? 0)
+                );
+                $item->available_cartons = $availability['available_cartons'];
+                $item->loose_quantity = $availability['loose_quantity'];
             }
         }
 
@@ -329,6 +470,8 @@ class SupplyController extends Controller
                 if (isset($productsSummary[$productId])) {
                     $productsSummary[$productId]['remaining_quantity'] += $item->remaining_quantity;
                     $productsSummary[$productId]['container_count'] += 1;
+                    $productsSummary[$productId]['available_cartons'] += (int) ($item->available_cartons ?? 0);
+                    $productsSummary[$productId]['loose_quantity'] += (float) ($item->loose_quantity ?? 0.0);
                 }
             }
         }
@@ -340,13 +483,23 @@ class SupplyController extends Controller
         foreach ($productsSummary as $productId => &$summary) {
             $summary['catalog_quantity'] = (float) ($stockQuantities[$productId] ?? 0);
             $summary['fifo_remaining_quantity'] = (float) $summary['remaining_quantity'];
-            $summary['remaining_quantity'] = $summary['catalog_quantity'];
+            $summary['remaining_quantity'] = (float) $summary['fifo_remaining_quantity'];
         }
         unset($summary);
 
         $totalRemaining = array_reduce(
             $productsSummary,
-            fn (float $carry, array $item) => $carry + (float) ($item['catalog_quantity'] ?? 0),
+            fn (float $carry, array $item) => $carry + (float) ($item['fifo_remaining_quantity'] ?? 0),
+            0.0
+        );
+        $totalAvailableCartons = array_reduce(
+            $productsSummary,
+            fn (int $carry, array $item) => $carry + (int) ($item['available_cartons'] ?? 0),
+            0
+        );
+        $totalLooseQuantity = array_reduce(
+            $productsSummary,
+            fn (float $carry, array $item) => $carry + (float) ($item['loose_quantity'] ?? 0),
             0.0
         );
 
@@ -358,6 +511,8 @@ class SupplyController extends Controller
                 'received_quantity' => $totalReceived,
                 'sold_quantity' => $totalSold,
                 'remaining_quantity' => $totalRemaining,
+                'available_cartons' => $totalAvailableCartons,
+                'loose_quantity' => $totalLooseQuantity,
             ],
             'containers' => $containers,
             'products' => array_values($productsSummary),
@@ -403,12 +558,19 @@ class SupplyController extends Controller
                         'supply_date' => $data['supply_date'],
                     ]);
 
-                    // Update Product Stock
-                    $productStock = ProductStock::firstOrCreate(
-                        ['product_id' => $item['product']['id']],
-                        ['quantity' => 0]
+                    $this->adjustProductStock(
+                        (int) $item['product']['id'],
+                        (float) $item['quantity'],
+                        'supply_received',
+                        'supply_item',
+                        null,
+                        isset($data['departement_id']) ? (int) $data['departement_id'] : null,
+                        'Stock increased from supply import.',
+                        [
+                            'supply_id' => $supply->id,
+                            'reference' => $reference,
+                        ]
                     );
-                    $productStock->increment('quantity', $item['quantity']);
                 }
             }
 
@@ -443,10 +605,19 @@ class SupplyController extends Controller
             // Reverse old stock and clear items
             $oldItems = SupplyItem::where('supply_id', $supply->id)->get();
             foreach ($oldItems as $oldItem) {
-                $stock = ProductStock::where('product_id', $oldItem->product_id)->first();
-                if ($stock) {
-                    $stock->decrement('quantity', $oldItem->quantity);
-                }
+                $this->adjustProductStock(
+                    (int) $oldItem->product_id,
+                    -(float) $oldItem->quantity,
+                    'supply_reversed',
+                    'supply_item',
+                    (int) $oldItem->id,
+                    (int) $supply->departement_id,
+                    'Stock reversed because the supply was updated.',
+                    [
+                        'supply_id' => $supply->id,
+                        'reference' => $oldItem->reference,
+                    ]
+                );
             }
             SupplyItem::where('supply_id', $supply->id)->delete();
 
@@ -470,12 +641,19 @@ class SupplyController extends Controller
                         'supply_date' => $data['supply_date'],
                     ]);
 
-                    // Update Product Stock
-                    $productStock = ProductStock::firstOrCreate(
-                        ['product_id' => $item['product']['id']],
-                        ['quantity' => 0]
+                    $this->adjustProductStock(
+                        (int) $item['product']['id'],
+                        (float) $item['quantity'],
+                        'supply_received',
+                        'supply_item',
+                        null,
+                        isset($data['departement_id']) ? (int) $data['departement_id'] : (int) $supply->departement_id,
+                        'Stock increased from supply update.',
+                        [
+                            'supply_id' => $supply->id,
+                            'reference' => $reference,
+                        ]
                     );
-                    $productStock->increment('quantity', $item['quantity']);
                 }
             }
 
@@ -507,10 +685,19 @@ class SupplyController extends Controller
             $supply = Supply::findOrFail($id);
             $items = SupplyItem::where('supply_id', $id)->get();
             foreach ($items as $item) {
-                $stock = ProductStock::where('product_id', $item->product_id)->first();
-                if ($stock) {
-                    $stock->decrement('quantity', $item->quantity);
-                }
+                $this->adjustProductStock(
+                    (int) $item->product_id,
+                    -(float) $item->quantity,
+                    'supply_deleted',
+                    'supply_item',
+                    (int) $item->id,
+                    (int) $supply->departement_id,
+                    'Stock decreased because the supply was deleted.',
+                    [
+                        'supply_id' => $supply->id,
+                        'reference' => $item->reference,
+                    ]
+                );
             }
 
             SupplyItem::where('supply_id', $id)->delete();

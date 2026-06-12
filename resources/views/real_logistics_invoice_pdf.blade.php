@@ -76,6 +76,27 @@
     </style>
 </head>
 <body>
+    @php
+        $companyName = data_get($company, 'name', '');
+        $companyEmail = data_get($company, 'email', '');
+        $companyNart = data_get($company, 'NART', '');
+        $companyNrc = data_get($company, 'NRC', '');
+        $companyNis = data_get($company, 'NIS', '');
+        $companyNif = data_get($company, 'NIF', '');
+
+        $client = $invoice->client ?? null;
+        $clientName = trim((string) data_get($client, 'name', '') . ' ' . data_get($client, 'surname', ''));
+        $clientName = $clientName !== '' ? $clientName : 'N/A';
+        $clientAddress = data_get($client, 'address', 'N/A');
+        $clientRc = data_get($client, 'NRC', 'N/A');
+        $clientNif = data_get($client, 'NIF', 'N/A');
+        $clientArt = data_get($client, 'NART', 'N/A');
+        $clientIs = data_get($client, 'NIS', 'N/A');
+        $invoiceDate = data_get($invoice, 'invoice_date', '');
+        $invoiceNumber = data_get($invoice, 'id', '');
+        $invoiceItems = $invoice->items ?? collect();
+        $totalAmount = (float) data_get($invoice, 'total_amount', 0);
+    @endphp
 
     <!-- HEADER -->
     <table class="header-table">
@@ -85,20 +106,20 @@
                 <div class="logo-placeholder">LOGO</div>
             </td>
             <td class="company-cell">
-                <div class="company-name">{{ $company->name }}</div>
+                <div class="company-name">{{ $companyName }}</div>
                 <div class="company-tagline">FABRICATION DES PRODUITS DE BLANCHISSANTS ET CONNEXES</div>
                 <div class="company-info">
                     Lot N° 34 Section 6 Groupe 51 KASR EL ABTAL<br>
                     Capital Social: 11 000 000 DA<br>
-                    Email: {{ $company->email }}
+                    Email: {{ $companyEmail }}
                 </div>
             </td>
             <td class="id-box-cell">
                 <div class="id-box">
-                    N°AI: {{ $company->NART }}<br>
-                    N°RC: {{ $company->NRC }}<br>
-                    N°IS: {{ $company->NIS }}<br>
-                    N°IF: {{ $company->NIF }}
+                    N°AI: {{ $companyNart }}<br>
+                    N°RC: {{ $companyNrc }}<br>
+                    N°IS: {{ $companyNis }}<br>
+                    N°IF: {{ $companyNif }}
                 </div>
             </td>
         </tr>
@@ -111,18 +132,18 @@
     <table class="meta-table">
         <tr>
             <td class="meta-left-cell">
-                <strong>Facture :</strong> {{ $invoice->id }}<br>
+                <strong>Facture :</strong> {{ $invoiceNumber }}<br>
                 <strong>Mode de paiement:</strong> Paiement a terme<br>
-                <strong>Patient/Client:</strong> {{ $invoice->client->name }} {{ $invoice->client->surname }}<br>
-                <strong>address:</strong> {{ $invoice->client->address }}<br>
-                <strong>Sétif le:</strong> {{ $invoice->invoice_date }}
+                <strong>Patient/Client:</strong> {{ $clientName }}<br>
+                <strong>address:</strong> {{ $clientAddress }}<br>
+                <strong>Sétif le:</strong> {{ $invoiceDate }}
             </td>
             <td class="meta-right-cell">
                 <div class="id-box">
-                    N°RC: {{ $invoice->client->RC ?? 'N/A' }}<br>
-                    N°IF: {{ $invoice->client->NIF ?? 'N/A' }}<br>
-                    N°ART: {{ $invoice->client->ART ?? 'N/A' }}<br>
-                    N°IS: {{ $invoice->client->IS ?? 'N/A' }}
+                    N°RC: {{ $clientRc }}<br>
+                    N°IF: {{ $clientNif }}<br>
+                    N°ART: {{ $clientArt }}<br>
+                    N°IS: {{ $clientIs }}
                 </div>
             </td>
         </tr>
@@ -140,15 +161,20 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($invoice->items as $index => $item)
+            @forelse($invoiceItems as $index => $item)
             <tr>
                 <td class="center">{{ $index + 1 }}</td>
-                <td>{{ $item->product_name }}</td>
-                <td class="center">{{ $item->quantity }}</td>
-                <td class="right">{{ number_format($item->price, 2, '.', '') }} DA</td>
-                <td class="right">{{ number_format($item->total_price, 2, '.', '') }} DA</td>
+                <td>{{ data_get($item, 'product_name') ?: data_get($item, 'product.name', 'Produit') }}</td>
+                <td class="center">{{ data_get($item, 'quantity', 0) }}</td>
+                <td class="right">{{ number_format((float) data_get($item, 'price', 0), 2, '.', '') }} DA</td>
+                <td class="right">{{ number_format((float) data_get($item, 'total_price', 0), 2, '.', '') }} DA</td>
             </tr>
-            @endforeach
+            @empty
+            <tr>
+                <td class="center">-</td>
+                <td colspan="4">Aucun article</td>
+            </tr>
+            @endforelse
         </tbody>
     </table>
 
@@ -157,15 +183,15 @@
         <table class="totals">
             <tr>
                 <td>Montant HT</td>
-                <td class="val">{{ number_format($invoice->total_amount, 2, '.', '') }} DA</td>
+                <td class="val">{{ number_format($totalAmount, 2, '.', '') }} DA</td>
             </tr>
             <tr>
                 <td>TVA 19%</td>
-                <td class="val">{{ number_format($invoice->total_amount * 0.19, 2, '.', '') }} DA</td>
+                <td class="val">{{ number_format($totalAmount * 0.19, 2, '.', '') }} DA</td>
             </tr>
             <tr class="bold">
                 <td><strong>Montant TTC</strong></td>
-                <td class="val"><strong>{{ number_format($invoice->total_amount * 1.19, 2, '.', '') }} DA</strong></td>
+                <td class="val"><strong>{{ number_format($totalAmount * 1.19, 2, '.', '') }} DA</strong></td>
             </tr>
         </table>
         <div class="clear"></div>

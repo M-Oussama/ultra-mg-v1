@@ -15,16 +15,22 @@ class RealLogisticsInvoice extends Model
     protected $fillable = [
         'invoice_date',
         'client_id',
+        'company_id',
         'total_amount',
         'status',
         'notes',
     ];
 
-    protected $with = ['client', 'items'];
+    protected $with = ['client', 'company', 'items'];
 
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     public function items(): HasMany

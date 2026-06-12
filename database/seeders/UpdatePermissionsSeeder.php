@@ -20,17 +20,11 @@ class UpdatePermissionsSeeder extends Seeder
         // 1. Fetch or initialize the root structural admin
         $role = Role::firstOrCreate(['role' => 'admin']);
 
-        // 2. Safely sync all explicitly coded Action_Subject combinations
-        foreach (Permission::ADMIN_PERMISSIONS as $permissionArray) {
-            $perm = Permission::firstOrCreate([
-                'action' => $permissionArray['ACTION'],
-                'subject' => $permissionArray['SUBJECT']
-            ]);
-
-            // 3. Link the capability structurally to the admin matrix
+        // 2. Sync every known permission to admin so newly added modules are inherited automatically
+        foreach (Permission::all() as $perm) {
             RoleHasPermissions::firstOrCreate([
                 'role_id' => $role->id,
-                'permission_id' => $perm->id
+                'permission_id' => $perm->id,
             ]);
         }
     }

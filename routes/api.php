@@ -193,6 +193,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/pos/sales/payment/update', [POSController::class, 'updatePayment'])->middleware('permission:edit,payments')->name('updatePayment');
     Route::post('/pos/sales/payment/delete', [POSController::class, 'deletePayment'])->middleware('permission:delete,payments')->name('deletePayment');
     Route::post('/pos/stocks/recalculate', [POSController::class, 'recalculateStocks'])->middleware('permission:admin,dashboard')->name('recalculateStocks');
+    Route::post('/pos/stocks/adjust', [POSController::class, 'adjustStock'])->middleware('permission:edit,products')->name('adjustStock');
     Route::get('/pos/benefits/list', [BenefitController::class, 'getBenefits'])->middleware('permission:list,benefits')->name('getBenefits');
     Route::post('/pos/benefits/store', [BenefitController::class, 'store'])->middleware('permission:add,benefits')->name('store');
     Route::get('/pos/benefits/{id}', [BenefitController::class, 'getArticlesBenefit'])->middleware('permission:list,benefits')->name('getArticlesBenefit');
@@ -434,7 +435,8 @@ Route::group(['prefix' => 'real-logistics-invoices'], function () {
     Route::get('/show/{realLogisticsInvoice}', [RealLogisticsInvoiceController::class, 'show'])->middleware('permission:list,logistics');
     Route::post('/update/{realLogisticsInvoice}', [RealLogisticsInvoiceController::class, 'update'])->middleware('permission:edit,logistics');
     Route::delete('/delete/{realLogisticsInvoice}', [RealLogisticsInvoiceController::class, 'destroy'])->middleware('permission:delete,logistics');
-    Route::post('/preview-pdf', [RealLogisticsInvoiceController::class, 'previewPdf'])->middleware('permission:preview,logistics');
+    Route::match(['get', 'post'], '/preview/{id?}', [RealLogisticsInvoiceController::class, 'previewPdf'])->middleware('permission:preview,logistics');
+    Route::match(['get', 'post'], '/preview-pdf/{id?}', [RealLogisticsInvoiceController::class, 'previewPdf'])->middleware('permission:preview,logistics');
     Route::get('/export-pdf/{id}', [RealLogisticsInvoiceController::class, 'exportPdf'])->middleware('permission:download,logistics');
 })->middleware('auth:sanctum');
 
