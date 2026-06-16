@@ -20,7 +20,7 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $user = Auth::user();
-            $user->load('role.permissions');
+            $user->load('role.permissions', 'organization');
 
             // Standard Sanctum token creation (works once 'tokenable' column is nullable)
             $token = $user->createToken('auth_token')->plainTextToken;
@@ -29,6 +29,7 @@ class AuthController extends Controller
                 'accessToken' => $token,
                 'token_type' => 'Bearer',
                 'business_id' => $user->organization_id ?? 1,
+                'business_name' => $user->organization?->name ?? 'Business',
                 'userData' => $user,
                 'userAbilities' => $user->role ? $user->role->permissions : []
             ]);

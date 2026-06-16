@@ -4,108 +4,344 @@ namespace App\Http\Controllers;
 
 use App\Models\EmployeeCareer;
 use App\Models\YearlyVacation;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
 class VacationController extends Controller
 {
-    public function getVacations(Request $request){
+    public function getVacations(Request $request)
+    {
+        $searchValue = $request->input('searchValue', '');
+        $perPage = (int) $request->input('perPage', 10);
+        $currentPage = (int) $request->input('currentPage', 1);
+        $sortDirection = strtolower((string) $request->input('sortDirection', 'desc')) === 'asc' ? 'asc' : 'desc';
 
+        $vacations = YearlyVacation::with(['employee', 'employee_career'])
+            ->orderBy('start_date', $sortDirection)
+            ->orderBy('id', $sortDirection);
 
-        $searchValue = $request->input('searchValue', ''); // search value
-        $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
-        $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
-        $employee_id = $request->input('id', null); // Default current page value is 1 if not provided
-        $vacations = YearlyVacation::orderBy('start_date', 'desc');
         $user = auth()->user();
         if ($user && !$user->isGlobalAdmin()) {
             if ($user->isDepartmentManager()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
-                $vacations->whereHas('employee', function($q) use ($deptIds) {
+                $vacations->whereHas('employee', function ($q) use ($deptIds) {
                     $q->whereIn('department_id', $deptIds);
                 });
             } else {
-                $vacations->whereHas('employee', function($q) use ($user) {
+                $vacations->whereHas('employee', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
             }
         }
 
-        if($employee_id){
-            $vacations->where('employee_id', $employee_id);
+        if ($searchValue !== '') {
+            $vacations->whereHas('employee', function ($q) use ($searchValue) {
+                $q->where(function ($nested) use ($searchValue) {
+                    $nested->where('name', 'like', '%' . $searchValue . '%')
+                        ->orWhere('surname', 'like', '%' . $searchValue . '%');
+                });
+            });
         }
 
+        $page = $vacations->paginate($perPage, ['*'], 'page', $currentPage);
 
-
-        $vacations->paginate($perPage, ['*'], 'page', $currentPage);
-        $totalVacations = $vacations->total(); // Total number of invoices matching the query
-        $totalPage = ceil($totalVacations / $perPage); // Calculate total pages
-
-        return response()->json(["list" => $vacations, "totalPage" => $totalPage, "totalVacations"=>$totalVacations]);
-    }
-    public function getVacationsByEmployee(Request $request, $id){
-
-        $employee_id = EmployeeCareer::find($id)->employee_id;
-        $searchValue = $request->input('searchValue', ''); // search value
-        $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
-        $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
-        $vacations = YearlyVacation::orderBy('start_date', 'desc')->where('employee_id', $employee_id)->paginate($perPage, ['*'], 'page', $currentPage);
-
-
-        $totalVacations = $vacations->total(); // Total number of invoices matching the query
-        $totalPage = ceil($totalVacations / $perPage); // Calculate total pages
-
-        return response()->json(["list" => $vacations, "totalPage" => $totalPage, "totalVacations"=>$totalVacations]);
-    }
-    public function store(Request $request, $id){
-
-        $employee_career = EmployeeCareer::find($id);
-        if($employee_career){
-            $yearlyVacation = YearlyVacation::create([
-                'start_date' => $request->input('startDate'),
-                'end_date' => $request->input('endDate'),
-                'count' => $request->input('count'),
-                'employee_id' => $employee_career->employee_id,
-                'employee_career_id' => $id,
-            ]);
-        }
-        $this->fsSuccess('Record Created Successfully');
-
-    }
-    public function update(Request $request, $id){
-
-        $vacation = YearlyVacation::find($id);
-
-        $vacation->update([
-                'start_date' => $request->input('startDate'),
-                'end_date' => $request->input('endDate'),
-                'count' => $request->input('count'),
-            ]);
         return response()->json([
-            "success" => true,
-            "message" => "Record updated Successfully"
+            'list' => $page,
+            'totalPage' => $page->lastPage(),
+            'totalVacations' => $page->total(),
+        ]);
+    }
+
+    public function getVacationsByEmployee(Request $request, $id)
+    {
+        $career = EmployeeCareer::find($id);
+        if (!$career) {
+            throw new BadRequestHttpException('Employee career not found');
+        }
+
+        $perPage = (int) $request->input('perPage', 10);
+        $currentPage = (int) $request->input('currentPage', 1);
+
+        $vacations = YearlyVacation::with(['employee', 'employee_career'])
+            ->where('employee_id', $career->employee_id)
+            ->orderBy('start_date', 'desc')
+            ->paginate($perPage, ['*'], 'page', $currentPage);
+
+        return response()->json([
+            'list' => $vacations,
+            'totalPage' => $vacations->lastPage(),
+            'totalVacations' => $vacations->total(),
+        ]);
+    }
+
+    public function getVacationsByCareer(Request $request, $id)
+    {
+        $career = EmployeeCareer::find($id);
+        if (!$career) {
+            throw new BadRequestHttpException('Employee career not found');
+        }
+
+        $perPage = (int) $request->input('perPage', 10);
+        $currentPage = (int) $request->input('currentPage', 1);
+
+        $vacations = YearlyVacation::with(['employee', 'employee_career'])
+            ->where('employee_career_id', $career->id)
+            ->orderBy('start_date', 'desc')
+            ->paginate($perPage, ['*'], 'page', $currentPage);
+
+        return response()->json([
+            'list' => $vacations,
+            'totalPage' => $vacations->lastPage(),
+            'totalVacations' => $vacations->total(),
+        ]);
+    }
+
+    public function getEmployeeVacationSummary($id): JsonResponse
+    {
+        $employeeCareers = EmployeeCareer::where('employee_id', $id)
+            ->orderBy('start_date')
+            ->orderBy('id')
+            ->get();
+
+        if ($employeeCareers->isEmpty()) {
+            return response()->json([
+                'employee_id' => (int) $id,
+                'accrual_rate_per_month' => 2.5,
+                'totals' => [
+                    'worked_days' => 0,
+                    'worked_months' => 0,
+                    'accrued_days' => 0,
+                    'used_days' => 0,
+                    'balance_days' => 0,
+                ],
+                'current_group' => null,
+                'groups' => [],
+                'careers' => [],
+            ]);
+        }
+
+        $vacations = YearlyVacation::where('employee_id', $id)
+            ->orderBy('start_date')
+            ->orderBy('id')
+            ->get();
+
+        $vacationsByCareer = $vacations->groupBy('employee_career_id');
+
+        $groups = [];
+        $careerSummaries = [];
+        $currentGroup = null;
+        $groupId = 1;
+
+        $overallWorkedDays = 0;
+        $overallAccrued = 0.0;
+        $overallUsed = 0.0;
+
+        foreach ($employeeCareers as $career) {
+            if ($currentGroup === null) {
+                $currentGroup = $this->makeGroupSummary($groupId, $career);
+            }
+
+            $periodEnd = $this->resolvePeriodEnd($career);
+            $workedDays = $this->calculateWorkedDays($career->start_date, $periodEnd);
+            $workingMonths = round($workedDays / 30, 2);
+            $accruedDays = round($workingMonths * 2.5, 2);
+            $usedDays = (float) ($vacationsByCareer->get($career->id, collect())->sum('count') ?? 0);
+            $balanceDays = round($accruedDays - $usedDays, 2);
+
+            $careerSummaries[] = [
+                'employee_career_id' => $career->id,
+                'group_id' => $groupId,
+                'start_date' => $career->start_date,
+                'end_date' => $career->end_date,
+                'real_start_date' => $career->real_start_date,
+                'real_end_date' => $career->real_end_date,
+                'worked_days' => $workedDays,
+                'worked_months' => $workingMonths,
+                'accrued_days' => $accruedDays,
+                'used_days' => round($usedDays, 2),
+                'balance_days' => $balanceDays,
+                'vacation_count' => (int) ($vacationsByCareer->get($career->id, collect())->count() ?? 0),
+                'is_closed' => (bool) $career->real_end_date,
+            ];
+
+            $currentGroup['career_ids'][] = $career->id;
+            $currentGroup['careers'][] = $career->id;
+            $currentGroup['worked_days'] += $workedDays;
+            $currentGroup['working_months'] = round($currentGroup['worked_days'] / 30, 2);
+            $currentGroup['accrued_days'] = round($currentGroup['accrued_days'] + $accruedDays, 2);
+            $currentGroup['used_days'] = round($currentGroup['used_days'] + $usedDays, 2);
+            $currentGroup['end_date'] = $periodEnd;
+            $currentGroup['last_career_id'] = $career->id;
+            $currentGroup['last_real_end_date'] = $career->real_end_date;
+
+            $overallWorkedDays += $workedDays;
+            $overallAccrued = round($overallAccrued + $accruedDays, 2);
+            $overallUsed = round($overallUsed + $usedDays, 2);
+
+            if ($career->real_end_date) {
+                $currentGroup['closed_at'] = $career->real_end_date;
+                $currentGroup['is_current'] = false;
+                $currentGroup['balance_days'] = round($currentGroup['accrued_days'] - $currentGroup['used_days'], 2);
+                $groups[] = $currentGroup;
+                $currentGroup = null;
+                $groupId++;
+            }
+        }
+
+        if ($currentGroup !== null) {
+            $currentGroup['is_current'] = true;
+            $currentGroup['balance_days'] = round($currentGroup['accrued_days'] - $currentGroup['used_days'], 2);
+            $groups[] = $currentGroup;
+        }
+
+        $currentGroupSummary = count($groups) > 0 ? $groups[count($groups) - 1] : null;
+
+        return response()->json([
+            'employee_id' => (int) $id,
+            'accrual_rate_per_month' => 2.5,
+            'totals' => [
+                'worked_days' => $overallWorkedDays,
+                'worked_months' => round($overallWorkedDays / 30, 2),
+                'accrued_days' => round($overallAccrued, 2),
+                'used_days' => round($overallUsed, 2),
+                'balance_days' => round($overallAccrued - $overallUsed, 2),
+            ],
+            'current_group' => $currentGroupSummary,
+            'groups' => $groups,
+            'careers' => $careerSummaries,
+        ]);
+    }
+
+    public function store(Request $request, $id)
+    {
+        $career = EmployeeCareer::find($id);
+        if (!$career) {
+            throw new BadRequestHttpException('Employee career not found');
+        }
+
+        $validated = Validator::make($request->all(), [
+            'startDate' => 'required|date',
+            'endDate' => 'required|date|after_or_equal:startDate',
+            'count' => 'required|integer|min:1',
+        ])->validate();
+
+        $vacation = YearlyVacation::create([
+            'start_date' => $validated['startDate'],
+            'end_date' => $validated['endDate'],
+            'count' => (int) $validated['count'],
+            'employee_id' => $career->employee_id,
+            'employee_career_id' => $career->id,
         ]);
 
+        return response()->json([
+            'success' => true,
+            'message' => 'Record created successfully',
+            'vacation' => $vacation->load(['employee', 'employee_career']),
+        ], 201);
     }
 
-    public function destroy($id){
+    public function update(Request $request, $id)
+    {
         $vacation = YearlyVacation::find($id);
+        if (!$vacation) {
+            throw new BadRequestHttpException('Vacation record not found');
+        }
+
+        $validated = Validator::make($request->all(), [
+            'startDate' => 'required|date',
+            'endDate' => 'required|date|after_or_equal:startDate',
+            'count' => 'required|integer|min:1',
+        ])->validate();
+
+        $vacation->update([
+            'start_date' => $validated['startDate'],
+            'end_date' => $validated['endDate'],
+            'count' => (int) $validated['count'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Record updated successfully',
+            'vacation' => $vacation->fresh(['employee', 'employee_career']),
+        ]);
+    }
+
+    public function destroy($id)
+    {
+        $vacation = YearlyVacation::find($id);
+        if (!$vacation) {
+            throw new BadRequestHttpException('Vacation record not found');
+        }
+
         $vacation->delete();
 
         return response()->json([
-            "success" => true,
-            "message" => "Record Deleted Successfully"
+            'success' => true,
+            'message' => 'Record deleted successfully',
         ]);
     }
 
-    public function getVacation($id){
-        $vacation = YearlyVacation::with(['employee', 'employee_career'])->where('id',  $id)->get()->first();
+    public function getVacation($id)
+    {
+        $vacation = YearlyVacation::with(['employee', 'employee_career'])->find($id);
+        if (!$vacation) {
+            throw new BadRequestHttpException('Vacation record not found');
+        }
 
         return response()->json([
-            "success" => true,
-            "vacation" => $vacation
+            'success' => true,
+            'vacation' => $vacation,
         ]);
+    }
+
+    protected function calculateWorkedDays(string $startDate, string $endDate): int
+    {
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->startOfDay();
+
+        if ($end->lt($start)) {
+            return 0;
+        }
+
+        return $start->diffInDays($end) + 1;
+    }
+
+    protected function resolvePeriodEnd(EmployeeCareer $career): string
+    {
+        if ($career->end_date) {
+            return (string) $career->end_date;
+        }
+
+        if ($career->real_end_date) {
+            return (string) $career->real_end_date;
+        }
+
+        return Carbon::today()->toDateString();
+    }
+
+    protected function makeGroupSummary(int $groupId, EmployeeCareer $career): array
+    {
+        return [
+            'id' => $groupId,
+            'title' => 'Employment block ' . $groupId,
+            'career_ids' => [],
+            'careers' => [],
+            'start_date' => $career->start_date,
+            'end_date' => null,
+            'closed_at' => null,
+            'last_career_id' => null,
+            'last_real_end_date' => null,
+            'worked_days' => 0,
+            'working_months' => 0,
+            'accrued_days' => 0.0,
+            'used_days' => 0.0,
+            'balance_days' => 0.0,
+            'is_current' => false,
+        ];
     }
 
     /**
@@ -188,6 +424,7 @@ class VacationController extends Controller
         }
 
         fclose($handle);
+
         return response()->json([
             'message' => 'CSV import processed',
             'inserted' => $inserted,

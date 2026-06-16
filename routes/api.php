@@ -28,8 +28,12 @@ use App\Http\Controllers\POSController;
 use App\Http\Controllers\VacationController;
 use App\Http\Controllers\ZKAssignmentController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\RealLogisticsInvoiceController;
 use App\Http\Controllers\CashbookController;
+use App\Http\Controllers\CashbookMemberController;
+use App\Http\Controllers\CashbookLookupController;
+use App\Http\Controllers\PushTokenController;
 use App\Http\Controllers\TransactionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -111,6 +115,9 @@ Route::get('/check-db-schema', function() {
 });
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/push-token', [PushTokenController::class, 'store']);
+    Route::post('/push-token/clear', [PushTokenController::class, 'clear']);
+
     /** USERS  */
     Route::get('/users/list', [UserController::class, 'getUsers'])->middleware('permission:list,users')->name('getUsers');
     Route::post('/users/store', [UserController::class, 'store'])->middleware('permission:add,users')->name('storeUser');
@@ -214,6 +221,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pdf/suppliers/list', [PDFController::class, 'exportSuppliersList'])->middleware('permission:list,suppliers')->name('exportSuppliersList');
     Route::get('/pdf/sales-suppliers/list', [PDFController::class, 'exportSalesSuppliersList'])->middleware('permission:list,suppliers')->name('exportSalesSuppliersList');
     Route::get('/pdf/employees/list', [PDFController::class, 'exportEmployeesList'])->middleware('permission:list,employees')->name('exportEmployeesList');
+    Route::get('/pdf/employees/history/{id}', [PDFController::class, 'exportEmployeeHistory'])->middleware('permission:list,employees')->name('exportEmployeeHistory');
     Route::get('/pdf/attendances/list', [PDFController::class, 'exportAttendancesList'])->middleware('permission:list,attendances')->name('exportAttendancesList');
     Route::get('/pdf/attendance-plans/monthly-work-days', [PDFController::class, 'exportMonthlyWorkDays'])->middleware('permission:list,attendances')->name('exportMonthlyWorkDays');
     Route::get('/pdf/stock/report', [PDFController::class, 'exportStockReport'])->middleware('permission:list,sales')->name('exportStockReport');
@@ -233,13 +241,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendances/getAttendanceData/{id}', [AttendanceController::class, 'getAttendanceData'])->middleware('permission:view,attendances')->name('getAttendanceData');
     Route::post('/attendances/store', [AttendanceController::class, 'store'])->middleware('permission:add,attendances')->name('store');
     Route::post('/attendances/submit', [AttendanceController::class, 'submit'])->middleware('permission:add,attendances')->name('submit');
-    Route::get('/attendances/{id}', [AttendanceController::class, 'getAttendance'])->middleware('permission:view,attendances')->name('getAttendance');
+    Route::get('/attendances/overview', [AttendanceController::class, 'getPlanningOverview'])->middleware('permission:view,attendances')->name('getAttendancePlanningOverview');
+    Route::get('/attendances/{id}', [AttendanceController::class, 'getAttendance'])->whereNumber('id')->middleware('permission:view,attendances')->name('getAttendance');
     Route::get('/attendances/getAttendanceByID/{id}', [AttendanceController::class, 'getAttendanceByID'])->middleware('permission:view,attendances')->name('getAttendanceByID');
     Route::get('/attendances/edit/{id}', [AttendanceController::class, 'getAttendance'])->middleware('permission:edit,attendances')->name('getAttendance');
     Route::post('/attendances/update', [AttendanceController::class, 'update'])->middleware('permission:edit,attendances')->name('update');
     Route::post('/attendances/AddEmployeeToAttendance', [AttendanceController::class, 'AddEmployeeToAttendance'])->middleware('permission:edit,attendances')->name('AddEmployeeToAttendance');
     Route::post('/attendances/RemoveEmployeeFromAttendance', [AttendanceController::class, 'RemoveEmployeeFromAttendance'])->middleware('permission:edit,attendances')->name('RemoveEmployeeFromAttendance');
     Route::get('attendances/employees/list/{id}', [AttendanceController::class, 'fetchEmployeesByAttendance'])->middleware('permission:list,attendances')->name('fetchEmployeesByAttendance');
+    Route::get('attendances/contracts/list', [AttendanceController::class, 'getContractsHistory'])->middleware('permission:list,attendances')->name('getContractsHistory');
     Route::post('attendances/updateEndDate/{id}', [AttendanceController::class, 'updateEndDate'])->middleware('permission:edit,attendances')->name('updateEndDate');
     Route::post('attendances/addNewEmployeeAttendanceRecord/{id}', [AttendanceController::class, 'NewEmployeeAttendanceRecord'])->middleware('permission:edit,attendances')->name('NewEmployeeAttendanceRecord');
     Route::get('/attendances/career/delete/{id}', [AttendanceController::class, 'deleteEmployeeCareer'])->middleware('permission:delete,attendances')->name('deleteEmployeeCareer');
@@ -336,7 +346,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/import-csv', [VacationController::class, 'importCsv'])->middleware('permission:add,vacations');
         Route::post('/update/{id}', [VacationController::class, 'update'])->middleware('permission:edit,vacations');
         Route::get('/list/{id}', [VacationController::class, 'getVacationsByEmployee'])->middleware('permission:list,vacations');
+        Route::get('/list-by-career/{id}', [VacationController::class, 'getVacationsByCareer'])->middleware('permission:list,vacations');
         Route::get('/list', [VacationController::class, 'getVacations'])->middleware('permission:list,vacations');
+        Route::get('/summary/{id}', [VacationController::class, 'getEmployeeVacationSummary'])->middleware('permission:view,vacations');
         Route::delete('/delete/{id}', [VacationController::class, 'destroy'])->middleware('permission:delete,vacations');
         Route::get('/{id}', [VacationController::class, 'getVacation'])->middleware('permission:view,vacations');
     });
@@ -428,6 +440,12 @@ Route::group(['prefix' => 'companies'], function () {
     Route::delete('/delete/{company}', [CompanyController::class, 'destroy'])->middleware('permission:delete,companies');
 })->middleware('auth:sanctum');
 
+/** BUSINESSES */
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/businesses/current', [BusinessController::class, 'current']);
+    Route::post('/businesses/store', [BusinessController::class, 'store']);
+});
+
 /** REAL LOGISTICS INVOICES */
 Route::group(['prefix' => 'real-logistics-invoices'], function () {
     Route::get('/list', [RealLogisticsInvoiceController::class, 'index'])->middleware('permission:list,logistics');
@@ -446,9 +464,23 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::group(['prefix' => 'cashbooks'], function () {
         Route::get('', [CashbookController::class, 'index'])->middleware('permission:list,cashbooks');
         Route::post('/', [CashbookController::class, 'store'])->middleware('permission:add,cashbooks');
-        Route::get('/{id}', [CashbookController::class, 'show'])->middleware('permission:list,cashbooks');
+        Route::get('/{id}', [CashbookController::class, 'show'])->middleware('permission:view,cashbooks');
+        Route::put('/{id}', [CashbookController::class, 'update'])->middleware('permission:edit,cashbooks');
         Route::delete('/{id}', [CashbookController::class, 'destroy'])->middleware('permission:delete,cashbooks');
-        Route::get('/{id}/summary', [CashbookController::class, 'summary'])->middleware('permission:list,cashbooks');
+        Route::get('/{id}/summary', [CashbookController::class, 'summary'])->middleware('permission:view,cashbooks');
+        Route::get('/{id}/export-pdf', [CashbookController::class, 'exportPdf'])->middleware('permission:download,cashbooks');
+        Route::post('/{id}/import-excel', [CashbookController::class, 'importExcel'])->middleware('permission:sync,cashbooks');
+
+        Route::get('/{id}/lookups', [CashbookLookupController::class, 'index'])->middleware('permission:list,cashbook_settings');
+        Route::get('/{id}/lookups/{type}', [CashbookLookupController::class, 'list'])->middleware('permission:list,cashbook_settings');
+        Route::post('/{id}/lookups/{type}', [CashbookLookupController::class, 'store'])->middleware('permission:add,cashbook_settings');
+        Route::match(['put', 'post'], '/{id}/lookups/{type}/{lookupId}', [CashbookLookupController::class, 'update'])->middleware('permission:edit,cashbook_settings');
+        Route::delete('/{id}/lookups/{type}/{lookupId}', [CashbookLookupController::class, 'destroy'])->middleware('permission:delete,cashbook_settings');
+
+        Route::get('/{id}/members', [CashbookMemberController::class, 'index'])->middleware('permission:list,cashbook_settings');
+        Route::post('/{id}/members', [CashbookMemberController::class, 'store'])->middleware('permission:add,cashbook_settings');
+        Route::put('/{id}/members/{memberId}', [CashbookMemberController::class, 'update'])->middleware('permission:edit,cashbook_settings');
+        Route::delete('/{id}/members/{memberId}', [CashbookMemberController::class, 'destroy'])->middleware('permission:delete,cashbook_settings');
 
         // Transactions within a cashbook
         Route::get('/{id}/transactions', [TransactionController::class, 'index'])->middleware('permission:list,transactions');
@@ -457,7 +489,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
     // Standalone Transactions
     Route::group(['prefix' => 'transactions'], function () {
-        Route::put('/{id}', [TransactionController::class, 'update'])->middleware('permission:edit,transactions');
+        Route::match(['put', 'post'], '/{id}', [TransactionController::class, 'update'])->middleware('permission:edit,transactions');
         Route::delete('/{id}', [TransactionController::class, 'destroy'])->middleware('permission:delete,transactions');
     });
 });

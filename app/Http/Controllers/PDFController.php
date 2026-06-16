@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\AttendanceActiveEmployee;
 use App\Models\Attendance;
 use App\Models\Employee;
+use App\Models\EmployeeCareer;
 use App\Models\EmployeeMonthlyWorkDay;
 use App\Models\Product;
 use App\Models\Sale;
@@ -15,6 +16,7 @@ use App\Models\SalesSupplier;
 use App\Models\CertifyInvoices;
 use App\Models\Company;
 use App\Models\Supplier;
+use App\Models\YearlyVacation;
 use App\Http\Helpers\NumberToLetter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -678,6 +680,75 @@ class PDFController extends Controller
         $pdf->setPaper('a4', 'landscape')->setOptions($this->pdfOptions());
 
         return $pdf->download('Employees_List.pdf');
+    }
+
+    public function exportEmployeeHistory(Request $request, $id)
+    {
+        $employee = Employee::with([
+            'birthCity',
+            'cardIssuedCity',
+            'employeeCareer' => function ($query) {
+                $query->orderBy('start_date')->orderBy('id');
+            },
+        ])->findOrFail($id);
+
+        $summaryResponse = app(VacationController::class)->getEmployeeVacationSummary($id);
+        $summary = json_decode($summaryResponse->getContent(), true) ?? [];
+        $careerSummaryIndex = collect($summary['careers'] ?? [])->keyBy('employee_career_id');
+
+        $periods = $employee->employeeCareer
+            ->map(function (EmployeeCareer $career) use ($careerSummaryIndex) {
+                $careerSummary = $careerSummaryIndex->get($career->id, []);
+
+                return [
+                    'id' => $career->id,
+                    'position' => $career->position ?: '-',
+                    'start_date' => $career->start_date,
+                    'end_date' => $career->end_date,
+                    'real_start_date' => $career->real_start_date,
+                    'real_end_date' => $career->real_end_date,
+                    'worked_days' => (int) ($careerSummary['worked_days'] ?? 0),
+                    'worked_months' => (float) ($careerSummary['worked_months'] ?? 0),
+                    'accrued_days' => (float) ($careerSummary['accrued_days'] ?? 0),
+                    'used_days' => (float) ($careerSummary['used_days'] ?? 0),
+                    'balance_days' => (float) ($careerSummary['balance_days'] ?? 0),
+                    'vacation_count' => (int) ($careerSummary['vacation_count'] ?? 0),
+                    'group_id' => $careerSummary['group_id'] ?? null,
+                    'is_closed' => (bool) ($careerSummary['is_closed'] ?? false),
+                ];
+            })
+            ->values()
+            ->all();
+
+        $vacations = YearlyVacation::with(['employee_career'])
+            ->where('employee_id', $employee->id)
+            ->orderBy('start_date')
+            ->orderBy('id')
+            ->get();
+
+        $vacationRows = $vacations->map(function (YearlyVacation $vacation) {
+            return [
+                'id' => $vacation->id,
+                'start_date' => $vacation->start_date,
+                'end_date' => $vacation->end_date,
+                'count' => (int) $vacation->count,
+                'position' => $vacation->employee_career?->position ?? $vacation->employee_career?->position_ar ?? '-',
+                'career_id' => $vacation->employee_career_id,
+            ];
+        })->values()->all();
+
+        $context = array_merge($this->companyInfoContext(), [
+            'generatedAt' => now(),
+            'summary' => $summary,
+            'periods' => $periods,
+            'vacations' => $vacationRows,
+            'employee' => $employee,
+        ]);
+
+        $pdf = Pdf::loadView('exports.employee_history_pdf', $context);
+        $pdf->setPaper('a4', 'landscape')->setOptions($this->pdfOptions());
+
+        return $pdf->download('Employee_History_' . $employee->id . '.pdf');
     }
 
     public function exportAttendancesList(Request $request)

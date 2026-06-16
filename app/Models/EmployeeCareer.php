@@ -24,4 +24,9 @@ class EmployeeCareer extends Model implements HasMedia
     public function employee() {
         return $this->belongsTo(Employee::class);
     }
+
+    public function yearlyVacations()
+    {
+        return $this->hasMany(YearlyVacation::class);
+    }
 }

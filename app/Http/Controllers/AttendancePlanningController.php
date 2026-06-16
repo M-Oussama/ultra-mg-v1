@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceActiveEmployee;
+use App\Models\AttendanceActiveEmployeeMonth;
 use App\Models\Employee;
 use App\Models\EmployeeMonthlyWorkDay;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,18 +28,16 @@ class AttendancePlanningController extends Controller
         }
 
         $employees = $employeesQuery->get();
-        $activeIds = AttendanceActiveEmployee::query()
-            ->where('month', $month)
-            ->where('year', $year)
-            ->where('is_active', true)
-            ->pluck('employee_id')
-            ->values();
+        [$activeIds, $isPrefilledFromPreviousMonth, $prefilledFromMonth, $prefilledFromYear] = $this->resolveActiveEmployeeIds($month, $year);
 
         return response()->json([
             'employees' => $employees,
             'active_employee_ids' => $activeIds,
             'month' => $month,
             'year' => $year,
+            'is_prefilled_from_previous_month' => $isPrefilledFromPreviousMonth,
+            'prefilled_from_month' => $prefilledFromMonth,
+            'prefilled_from_year' => $prefilledFromYear,
         ]);
     }
 
@@ -73,6 +73,20 @@ class AttendancePlanningController extends Controller
             AttendanceActiveEmployee::query()->insert($rows);
         }
 
+        $snapshot = AttendanceActiveEmployeeMonth::query()->firstOrNew([
+            'month' => $month,
+            'year' => $year,
+        ]);
+
+        if (!$snapshot->exists) {
+            $previousMonth = Carbon::create($year, $month, 1)->subMonthNoOverflow();
+            $snapshot->copied_from_month = $previousMonth->month;
+            $snapshot->copied_from_year = $previousMonth->year;
+        }
+
+        $snapshot->confirmed_at = now();
+        $snapshot->save();
+
         return response()->json([
             'message' => 'Active employees saved successfully.',
             'active_employee_ids' => $employeeIds,
@@ -86,13 +100,7 @@ class AttendancePlanningController extends Controller
         $month = (int) $request->query('month', now()->month);
         $year = (int) $request->query('year', now()->year);
 
-        $activeIds = AttendanceActiveEmployee::query()
-            ->where('month', $month)
-            ->where('year', $year)
-            ->where('is_active', true)
-            ->pluck('employee_id')
-            ->values()
-            ->all();
+        [$activeIds, $isPrefilledFromPreviousMonth, $prefilledFromMonth, $prefilledFromYear] = $this->resolveActiveEmployeeIds($month, $year);
 
         $employees = Employee::query()
             ->whereIn('id', $activeIds)
@@ -114,6 +122,9 @@ class AttendancePlanningController extends Controller
             'month' => $month,
             'year' => $year,
             'active_employee_ids' => $activeIds,
+            'is_prefilled_from_previous_month' => $isPrefilledFromPreviousMonth,
+            'prefilled_from_month' => $prefilledFromMonth,
+            'prefilled_from_year' => $prefilledFromYear,
         ]);
     }
 
@@ -143,5 +154,56 @@ class AttendancePlanningController extends Controller
         return response()->json([
             'message' => 'Monthly work days saved successfully.',
         ]);
+    }
+
+    /**
+     * Resolve the active employees for the requested month.
+     *
+     * If the requested month has not yet been confirmed, we prefill it from
+     * the previous month so the user can review the same roster and then save
+     * it to confirm the month.
+     *
+     * @return array{0: array<int>, 1: bool, 2: int|null, 3: int|null}
+     */
+    private function resolveActiveEmployeeIds(int $month, int $year): array
+    {
+        $currentActiveIds = AttendanceActiveEmployee::query()
+            ->where('month', $month)
+            ->where('year', $year)
+            ->where('is_active', true)
+            ->pluck('employee_id')
+            ->map(fn ($value) => (int) $value)
+            ->values()
+            ->all();
+
+        $snapshotExists = AttendanceActiveEmployeeMonth::query()
+            ->where('month', $month)
+            ->where('year', $year)
+            ->exists();
+
+        if (!empty($currentActiveIds) || $snapshotExists) {
+            return [$currentActiveIds, false, null, null];
+        }
+
+        $previousMonth = Carbon::create($year, $month, 1)->subMonthNoOverflow();
+        $previousActiveIds = AttendanceActiveEmployee::query()
+            ->where('month', $previousMonth->month)
+            ->where('year', $previousMonth->year)
+            ->where('is_active', true)
+            ->pluck('employee_id')
+            ->map(fn ($value) => (int) $value)
+            ->values()
+            ->all();
+
+        if (!empty($previousActiveIds)) {
+            return [
+                $previousActiveIds,
+                true,
+                (int) $previousMonth->month,
+                (int) $previousMonth->year,
+            ];
+        }
+
+        return [[], false, null, null];
     }
 }

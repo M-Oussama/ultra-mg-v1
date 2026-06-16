@@ -7,6 +7,7 @@ use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\EmployeeAttendance;
 use App\Models\EmployeeCareer;
+use App\Services\AttendanceAlertService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -439,22 +440,83 @@ class AttendanceController extends Controller
 
     }
 
+    public function getContractsHistory(Request $request): JsonResponse
+    {
+        $searchValue = trim((string) $request->input('searchValue', ''));
+        $perPage = (int) $request->input('perPage', 15);
+        $currentPage = (int) $request->input('currentPage', 1);
+        $sortDirection = strtolower((string) $request->input('sortDirection', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $query = EmployeeCareer::query()
+            ->with(['employee:id,name,surname,email,phone,user_id'])
+            ->withCount(['yearlyVacations as vacation_count'])
+            ->orderBy('start_date', $sortDirection)
+            ->orderBy('id', $sortDirection);
+
+        $user = auth()->user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isDepartmentManager()) {
+                $deptIds = $user->departments->pluck('id')->toArray();
+                $query->whereHas('employee', function ($employeeQuery) use ($deptIds) {
+                    $employeeQuery->whereHas('user', function ($userQuery) use ($deptIds) {
+                        $userQuery->whereHas('departments', function ($departmentQuery) use ($deptIds) {
+                            $departmentQuery->whereIn('departments.id', $deptIds);
+                        });
+                    });
+                });
+            } else {
+                $query->whereHas('employee', function ($employeeQuery) use ($user) {
+                    $employeeQuery->where('user_id', $user->id);
+                });
+            }
+        }
+
+        if ($searchValue !== '') {
+            $query->where(function ($nested) use ($searchValue) {
+                $nested->whereHas('employee', function ($employeeQuery) use ($searchValue) {
+                    $employeeQuery->where(function ($employeeNameQuery) use ($searchValue) {
+                        $employeeNameQuery->where('name', 'like', '%' . $searchValue . '%')
+                            ->orWhere('surname', 'like', '%' . $searchValue . '%')
+                            ->orWhereRaw("CONCAT(COALESCE(name, ''), ' ', COALESCE(surname, '')) LIKE ?", ['%' . $searchValue . '%']);
+                    });
+                })->orWhere('position', 'like', '%' . $searchValue . '%')
+                    ->orWhere('position_ar', 'like', '%' . $searchValue . '%');
+            });
+        }
+
+        $page = $query->paginate($perPage, ['*'], 'page', $currentPage);
+
+        return response()->json([
+            'list' => $page,
+            'totalPage' => $page->lastPage(),
+            'totalContracts' => $page->total(),
+        ]);
+    }
+
+    public function getPlanningOverview(Request $request, AttendanceAlertService $alertService): JsonResponse
+    {
+        $windowDays = max(1, (int) $request->input('windowDays', 60));
+        $limit = (int) $request->input('limit', 5);
+
+        return response()->json(
+            $alertService->buildOverview(null, $windowDays, $limit)
+        );
+    }
+
     public function updateEndDate(Request $request, $Id){
 
         $employee_career = EmployeeCareer::find($Id);
-        $end_date = $request->input('endDate');
-        $position = $request->input('position');
-        $position_ar = $request->input('position_ar');
-        $real_start_date = $request->input('real_start_date');
-        $real_end_date = $request->input('real_end_date');
+        if (!$employee_career) {
+            throw new BadRequestHttpException('Employee career not found');
+        }
+        $end_date = $request->input('endDate', $employee_career?->end_date);
+        $position = $request->input('position', $employee_career?->position);
+        $position_ar = $request->input('position_ar', $employee_career?->position_ar);
+        $real_start_date = $request->input('real_start_date', $employee_career?->real_start_date ?? $employee_career?->start_date);
+        $real_end_date = $request->input('real_end_date', $employee_career?->real_end_date);
         $birth_certificateB64 = $request->input('birth_certificate');
         $national_cardB64 = $request->input('national_card');
         try {
-            $rules = [
-                'endDate' => 'date|after:startDate',
-                'real_end_date' => 'date|after:real_start_date',
-            ];
-
             if($real_end_date) {
                 if(!$real_start_date){
                     throw new BadRequestHttpException('Real start date is missing');
@@ -470,12 +532,22 @@ class AttendanceController extends Controller
                     throw new BadRequestHttpException('End Date must be after the start Date');
 
                 }else {
-                    $request->validate($rules);
-
-                   $employee_career->update(['end_date' => $end_date , "real_end_date" => $real_end_date, "real_start_date"=> $real_start_date, "position" => $position , "position_ar" => $position_ar]);
+                   $employee_career->update([
+                       'end_date' => $end_date,
+                       'real_end_date' => $real_end_date,
+                       'real_start_date' => $real_start_date,
+                       'position' => $position,
+                       'position_ar' => $position_ar,
+                   ]);
                 }
             }else {
-                $employee_career->update(['position' => $position, 'end_date' => null, "real_end_date" => $real_end_date, "real_start_date"=> $real_start_date, "position_ar" => $position_ar]);
+                $employee_career->update([
+                    'position' => $position,
+                    'end_date' => null,
+                    'real_end_date' => $real_end_date,
+                    'real_start_date' => $real_start_date,
+                    'position_ar' => $position_ar,
+                ]);
             }
 
 //            if($birth_certificateB64){

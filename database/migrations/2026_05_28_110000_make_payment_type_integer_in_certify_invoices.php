@@ -23,6 +23,10 @@ return new class extends Migration
             END
         ");
 
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement("ALTER TABLE certify_invoices MODIFY payment_type TINYINT UNSIGNED NULL");
     }
 
@@ -36,4 +40,3 @@ return new class extends Migration
         });
     }
 };
-

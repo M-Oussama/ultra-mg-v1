@@ -16,6 +16,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         if (Schema::hasColumn('personal_access_tokens', 'tokenable')) {
             // Use RAW SQL to rename because renameColumn() might require doctrine/dbal
             DB::statement(

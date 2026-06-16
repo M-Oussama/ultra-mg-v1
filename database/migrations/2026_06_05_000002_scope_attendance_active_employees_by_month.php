@@ -9,6 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         $defaultMonth = (int) date('n');
         $defaultYear = (int) date('Y');
 
@@ -47,6 +51,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         if (Schema::hasTable('attendance_active_employees')) {
             if ($this->indexExists('attendance_active_employees', 'attendance_active_employees_unique')) {
                 Schema::table('attendance_active_employees', function (Blueprint $table) {

@@ -112,7 +112,17 @@ class Permission extends Model
     // cashbook permissions
         const ADD_CASHBOOK = ['ACTION' => 'add', 'SUBJECT' => 'cashbooks'];
         const LIST_CASHBOOK = ['ACTION' => 'list', 'SUBJECT' => 'cashbooks'];
+        const EDIT_CASHBOOK = ['ACTION' => 'edit', 'SUBJECT' => 'cashbooks'];
         const DELETE_CASHBOOK = ['ACTION' => 'delete', 'SUBJECT' => 'cashbooks'];
+        const VIEW_CASHBOOK = ['ACTION' => 'view', 'SUBJECT' => 'cashbooks'];
+        const DOWNLOAD_CASHBOOK = ['ACTION' => 'download', 'SUBJECT' => 'cashbooks'];
+        const SYNC_CASHBOOK = ['ACTION' => 'sync', 'SUBJECT' => 'cashbooks'];
+
+    // cashbook lookup permissions
+        const ADD_CASHBOOK_SETTING = ['ACTION' => 'add', 'SUBJECT' => 'cashbook_settings'];
+        const LIST_CASHBOOK_SETTING = ['ACTION' => 'list', 'SUBJECT' => 'cashbook_settings'];
+        const EDIT_CASHBOOK_SETTING = ['ACTION' => 'edit', 'SUBJECT' => 'cashbook_settings'];
+        const DELETE_CASHBOOK_SETTING = ['ACTION' => 'delete', 'SUBJECT' => 'cashbook_settings'];
 
     // transaction permissions
         const ADD_TRANSACTION = ['ACTION' => 'add', 'SUBJECT' => 'transactions'];
@@ -179,7 +189,8 @@ class Permission extends Model
         self::ADD_ASSETS, self::LIST_ASSETS, self::EDIT_ASSETS, self::DELETE_ASSETS,
         self::ADD_COMPONENT, self::LIST_COMPONENT, self::EDIT_COMPONENT, self::DELETE_COMPONENT,
         self::ADD_MAINTENANCE, self::LIST_MAINTENANCE, self::EDIT_MAINTENANCE, self::DELETE_MAINTENANCE, self::UPDATE_MAINTENANCE, self::ASSIGN_MAINTENANCE,
-        self::ADD_CASHBOOK, self::LIST_CASHBOOK, self::DELETE_CASHBOOK,
+        self::ADD_CASHBOOK, self::LIST_CASHBOOK, self::EDIT_CASHBOOK, self::DELETE_CASHBOOK, self::VIEW_CASHBOOK, self::DOWNLOAD_CASHBOOK, self::SYNC_CASHBOOK,
+        self::ADD_CASHBOOK_SETTING, self::LIST_CASHBOOK_SETTING, self::EDIT_CASHBOOK_SETTING, self::DELETE_CASHBOOK_SETTING,
         self::ADD_TRANSACTION, self::LIST_TRANSACTION, self::EDIT_TRANSACTION, self::DELETE_TRANSACTION,
         self::LIST_LOGISTIC, self::ADD_LOGISTIC, self::EDIT_LOGISTIC, self::DELETE_LOGISTIC, self::PREVIEW_LOGISTIC, self::DOWNLOAD_LOGISTIC,
         self::LIST_IMPORTATION, self::LIST_REPORT, self::LIST_SETTING, self::ADMIN_SECURITY,
@@ -206,7 +217,8 @@ class Permission extends Model
         self::ADD_COMPONENT, self::LIST_COMPONENT, self::EDIT_COMPONENT, self::DELETE_COMPONENT,
         self::ADD_MAINTENANCE, self::LIST_MAINTENANCE, self::EDIT_MAINTENANCE, self::DELETE_MAINTENANCE,self::UPDATE_MAINTENANCE, self::ASSIGN_MAINTENANCE,
         self::ADMIN_DASHBOARD,
-        self::ADD_CASHBOOK, self::LIST_CASHBOOK, self::DELETE_CASHBOOK,
+        self::ADD_CASHBOOK, self::LIST_CASHBOOK, self::EDIT_CASHBOOK, self::DELETE_CASHBOOK, self::VIEW_CASHBOOK, self::DOWNLOAD_CASHBOOK, self::SYNC_CASHBOOK,
+        self::ADD_CASHBOOK_SETTING, self::LIST_CASHBOOK_SETTING, self::EDIT_CASHBOOK_SETTING, self::DELETE_CASHBOOK_SETTING,
         self::ADD_TRANSACTION, self::LIST_TRANSACTION, self::EDIT_TRANSACTION, self::DELETE_TRANSACTION,
         self::LIST_LOGISTIC, self::ADD_LOGISTIC, self::EDIT_LOGISTIC, self::DELETE_LOGISTIC, self::PREVIEW_LOGISTIC, self::DOWNLOAD_LOGISTIC,
         self::LIST_IMPORTATION, self::LIST_REPORT, self::LIST_SETTING, self::ADMIN_SECURITY,

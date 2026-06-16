@@ -36,7 +36,11 @@ class User extends Authenticatable
         'email',
         'password',
         'role_id',
-        'organization_id'
+        'organization_id',
+        'fcm_token',
+        'fcm_platform',
+        'fcm_device_name',
+        'fcm_token_updated_at',
     ];
 
     /**
@@ -47,6 +51,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'fcm_token',
     ];
 
     /**
@@ -56,6 +61,7 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'fcm_token_updated_at' => 'datetime',
     ];
 
     protected $with = ['role', 'departments'];

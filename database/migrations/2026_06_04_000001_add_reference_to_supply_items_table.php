@@ -48,6 +48,10 @@ return new class extends Migration
                 ]);
         }
 
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         DB::statement('ALTER TABLE supply_items MODIFY reference VARCHAR(20) NOT NULL');
     }
 
