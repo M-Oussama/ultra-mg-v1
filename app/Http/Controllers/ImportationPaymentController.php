@@ -22,9 +22,11 @@ class ImportationPaymentController extends Controller
             )
         ]
     )]
-    public function list($invoice_id = null)
+    public function list(Request $request, $invoice_id = null)
     {
         $query = ImportationPayment::with(['invoice', 'media']);
+        $from = $request->input('from', '');
+        $to = $request->input('to', '');
         
         if ($invoice_id) {
             $query->where('importation_invoice_id', $invoice_id);
@@ -45,6 +47,14 @@ class ImportationPaymentController extends Controller
                     $q->where('user_id', $user->id);
                 }
             });
+        }
+
+        if ($from !== '') {
+            $query->whereDate('payment_date', '>=', $from);
+        }
+
+        if ($to !== '') {
+            $query->whereDate('payment_date', '<=', $to);
         }
         
         $payments = $query->get();

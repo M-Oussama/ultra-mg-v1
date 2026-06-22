@@ -7,6 +7,7 @@ use App\Models\AttendanceActiveEmployee;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\EmployeeCareer;
+use App\Models\EmployeeMonthlyPayroll;
 use App\Models\EmployeeMonthlyWorkDay;
 use App\Models\Product;
 use App\Models\Sale;
@@ -20,8 +21,10 @@ use App\Models\YearlyVacation;
 use App\Http\Helpers\NumberToLetter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Process\Process;
 
 class PDFController extends Controller
 {
@@ -451,6 +454,92 @@ class PDFController extends Controller
         ];
     }
 
+    private function resolveBrowserBinary(): ?string
+    {
+        $candidates = [
+            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+            'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private function renderHtmlToPdfWithBrowser(string $html, string $prefix): ?string
+    {
+        $tempRoot = storage_path('app/tmp');
+
+        if (!is_dir($tempRoot) && !mkdir($tempRoot, 0777, true) && !is_dir($tempRoot)) {
+            return null;
+        }
+
+        $token = $prefix . '_' . uniqid('', true);
+        $htmlPath = $tempRoot . DIRECTORY_SEPARATOR . $token . '.html';
+        $pdfPath = $tempRoot . DIRECTORY_SEPARATOR . $token . '.pdf';
+        $profileDir = $tempRoot . DIRECTORY_SEPARATOR . $token . '_profile';
+
+        if (!is_dir($profileDir) && !mkdir($profileDir, 0777, true) && !is_dir($profileDir)) {
+            return null;
+        }
+
+        file_put_contents($htmlPath, $html);
+
+        $browserBinary = $this->resolveBrowserBinary();
+
+        if ($browserBinary === null) {
+            File::delete($htmlPath);
+            File::deleteDirectory($profileDir);
+            return null;
+        }
+
+        $fileUrl = 'file:///' . str_replace('\\', '/', realpath($htmlPath) ?: $htmlPath);
+        $headlessFlags = ['--headless=new', '--headless'];
+
+        foreach ($headlessFlags as $headlessFlag) {
+            $process = new Process([
+                $browserBinary,
+                $headlessFlag,
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-default-browser-check',
+                '--disable-extensions',
+                '--allow-file-access-from-files',
+                '--run-all-compositor-stages-before-draw',
+                '--print-to-pdf=' . $pdfPath,
+                '--no-pdf-header-footer',
+                '--print-to-pdf-no-header',
+                '--user-data-dir=' . $profileDir,
+                $fileUrl,
+            ]);
+
+            $process->setTimeout(180);
+            $process->run();
+
+            if ($process->isSuccessful() && File::exists($pdfPath) && File::size($pdfPath) > 0) {
+                File::delete($htmlPath);
+                File::deleteDirectory($profileDir);
+
+                return $pdfPath;
+            }
+
+            if (File::exists($pdfPath)) {
+                File::delete($pdfPath);
+            }
+        }
+
+        File::delete($htmlPath);
+        File::deleteDirectory($profileDir);
+
+        return null;
+    }
+
     private function departmentHeaderContext(Request $request): array
     {
         $company = Company::first();
@@ -682,6 +771,49 @@ class PDFController extends Controller
         return $pdf->download('Employees_List.pdf');
     }
 
+    public function exportPayrollEmployeesList(Request $request)
+    {
+        $month = (int) $request->query('month', now()->month);
+        $year = (int) $request->query('year', now()->year);
+
+        $activeIds = AttendanceActiveEmployee::query()
+            ->where('month', $month)
+            ->where('year', $year)
+            ->where('is_active', true)
+            ->pluck('employee_id')
+            ->values()
+            ->all();
+
+        $payrollEmployeeIds = EmployeeMonthlyPayroll::query()
+            ->where('month', $month)
+            ->where('year', $year)
+            ->pluck('employee_id')
+            ->values()
+            ->all();
+
+        $employeeIds = !empty($activeIds) ? $activeIds : $payrollEmployeeIds;
+
+        $employees = Employee::with(['birthCity', 'cardIssuedCity'])
+            ->whereIn('id', $employeeIds)
+            ->orderBy('name')
+            ->get();
+
+        $context = $this->companyInfoContext();
+        $pdf = Pdf::loadView('exports.employees_list_pdf', array_merge($context, [
+            'employees' => $employees,
+            'searchValue' => '',
+            'title' => 'Payroll Employees List',
+            'subtitle' => sprintf('%02d/%04d payroll roster', $month, $year),
+            'scopeLabel' => sprintf('Payroll month: %02d/%04d', $month, $year),
+            'month' => $month,
+            'year' => $year,
+        ]));
+
+        $pdf->setPaper('a4', 'landscape')->setOptions($this->pdfOptions());
+
+        return $pdf->download(sprintf('Payroll_Employees_%04d_%02d.pdf', $year, $month));
+    }
+
     public function exportEmployeeHistory(Request $request, $id)
     {
         $employee = Employee::with([
@@ -751,6 +883,43 @@ class PDFController extends Controller
         return $pdf->download('Employee_History_' . $employee->id . '.pdf');
     }
 
+    public function exportEmployeeBlankContract(int $careerId)
+    {
+        $career = EmployeeCareer::with([
+            'employee',
+            'employee.birthCity',
+            'employee.cardIssuedCity',
+        ])->findOrFail($careerId);
+
+        if (!$career->employee) {
+            abort(404, 'Employee not found');
+        }
+
+        $context = array_merge($this->companyInfoContext(), [
+            'generatedAt' => now(),
+            'career' => $career,
+            'employee' => $career->employee,
+        ]);
+
+        $employeeName = trim(($career->employee->name ?? '') . ' ' . ($career->employee->surname ?? ''));
+        $safeName = $employeeName !== ''
+            ? preg_replace('/[^\pL\pN]+/u', '_', $employeeName)
+            : 'Employee';
+        $downloadName = 'Blank_Contract_' . trim((string) $safeName, '_') . '_' . $career->id . '.pdf';
+
+        $html = view('exports.employee_blank_contract_pdf', $context)->render();
+        $browserPdfPath = $this->renderHtmlToPdfWithBrowser($html, 'blank_contract_' . $career->id);
+
+        if ($browserPdfPath !== null) {
+            return response()->download($browserPdfPath, $downloadName)->deleteFileAfterSend(true);
+        }
+
+        $pdf = Pdf::loadView('exports.employee_blank_contract_pdf', $context);
+        $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
+
+        return $pdf->download($downloadName);
+    }
+
     public function exportAttendancesList(Request $request)
     {
         $searchValue = trim((string) $request->query('searchValue', ''));
@@ -817,6 +986,83 @@ class PDFController extends Controller
         $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
 
         return $pdf->download('Employee_Monthly_Work_Days.pdf');
+    }
+
+    public function exportPayrollSheet(Request $request)
+    {
+        $month = (int) $request->query('month', now()->month);
+        $year = (int) $request->query('year', now()->year);
+
+        $activeIds = AttendanceActiveEmployee::query()
+            ->where('month', $month)
+            ->where('year', $year)
+            ->where('is_active', true)
+            ->pluck('employee_id')
+            ->values()
+            ->all();
+
+        $payrollEmployeeIds = EmployeeMonthlyPayroll::query()
+            ->where('month', $month)
+            ->where('year', $year)
+            ->pluck('employee_id')
+            ->values()
+            ->all();
+
+        $employeeIds = !empty($activeIds) ? $activeIds : $payrollEmployeeIds;
+
+        $employees = Employee::query()
+            ->whereIn('id', $employeeIds)
+            ->orderBy('name')
+            ->get();
+
+        $workDayEntries = EmployeeMonthlyWorkDay::query()
+            ->where('month', $month)
+            ->where('year', $year)
+            ->get()
+            ->keyBy('employee_id');
+
+        $payrollEntries = EmployeeMonthlyPayroll::query()
+            ->where('month', $month)
+            ->where('year', $year)
+            ->get()
+            ->keyBy('employee_id');
+
+        $totals = [
+            'gross_salary' => 0,
+            'objectives' => 0,
+            'total_payable' => 0,
+        ];
+
+        $employees->each(function (Employee $employee) use ($workDayEntries, $payrollEntries, &$totals) {
+            $payroll = $payrollEntries[$employee->id] ?? null;
+            $workDays = (int) ($workDayEntries[$employee->id]->work_days ?? 0);
+            $monthlySalary = (float) ($payroll->monthly_salary ?? 0);
+            $objectives = (float) ($payroll->objectives_amount ?? 0);
+            $salaryPart = $monthlySalary * ($workDays / 30);
+            $total = $salaryPart + $objectives;
+
+            $employee->setAttribute('work_days', $workDays);
+            $employee->setAttribute('monthly_salary', $monthlySalary);
+            $employee->setAttribute('objectives_amount', $objectives);
+            $employee->setAttribute('salary_part', $salaryPart);
+            $employee->setAttribute('total_payable', $total);
+
+            $totals['gross_salary'] += $salaryPart;
+            $totals['objectives'] += $objectives;
+            $totals['total_payable'] += $total;
+        });
+
+        $context = $this->companyInfoContext();
+        $pdf = Pdf::loadView('exports.employee_payroll_sheet_pdf', array_merge($context, [
+            'employees' => $employees,
+            'month' => $month,
+            'year' => $year,
+            'totals' => $totals,
+        ]));
+
+        $pdf->setPaper('a4', 'landscape')->setOptions($this->pdfOptions());
+
+        return $pdf->download('Employee_Payroll_Sheet.pdf');
     }
 
     public function exportStockReport(Request $request)

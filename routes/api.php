@@ -15,6 +15,7 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\PDFController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ProductCostComponentController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReturnController;
 use App\Http\Controllers\RoleController;
@@ -141,6 +142,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/products/import-csv', [ProductController::class, 'importCsv'])->middleware('permission:add,products')->name('importProductsCsv');
     Route::post('/products/update/{id}', [ProductController::class, 'update'])->middleware('permission:edit,products')->name('update');
     Route::delete('/products/delete/{id}', [ProductController::class, 'delete'])->middleware('permission:delete,products')->name('delete');
+    Route::get('/product-cost-components/list', [ProductCostComponentController::class, 'index'])->middleware('permission:list,products')->name('getProductCostComponents');
+    Route::post('/product-cost-components/store', [ProductCostComponentController::class, 'store'])->middleware('permission:edit,products')->name('storeProductCostComponent');
+    Route::post('/product-cost-components/update/{id}', [ProductCostComponentController::class, 'update'])->middleware('permission:edit,products')->name('updateProductCostComponent');
+    Route::delete('/product-cost-components/delete/{id}', [ProductCostComponentController::class, 'delete'])->middleware('permission:edit,products')->name('deleteProductCostComponent');
 
     /** Certify Invoices */
     Route::get('/certifyInvoices/list', [CertifyInvoiceController::class, 'getInvoices'])->middleware('permission:list,certify_invoices')->name('getInvoices');
@@ -203,11 +208,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/pos/stocks/adjust', [POSController::class, 'adjustStock'])->middleware('permission:edit,products')->name('adjustStock');
     Route::get('/pos/benefits/list', [BenefitController::class, 'getBenefits'])->middleware('permission:list,benefits')->name('getBenefits');
     Route::post('/pos/benefits/store', [BenefitController::class, 'store'])->middleware('permission:add,benefits')->name('store');
+    Route::get('/pos/benefits/analysis', [BenefitController::class, 'analysis'])->middleware('permission:list,benefits')->name('benefitAnalysis');
+    Route::get('/pos/benefits/batch-selection', [BenefitController::class, 'getBatchSelectionData'])->middleware('permission:list,benefits')->name('getBenefitBatchSelectionData');
+    Route::post('/pos/benefits/batch-selection', [BenefitController::class, 'syncBatchSelectionData'])->middleware('permission:edit,benefits')->name('syncBenefitBatchSelectionData');
     Route::get('/pos/benefits/{id}', [BenefitController::class, 'getArticlesBenefit'])->middleware('permission:list,benefits')->name('getArticlesBenefit');
     Route::delete('/pos/benefits/delete/{id}', [BenefitController::class, 'destroyBenefit'])->middleware('permission:delete,benefits')->name('destroyBenefit');
     Route::post('/pos/benefits/update/{id}', [BenefitController::class, 'updateBenefit'])->middleware('permission:edit,benefits')->name('updateBenefit');
     Route::post('/pos/benefits/charges/update/{id}', [BenefitController::class, 'updateBenefitCharges'])->middleware('permission:edit,benefits')->name('updateBenefitCharges');
     Route::get('/pos/benefits/refresh/{id}', [BenefitController::class, 'refreshBenefitData'])->middleware('permission:list,benefits')->name('refreshBenefitData');
+    Route::get('/pos/benefits/fees', [BenefitController::class, 'getBenefitFees'])->middleware('permission:list,benefits')->name('getBenefitFees');
+    Route::post('/pos/benefits/fees/{id}', [BenefitController::class, 'syncBenefitFees'])->middleware('permission:edit,benefits')->name('syncBenefitFees');
     Route::get('/pos/client/{id}/sales', [POSController::class, 'getClientInvoices'])->middleware('permission:list,sales')->name('getClientInvoices');
     Route::get('/pos/client/{id}/sales/{paymentId}/paid', [POSController::class, 'getPaidInvoices'])->middleware('permission:list,sales')->name('getClientInvoices');
     Route::post('/sales/{sale}/toggle-pickup', [POSController::class, 'updatePickUp'])->middleware('permission:edit,sales')->name('updatePickUp');
@@ -222,8 +232,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pdf/sales-suppliers/list', [PDFController::class, 'exportSalesSuppliersList'])->middleware('permission:list,suppliers')->name('exportSalesSuppliersList');
     Route::get('/pdf/employees/list', [PDFController::class, 'exportEmployeesList'])->middleware('permission:list,employees')->name('exportEmployeesList');
     Route::get('/pdf/employees/history/{id}', [PDFController::class, 'exportEmployeeHistory'])->middleware('permission:list,employees')->name('exportEmployeeHistory');
+    Route::get('/pdf/employees/contract-template/{careerId}', [PDFController::class, 'exportEmployeeBlankContract'])->middleware('permission:list,employees')->name('exportEmployeeBlankContract');
     Route::get('/pdf/attendances/list', [PDFController::class, 'exportAttendancesList'])->middleware('permission:list,attendances')->name('exportAttendancesList');
     Route::get('/pdf/attendance-plans/monthly-work-days', [PDFController::class, 'exportMonthlyWorkDays'])->middleware('permission:list,attendances')->name('exportMonthlyWorkDays');
+    Route::get('/pdf/attendance-plans/payroll-employees', [PDFController::class, 'exportPayrollEmployeesList'])->middleware('permission:list,attendances')->name('exportPayrollEmployeesList');
+    Route::get('/pdf/attendance-plans/payroll', [PDFController::class, 'exportPayrollSheet'])->middleware('permission:list,attendances')->name('exportPayrollSheet');
     Route::get('/pdf/stock/report', [PDFController::class, 'exportStockReport'])->middleware('permission:list,sales')->name('exportStockReport');
 
     /** EMPLOYEES */
@@ -259,6 +272,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/attendance-plans/active-employees', [\App\Http\Controllers\AttendancePlanningController::class, 'saveActiveEmployees'])->middleware('permission:edit,attendances')->name('saveAttendanceActiveEmployees');
     Route::get('/attendance-plans/monthly-work-days', [\App\Http\Controllers\AttendancePlanningController::class, 'getMonthlyWorkDays'])->middleware('permission:list,attendances')->name('getAttendanceMonthlyWorkDays');
     Route::post('/attendance-plans/monthly-work-days', [\App\Http\Controllers\AttendancePlanningController::class, 'saveMonthlyWorkDays'])->middleware('permission:edit,attendances')->name('saveAttendanceMonthlyWorkDays');
+    Route::get('/attendance-plans/payroll', [\App\Http\Controllers\AttendancePlanningController::class, 'getPayrollSheet'])->middleware('permission:list,attendances')->name('getAttendancePayrollSheet');
+    Route::post('/attendance-plans/payroll', [\App\Http\Controllers\AttendancePlanningController::class, 'savePayrollSheet'])->middleware('permission:edit,attendances')->name('saveAttendancePayrollSheet');
 
     /** LOGS */
     Route::post('/clients/log', [ClientLogController::class, 'getLog'])->name('getLog');

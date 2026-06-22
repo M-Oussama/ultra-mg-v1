@@ -9,7 +9,15 @@ class Department extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'address', 'phone', 'email', 'logo_url', 'profession'];
+    protected $fillable = [
+        'name',
+        'address',
+        'phone',
+        'email',
+        'logo_url',
+        'profession',
+        'department_type',
+    ];
 
     public function sales()
     {
@@ -29,5 +37,10 @@ class Department extends Model
     public function users()
     {
         return $this->belongsToMany(User::class);
+    }
+
+    public function getIsProductionAttribute(): bool
+    {
+        return strtolower((string) ($this->department_type ?? 'resell')) === 'production';
     }
 }

@@ -23,9 +23,11 @@ class ImportationInvoiceController extends Controller
             )
         ]
     )]
-    public function list()
+    public function list(Request $request)
     {
         $query = ImportationInvoice::with('supplier');
+        $from = $request->input('from', '');
+        $to = $request->input('to', '');
 
         // Hierarchical Data Isolation
         $user = Auth::user();
@@ -44,6 +46,14 @@ class ImportationInvoiceController extends Controller
                 // Salespeople see only their own invoices
                 $query->where('user_id', $user->id);
             }
+        }
+
+        if ($from !== '') {
+            $query->whereDate('arrive_date', '>=', $from);
+        }
+
+        if ($to !== '') {
+            $query->whereDate('arrive_date', '<=', $to);
         }
 
         $invoices = $query->get();

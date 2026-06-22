@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Helpers\NumberToLetter;
 use App\Models\ClientBalance;
 use App\Models\Payment;
+use App\Models\Product;
 use App\Models\ProductStock;
 use App\Models\ProductStockAdjustment;
 use App\Models\Sale;
@@ -189,6 +190,13 @@ class Controller extends BaseController
         ?string $note = null,
         array $meta = []
     ): ProductStock {
+        if (!$this->tracksStock($productId)) {
+            return ProductStock::firstOrNew(
+                ['product_id' => $productId],
+                ['quantity' => 0]
+            );
+        }
+
         $stock = ProductStock::firstOrCreate(
             ['product_id' => $productId],
             ['quantity' => 0]
@@ -226,6 +234,13 @@ class Controller extends BaseController
         ?string $note = null,
         array $meta = []
     ): ProductStock {
+        if (!$this->tracksStock($productId)) {
+            return ProductStock::firstOrNew(
+                ['product_id' => $productId],
+                ['quantity' => 0]
+            );
+        }
+
         $stock = ProductStock::firstOrCreate(
             ['product_id' => $productId],
             ['quantity' => 0]
@@ -248,5 +263,16 @@ class Controller extends BaseController
             $note,
             $meta
         );
+    }
+
+    protected function tracksStock(int $productId): bool
+    {
+        $stockable = Product::withTrashed()->whereKey($productId)->value('stockable');
+
+        if ($stockable === null) {
+            return true;
+        }
+
+        return filter_var($stockable, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
     }
 }

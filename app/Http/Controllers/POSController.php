@@ -744,6 +744,7 @@ class POSController extends Controller
     public function addPayment(Request $request) {
 
         $payment = $request->input('payment');
+        $departmentId = $request->input('department_id');
 
         $date = $payment['date'];
         $amount = $payment['amount'];
@@ -756,6 +757,7 @@ class POSController extends Controller
         $payment->note = $note;
         $payment->sale_id = $sale['id'];
         $payment->client_id = $sale['client']['id'];
+        $payment->department_id = $departmentId ?: (Sale::find($sale['id'])?->department_id ?? null);
         $payment->save();
 
         $_sale = Sale::find($sale['id']);
@@ -773,6 +775,7 @@ class POSController extends Controller
 
         $payment = $request->input('payment');
         $paidInvoices = $request->input('paidInvoices');
+        $departmentId = $request->input('department_id');
 
         $date = $payment['date'];
         $amount = $payment['amount'];
@@ -785,6 +788,7 @@ class POSController extends Controller
         $payment->amount_paid = $amount;
         $payment->note = $note;
         $payment->client_id = $client_id;
+        $payment->department_id = $departmentId;
         $payment->save();
 
         foreach ($paidInvoices as $paidInvoice) {
@@ -797,6 +801,7 @@ class POSController extends Controller
                'payment_id' => $payment->id,
                'sale_id' => $invoice->id,
                'amount' => $paidInvoice['balance'],
+               'department_id' => $departmentId ?: $invoice?->department_id,
             ]);
 
         }
@@ -811,6 +816,7 @@ class POSController extends Controller
 
         $payment = $request->input('payment');
         $paidInvoices = $request->input('paidInvoices');
+        $departmentId = $request->input('department_id');
 
 
         $date = $payment['payment_date'];
@@ -826,6 +832,7 @@ class POSController extends Controller
         $payment->note = $note;
         $payment->client_id = $client_id;
         $payment->sale_id = $sale_id;
+        $payment->department_id = $departmentId ?: (Sale::find($sale_id)?->department_id ?? null);
         $payment->save();
 
         $partialPayments = PartialPayment::where('payment_id', $payment->id)->get();
@@ -852,6 +859,7 @@ class POSController extends Controller
                 'payment_id' => $payment->id,
                 'sale_id' => $invoice->id,
                 'amount' => $paidInvoice['balance'],
+                'department_id' => $departmentId ?: $invoice?->department_id,
             ]);
 
         }
@@ -893,12 +901,46 @@ class POSController extends Controller
         $searchValue = $request->input('searchValue', ''); // search value
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
+        $departmentId = $request->input('department_id', '');
+        $clientId = $request->input('client_id', '');
+        $from = $request->input('from', '');
+        $to = $request->input('to', '');
 
-
-        $payments = Payment::orderBy('payment_date', 'desc')->paginate($perPage, ['*'], 'page', $currentPage);
+        $payments = Payment::with(['client', 'sale'])
+            ->when($departmentId !== '', function ($query) use ($departmentId) {
+                $query->where(function ($departmentQuery) use ($departmentId) {
+                    $departmentQuery->where('department_id', $departmentId)
+                        ->orWhereHas('sale', function ($saleQuery) use ($departmentId) {
+                            $saleQuery->where('department_id', $departmentId);
+                        });
+                });
+            })
+            ->when($clientId !== '', function ($query) use ($clientId) {
+                $query->where('client_id', $clientId);
+            })
+            ->when($searchValue !== '', function ($query) use ($searchValue) {
+                $query->where(function ($searchQuery) use ($searchValue) {
+                    $searchQuery->where('note', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhereHas('client', function ($clientQuery) use ($searchValue) {
+                            $clientQuery->where('name', 'LIKE', '%' . $searchValue . '%')
+                                ->orWhere('surname', 'LIKE', '%' . $searchValue . '%')
+                                ->orWhere('company_name', 'LIKE', '%' . $searchValue . '%');
+                            });
+                });
+            })
+            ->when($from !== '', function ($query) use ($from) {
+                $query->whereDate('payment_date', '>=', $from);
+            })
+            ->when($to !== '', function ($query) use ($to) {
+                $query->whereDate('payment_date', '<=', $to);
+            })
+            ->orderBy('payment_date', 'desc')
+            ->paginate($perPage, ['*'], 'page', $currentPage);
         $totalSales = $payments->total(); // Total number of payments matching the query
         $totalPage = ceil($totalSales / $perPage); // Calculate total pages
-        $clients = Client::all();
+        $clients = Client::when($departmentId !== '', function ($query) use ($departmentId) {
+            $query->where('department_id', $departmentId);
+        })->get();
         return response()->json(["payments" => $payments, "totalPage" => $totalPage, "totalPayments"=>$totalSales,"clients"=>$clients]);
 
     }

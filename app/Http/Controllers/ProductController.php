@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductCostComponentAssignment;
+use App\Models\ProductExtraCost;
 use App\Models\ProductStock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -79,7 +81,10 @@ class ProductController extends Controller
     )]
     public function getProduct(int $id): JsonResponse
     {
-        $product = Product::findOrFail($id);
+        $product = Product::with([
+            'extraCosts',
+            'sharedCostAssignments.component.prices',
+        ])->findOrFail($id);
 
         return response()->json($product);
     }
@@ -137,6 +142,7 @@ class ProductController extends Controller
             'SKU' => 'nullable|string|max:255',
             'min_stock_level' => 'nullable|integer',
             'price' => 'nullable|numeric',
+            'cost_price' => 'nullable|numeric',
             'stockable' => 'nullable|boolean',
             'tax_rate' => 'nullable|numeric',
             'weight' => 'nullable',
@@ -145,6 +151,9 @@ class ProductController extends Controller
             'units_per_package' => 'nullable|integer|min:0',
             'price_active' => 'nullable|boolean',
         ]);
+
+        $validatedData['stockable'] = $request->boolean('stockable', true);
+        $validatedData['cost_price'] = $request->input('cost_price', 0);
  
         if (!$request->filled('department_id')) {
             unset($validatedData['department_id']);
@@ -158,6 +167,23 @@ class ProductController extends Controller
                 'product_id' => $product->id,
             ]
         );
+
+        $extraCosts = $request->input('extra_costs');
+        if (is_array($extraCosts)) {
+            $this->syncProductExtraCosts($product, $extraCosts);
+        }
+
+        $sharedCosts = $request->input('shared_extra_costs');
+        if (is_array($sharedCosts)) {
+            $this->syncProductSharedCosts($product, $sharedCosts);
+        }
+
+        $product->refresh()->load([
+            'productStock',
+            'department',
+            'extraCosts',
+            'sharedCostAssignments.component.prices',
+        ]);
 
         return response()->json(['message' => 'Product created successfully', 'product' => $product]);
     }
@@ -218,6 +244,7 @@ class ProductController extends Controller
             'SKU' => 'nullable|string|max:255',
             'min_stock_level' => 'nullable|integer',
             'price' => 'nullable|numeric',
+            'cost_price' => 'nullable|numeric',
             'stockable' => 'nullable|boolean',
             'tax_rate' => 'nullable|numeric',
             'type_id' => 'nullable|integer',
@@ -228,14 +255,29 @@ class ProductController extends Controller
             'price_active' => 'nullable|boolean',
         ]);
 
+        $product = Product::findOrFail($id);
         $validatedData['department_id'] = $request->input('department_id', 1);
-
-        $product = Product::find($id);
+        $validatedData['stockable'] = $request->boolean('stockable', $product->stockable);
+        $validatedData['cost_price'] = $request->input('cost_price', $product->cost_price ?? 0);
 
         $product->update($validatedData);
 
-        $product->stockable = $request->input('stockable');
-        $product->save();
+        $extraCosts = $request->input('extra_costs');
+        if (is_array($extraCosts)) {
+            $this->syncProductExtraCosts($product, $extraCosts);
+        }
+
+        $sharedCosts = $request->input('shared_extra_costs');
+        if (is_array($sharedCosts)) {
+            $this->syncProductSharedCosts($product, $sharedCosts);
+        }
+
+        $product->refresh()->load([
+            'productStock',
+            'department',
+            'extraCosts',
+            'sharedCostAssignments.component.prices',
+        ]);
 
         return response()->json(['message' => 'Product updated successfully', 'product' => $product]);
     }
@@ -318,7 +360,10 @@ class ProductController extends Controller
                 $rowData[$columnName] = isset($row[$index]) ? trim((string) $row[$index]) : null;
             }
 
-            $stockableRaw = strtolower((string) ($rowData['stockable'] ?? '0'));
+            $stockableValue = $rowData['stockable'] ?? null;
+            $stockableRaw = $stockableValue === null || trim((string) $stockableValue) === ''
+                ? '1'
+                : strtolower(trim((string) $stockableValue));
             $stockable = in_array($stockableRaw, ['1', 'true', 'yes'], true) ? 1 : 0;
 
             $payload = [
@@ -399,6 +444,94 @@ class ProductController extends Controller
             'errors' => $errors,
             'warnings' => $warnings,
         ]);
+    }
+
+    private function syncProductExtraCosts(Product $product, array $extraCosts): void
+    {
+        $seenIds = [];
+
+        foreach ($extraCosts as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $validated = Validator::make($row, [
+                'id' => ['nullable', 'integer', 'exists:product_extra_costs,id'],
+                'name' => ['required', 'string', 'max:255'],
+                'amount' => ['required', 'numeric', 'min:0'],
+                'effective_from' => ['nullable', 'date'],
+                'effective_to' => ['nullable', 'date'],
+                'notes' => ['nullable', 'string', 'max:1000'],
+            ])->validate();
+
+            $extraCost = null;
+            if (!empty($validated['id'])) {
+                $extraCost = $product->extraCosts()->whereKey((int) $validated['id'])->first();
+            }
+
+            $payload = [
+                'name' => $validated['name'],
+                'amount' => round((float) $validated['amount'], 3),
+                'effective_from' => $validated['effective_from'] ?? null,
+                'effective_to' => $validated['effective_to'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+            ];
+
+            if ($extraCost) {
+                $extraCost->update($payload);
+                $seenIds[] = $extraCost->id;
+                continue;
+            }
+
+            $created = $product->extraCosts()->create($payload);
+            $seenIds[] = $created->id;
+        }
+
+        if (!empty($seenIds)) {
+            $product->extraCosts()
+                ->whereNotIn('id', $seenIds)
+                ->delete();
+        } else {
+            $product->extraCosts()->delete();
+        }
+    }
+
+    private function syncProductSharedCosts(Product $product, array $sharedCosts): void
+    {
+        $seenIds = [];
+
+        foreach ($sharedCosts as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $validated = Validator::make($row, [
+                'component_id' => ['required', 'integer', 'exists:product_cost_components,id'],
+                'quantity' => ['nullable', 'numeric', 'min:0'],
+                'notes' => ['nullable', 'string', 'max:1000'],
+            ])->validate();
+
+            $assignment = ProductCostComponentAssignment::updateOrCreate(
+                [
+                    'product_id' => $product->id,
+                    'component_id' => (int) $validated['component_id'],
+                ],
+                [
+                    'quantity' => round((float) ($validated['quantity'] ?? 1), 3),
+                    'notes' => $validated['notes'] ?? null,
+                ]
+            );
+
+            $seenIds[] = $assignment->id;
+        }
+
+        if (!empty($seenIds)) {
+            $product->sharedCostAssignments()
+                ->whereNotIn('id', $seenIds)
+                ->delete();
+        } else {
+            $product->sharedCostAssignments()->delete();
+        }
     }
 }
 

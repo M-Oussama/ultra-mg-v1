@@ -75,11 +75,20 @@ class DepartmentController extends Controller
             'email' => 'nullable|email|max:255',
             'logo_url' => 'nullable|string|max:2048',
             'profession' => 'nullable|string|max:255',
+            'department_type' => 'nullable|in:production,resell',
         ]);
 
         try {
             DB::beginTransaction();
-            $department = Department::create($request->all());
+            Department::create([
+                'name' => $request->input('name'),
+                'address' => $request->input('address'),
+                'phone' => $request->input('phone'),
+                'email' => $request->input('email'),
+                'logo_url' => $request->input('logo_url'),
+                'profession' => $request->input('profession'),
+                'department_type' => $request->input('department_type', 'resell'),
+            ]);
             DB::commit();
 
             return $this->fsSuccess("Department created successfully");
@@ -99,12 +108,21 @@ class DepartmentController extends Controller
             'email' => 'nullable|email|max:255',
             'logo_url' => 'nullable|string|max:2048',
             'profession' => 'nullable|string|max:255',
+            'department_type' => 'nullable|in:production,resell',
         ]);
 
         try {
             DB::beginTransaction();
             $department = Department::find($request->input('id'));
-            $department->update($request->all());
+            $department->update([
+                'name' => $request->input('name'),
+                'address' => $request->input('address'),
+                'phone' => $request->input('phone'),
+                'email' => $request->input('email'),
+                'logo_url' => $request->input('logo_url'),
+                'profession' => $request->input('profession'),
+                'department_type' => $request->input('department_type', $department->department_type ?? 'resell'),
+            ]);
             DB::commit();
 
             return $this->fsSuccess("Department updated successfully");

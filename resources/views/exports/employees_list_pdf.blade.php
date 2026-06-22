@@ -26,7 +26,7 @@
             border-radius: 8px;
             color: #4b5563;
         }
-        table { width: 100%; border-collapse: collapse; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
         thead th {
             background: #111827;
             color: #fff;
@@ -36,7 +36,8 @@
             padding: 8px 6px;
             text-align: left;
         }
-        tbody td { padding: 7px 6px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+        tbody tr { height: 72px; }
+        tbody td { padding: 10px 6px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
         .center { text-align: center; }
         .nowrap { white-space: nowrap; }
         .active {
@@ -57,6 +58,10 @@
             font-size: 9px;
             font-weight: 700;
         }
+        .sign-line {
+            height: 54px;
+            border-bottom: 1px solid #9ca3af;
+        }
     </style>
 </head>
 <body>
@@ -72,13 +77,13 @@
             @endif
         </div>
         <div class="header-right">
-            <div class="title">Employees List</div>
-            <div class="subtitle">Server export</div>
+            <div class="title">{{ $title ?? 'Employees List' }}</div>
+            <div class="subtitle">{{ $subtitle ?? 'Server export' }}</div>
         </div>
     </div>
 
     <div class="meta">
-        <strong>Search:</strong> {{ $searchValue !== '' ? $searchValue : 'All employees' }}
+        <strong>Scope:</strong> {{ $scopeLabel ?? ($searchValue !== '' ? 'Search: ' . $searchValue : 'All employees') }}
         <br>
         <strong>Total:</strong> {{ count($employees) }} employees
     </div>
@@ -86,36 +91,24 @@
     <table>
         <thead>
             <tr>
-                <th style="width:4%;">#</th>
-                <th style="width:18%;">Name</th>
-                <th style="width:14%;">Phone</th>
-                <th style="width:18%;">Email</th>
-                <th style="width:10%;">NIN</th>
-                <th style="width:10%;">Birth date</th>
-                <th style="width:12%;">Birth city</th>
-                <th style="width:12%;">Status</th>
+                <th style="width:10%;">ID</th>
+                <th style="width:22%;">Name</th>
+                <th style="width:22%;">Surname</th>
+                <th style="width:23%;">Signature</th>
+                <th style="width:23%;">Fingerprint</th>
             </tr>
         </thead>
         <tbody>
             @forelse($employees as $index => $employee)
                 <tr>
-                    <td class="center">{{ $index + 1 }}</td>
-                    <td><strong>{{ trim(($employee->name ?? '') . ' ' . ($employee->surname ?? '')) }}</strong></td>
-                    <td class="nowrap">{{ $employee->phone ?: '-' }}</td>
-                    <td>{{ $employee->email ?: '-' }}</td>
-                    <td class="nowrap">{{ $employee->NIN ?: '-' }}</td>
-                    <td class="nowrap">{{ $employee->birthdate ? \Illuminate\Support\Carbon::parse($employee->birthdate)->format('Y-m-d') : '-' }}</td>
-                    <td>{{ $employee->birthCity?->name ?: '-' }}</td>
-                    <td class="center">
-                        <span class="{{ $employee->active ? 'active' : 'inactive' }}">
-                            {{ $employee->active ? 'Active' : 'Inactive' }}
-                        </span>
-                    </td>
+                    <td class="center nowrap">{{ $employee->id }}</td>
+                    <td><strong>{{ $employee->name ?: '-' }}</strong></td>
+                    <td>{{ $employee->surname ?: '-' }}</td>
+                    <td><div class="sign-line">&nbsp;</div></td>
+                    <td><div class="sign-line">&nbsp;</div></td>
                 </tr>
             @empty
-                <tr>
-                    <td colspan="8" class="center muted" style="padding:18px;">No employees found</td>
-                </tr>
+                <tr><td colspan="5" class="center muted" style="padding:18px;">No employees found</td></tr>
             @endforelse
         </tbody>
     </table>

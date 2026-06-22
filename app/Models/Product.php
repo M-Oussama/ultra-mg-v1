@@ -42,6 +42,7 @@ class Product extends Model
         'SKU',
         'min_stock_level',
         'price',
+        'cost_price',
         'is_available',
         'tax_rate',
         'type_id',
@@ -56,6 +57,7 @@ class Product extends Model
     protected $casts = [
         'stockable' => 'boolean',
         'price' => 'double',
+        'cost_price' => 'double',
         'tax_rate' => 'double',
         'weight' => 'double',
         'min_stock_level' => 'integer',
@@ -71,7 +73,7 @@ class Product extends Model
     }
 
     protected $with = [
-        'productStock', 'department'
+        'productStock', 'department', 'extraCosts'
     ];
 
     public function productStock() {
@@ -80,6 +82,24 @@ class Product extends Model
 
     public function department() {
         return $this->belongsTo(Department::class);
+    }
+
+    public function extraCosts()
+    {
+        return $this->hasMany(ProductExtraCost::class)->orderBy('effective_from')->orderBy('id');
+    }
+
+    public function sharedCostAssignments()
+    {
+        return $this->hasMany(ProductCostComponentAssignment::class)
+            ->with(['component.prices']);
+    }
+
+    public function sharedCostComponents()
+    {
+        return $this->belongsToMany(ProductCostComponent::class, 'product_cost_component_assignments', 'product_id', 'component_id')
+            ->withPivot(['quantity', 'notes'])
+            ->withTimestamps();
     }
 
     public static function getAllProductsFormatted()
