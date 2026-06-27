@@ -491,6 +491,71 @@ const navigateToEmployeeContract = employee => {
                     size="x-small"
                     color="default"
                     variant="text"
+                  >
+                    <VIcon
+                      size="22"
+                      icon="tabler-download"
+                    />
+                    <VMenu activator="parent">
+                      <VList density="compact">
+                        <VListItem
+                          v-if="employee.BC"
+                          value="BC"
+                          :href="employee.BC"
+                          download
+                        >
+                          <template #prepend>
+                            <VIcon
+                              size="22"
+                              class="me-3"
+                              icon="tabler-download"
+                            />
+                          </template>
+
+                          <VListItemTitle>Birth Certificate</VListItemTitle>
+                        </VListItem>
+
+                        <VListItem
+                          v-if="employee.NC"
+                          value="NC"
+                          :href="employee.NC"
+                          download
+                        >
+                          <template #prepend>
+                            <VIcon
+                              size="22"
+                              class="me-3"
+                              icon="tabler-download"
+                            />
+                          </template>
+
+                          <VListItemTitle>National Card</VListItemTitle>
+                        </VListItem>
+
+                        <VListItem
+                          v-if="!employee.BC && !employee.NC"
+                          value="empty"
+                          disabled
+                        >
+                          <template #prepend>
+                            <VIcon
+                              size="22"
+                              class="me-3"
+                              icon="tabler-file-off"
+                            />
+                          </template>
+
+                          <VListItemTitle>No documents available</VListItemTitle>
+                        </VListItem>
+                      </VList>
+                    </VMenu>
+                  </VBtn>
+
+                  <VBtn
+                    icon
+                    size="x-small"
+                    color="default"
+                    variant="text"
                     :to="{ name: 'apps-attendance-employees-id', params: { id: employee.id } }"
                   >
                     <VIcon
@@ -522,18 +587,6 @@ const navigateToEmployeeContract = employee => {
                     <VIcon
                       size="22"
                       icon="tabler-trash"
-                    />
-                  </VBtn>
-
-                  <VBtn
-                    icon
-                    size="x-small"
-                    color="default"
-                    variant="text"
-                  >
-                    <VIcon
-                      size="22"
-                      icon="tabler-dots-vertical"
                     />
                   </VBtn>
                 </td>

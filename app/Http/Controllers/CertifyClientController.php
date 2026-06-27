@@ -32,11 +32,23 @@ class CertifyClientController extends Controller
         $searchValue = $request->input('searchValue', '');
         $perPage = $request->input('perPage', 10);
         $currentPage = $request->input('currentPage', 1);
+        $subCertifyOnly = filter_var(
+            $request->input('sub_certify_only', false),
+            FILTER_VALIDATE_BOOLEAN
+        );
 
-        $clientsQuery = CertifyClient::with(['city'])->when($searchValue, function ($queryBuilder) use ($searchValue) {
-            $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
-                ->orWhere('surname', 'LIKE', '%' . $searchValue . '%');
-        });
+        $clientsQuery = CertifyClient::with(['city', 'media'])
+            ->when($subCertifyOnly, function ($queryBuilder) {
+                $queryBuilder->where('is_sub_certify', true);
+            })
+            ->when($searchValue, function ($queryBuilder) use ($searchValue) {
+                $queryBuilder->where(function ($query) use ($searchValue) {
+                    $query->where('name', 'LIKE', '%' . $searchValue . '%')
+                        ->orWhere('surname', 'LIKE', '%' . $searchValue . '%');
+                });
+            })
+            ->orderBy('name')
+            ->orderBy('surname');
 
         $clientsAll = (clone $clientsQuery)->get();
         $clientsPage = $clientsQuery->paginate($perPage, ['*'], 'page', $currentPage);
@@ -44,7 +56,7 @@ class CertifyClientController extends Controller
         $totalClients = $clientsPage->total();
         $totalPage = ceil($totalClients / $perPage);
 
-        $cities = City::all();
+        $cities = City::orderBy('name')->get();
 
         return response()->json([
             "clients" => $clientsPage,
@@ -52,6 +64,23 @@ class CertifyClientController extends Controller
             "totalPage" => $totalPage,
             "totalClients" => $totalClients,
             'cities' => $cities
+        ]);
+    }
+
+    /**
+     * Get all cities for certify client dropdowns.
+     */
+    #[OA\Get(
+        path: "/api/certify-clients/cities",
+        operationId: "getCertifyClientCities",
+        description: "Returns the list of cities for certify clients",
+        tags: ["certify-clients"],
+    )]
+    #[OA\Response(response: 200, description: "Success")]
+    public function getCities(): JsonResponse
+    {
+        return response()->json([
+            'cities' => City::orderBy('name')->get(),
         ]);
     }
 
@@ -82,6 +111,7 @@ class CertifyClientController extends Controller
             new OA\Property(property: "NART", type: "string", example: "NART"),
             new OA\Property(property: "NIF", type: "string", example: "NIF"),
             new OA\Property(property: "is_nif_active", type: "boolean", example: true),
+            new OA\Property(property: "is_sub_certify", type: "boolean", example: false),
             new OA\Property(property: "email", type: "string", example: "doe@gmail.com"),
         ]
     )])]
@@ -91,27 +121,41 @@ class CertifyClientController extends Controller
     )])]
     public function store(Request $request): JsonResponse
     {
-        $validatedData = $request->validate([
+        $payload = $this->normalizeCertifyClientPayload($request);
+        $validator = Validator::make($payload, [
             'name' => 'required|string|max:255',
             'city_id' => 'required|integer',
-            'surname' => 'string|nullable|max:255',
-            'profession' => 'string|nullable|max:255',
-            'phone' => 'string|nullable|max:255',
-            'address' => 'string|nullable|max:255',
-            'NRC' => 'string|nullable|max:255',
+            'surname' => 'nullable|string|max:255',
+            'profession' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'NRC' => 'nullable|string|max:255',
             'is_cnrc_active' => 'nullable|boolean',
-            'NIF' => 'string|nullable|max:255',
+            'NIF' => 'nullable|string|max:255',
             'is_nif_active' => 'nullable|boolean',
-            'NART' => 'string|nullable|max:255',
-            'NIS' => 'string|nullable|max:255',
+            'is_sub_certify' => 'nullable|boolean',
+            'NART' => 'nullable|string|max:255',
+            'NIS' => 'nullable|string|max:255',
             'email' => 'nullable|email',
+            'pdf_file' => 'nullable|file|mimes:pdf|max:10240',
+            'nif_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
+            'cnrc_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
         ]);
 
-        $client = CertifyClient::create($validatedData);
-        $client->full_name = $client->surname ? $client->name.' '.$client->surname : $client->name;
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $client = CertifyClient::create($validator->validated());
+        $client->full_name = $client->surname ? $client->name . ' ' . $client->surname : $client->name;
         $client->save();
 
-        return response()->json(['message' => 'Certify Client created successfully', 'client' => $client]);
+        $this->syncCertifyClientMedia($client, $request);
+
+        return response()->json([
+            'message' => 'Certify Client created successfully',
+            'client' => $client->fresh(['city']),
+        ]);
     }
 
     /**
@@ -141,33 +185,106 @@ class CertifyClientController extends Controller
             new OA\Property(property: "NART", type: "string", example: "NART"),
             new OA\Property(property: "NIF", type: "string", example: "NIF"),
             new OA\Property(property: "is_nif_active", type: "boolean", example: true),
+            new OA\Property(property: "is_sub_certify", type: "boolean", example: false),
             new OA\Property(property: "email", type: "string", example: "doe@gmail.com"),
         ]
     )])]
     #[OA\Response(response:200, description: "Success")]
     public function update(int $id, Request $request): JsonResponse
     {
-        $validatedData = $request->validate([
+        $client = CertifyClient::findOrFail($id);
+        $payload = $this->normalizeCertifyClientPayload($request);
+        $validator = Validator::make($payload, [
             'name' => 'nullable|string|max:255',
             'surname' => 'nullable|string|max:255',
             'profession' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:255',
             'address' => 'nullable|string|max:255',
+            'city_id' => 'nullable|integer',
             'NRC' => 'nullable|string|max:255',
             'is_cnrc_active' => 'nullable|boolean',
             'NIF' => 'nullable|string|max:255',
             'is_nif_active' => 'nullable|boolean',
+            'is_sub_certify' => 'nullable|boolean',
             'NART' => 'nullable|string|max:255',
             'NIS' => 'nullable|string|max:255',
             'email' => 'nullable|email',
+            'pdf_file' => 'nullable|file|mimes:pdf|max:10240',
+            'nif_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
+            'cnrc_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
         ]);
 
-        $client = CertifyClient::findOrFail($id);
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $validatedData = $validator->validated();
+
         $client->update($validatedData);
-        $client->full_name = $client->surname ? $client->name.' '.$client->surname : $client->name;
+        $client->full_name = $client->surname ? $client->name . ' ' . $client->surname : $client->name;
         $client->save();
 
-        return response()->json(['message' => 'Certify Client updated successfully', 'client' => $client]);
+        $this->syncCertifyClientMedia($client, $request);
+
+        return response()->json([
+            'message' => 'Certify Client updated successfully',
+            'client' => $client->fresh(['city']),
+        ]);
+    }
+
+    private function normalizeCertifyClientPayload(Request $request): array
+    {
+        $payload = $request->all();
+
+        $payload['NRC'] = $this->requestFieldValue($request, 'NRC', 'nrc');
+        $payload['NIF'] = $this->requestFieldValue($request, 'NIF', 'nif');
+        $payload['NART'] = $this->requestFieldValue($request, 'NART', 'nart');
+        $payload['NIS'] = $this->requestFieldValue($request, 'NIS', 'nis');
+        if ($request->has('is_sub_certify') || $request->has('isSubCertify')) {
+            $payload['is_sub_certify'] = $this->requestFieldValue(
+                $request,
+                'is_sub_certify',
+                'isSubCertify'
+            );
+        }
+
+        return $payload;
+    }
+
+    private function requestFieldValue(Request $request, string $primaryField, string $fallbackField)
+    {
+        $primaryValue = $request->input($primaryField);
+        if ($primaryValue !== null && $primaryValue !== '') {
+            return $primaryValue;
+        }
+
+        return $request->input($fallbackField);
+    }
+
+    private function syncCertifyClientMedia(CertifyClient $client, Request $request): void
+    {
+        if ($request->hasFile('pdf_file')) {
+            $client->clearMediaCollection('pdf_file');
+            $client->addMediaFromRequest('pdf_file')->toMediaCollection('pdf_file');
+        }
+
+        if ($client->is_nif_active) {
+            if ($request->hasFile('nif_file')) {
+                $client->clearMediaCollection('nif_file');
+                $client->addMediaFromRequest('nif_file')->toMediaCollection('nif_file');
+            }
+        } else {
+            $client->clearMediaCollection('nif_file');
+        }
+
+        if ($client->is_cnrc_active) {
+            if ($request->hasFile('cnrc_file')) {
+                $client->clearMediaCollection('cnrc_file');
+                $client->addMediaFromRequest('cnrc_file')->toMediaCollection('cnrc_file');
+            }
+        } else {
+            $client->clearMediaCollection('cnrc_file');
+        }
     }
 
     /**
@@ -196,7 +313,7 @@ class CertifyClientController extends Controller
      *
      * Accepted CSV headers:
      * name (required), surname, profession, address, phone, NRC, is_cnrc_active,
-     * NIF, is_nif_active, NART, NIS, email, city_id or city
+     * NIF, is_nif_active, is_sub_certify, NART, NIS, email, city_id or city
      */
     public function importCsv(Request $request): JsonResponse
     {
@@ -267,6 +384,7 @@ class CertifyClientController extends Controller
                 'is_cnrc_active' => filter_var($rowData['is_cnrc_active'] ?? false, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false,
                 'NIF' => $rowData['nif'] ?? null,
                 'is_nif_active' => filter_var($rowData['is_nif_active'] ?? false, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false,
+                'is_sub_certify' => filter_var($rowData['is_sub_certify'] ?? false, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false,
                 'NART' => $rowData['nart'] ?? null,
                 'NIS' => $rowData['nis'] ?? null,
                 'email' => $rowData['email'] ?? null,
@@ -283,6 +401,7 @@ class CertifyClientController extends Controller
                 'is_cnrc_active' => 'nullable|boolean',
                 'NIF' => 'nullable|string|max:255',
                 'is_nif_active' => 'nullable|boolean',
+                'is_sub_certify' => 'nullable|boolean',
                 'NART' => 'nullable|string|max:255',
                 'NIS' => 'nullable|string|max:255',
                 'email' => 'nullable|email',

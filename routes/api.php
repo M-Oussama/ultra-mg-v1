@@ -36,6 +36,7 @@ use App\Http\Controllers\CashbookMemberController;
 use App\Http\Controllers\CashbookLookupController;
 use App\Http\Controllers\PushTokenController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\SubCertifyInvoiceController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -160,6 +161,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /** Certify Clients */
     Route::get('/certify-clients/list', [\App\Http\Controllers\CertifyClientController::class, 'getClients'])->middleware('permission:list,certify_invoices')->name('getCertifyClients');
+    Route::get('/certify-clients/cities', [\App\Http\Controllers\CertifyClientController::class, 'getCities'])->middleware('permission:list,certify_invoices')->name('getCertifyClientCities');
     Route::post('/certify-clients/store', [\App\Http\Controllers\CertifyClientController::class, 'store'])->middleware('permission:add,certify_invoices')->name('storeCertifyClient');
     Route::post('/certify-clients/import-csv', [\App\Http\Controllers\CertifyClientController::class, 'importCsv'])->middleware('permission:add,certify_invoices')->name('importCertifyClientCsv');
     Route::post('/certify-clients/update/{id}', [\App\Http\Controllers\CertifyClientController::class, 'update'])->middleware('permission:edit,certify_invoices')->name('updateCertifyClient');
@@ -335,13 +337,15 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::group(['prefix' => 'sub-certify-invoices'], function () {
-        Route::get('/list', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoices'])->middleware('permission:list,certify_invoices');
-        Route::get('/getInvoice/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoice'])->middleware('permission:list,certify_invoices');
-        Route::post('/store', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'store'])->middleware('permission:add,certify_invoices');
-        Route::post('/update/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'update'])->middleware('permission:edit,certify_invoices');
-        Route::delete('/delete/{id}', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'delete'])->middleware('permission:delete,certify_invoices');
-        Route::get('/getInvoiceData', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getInvoiceData'])->middleware('permission:list,certify_invoices');
-        Route::get('/getLastID', [\App\Http\Controllers\SubCertifyInvoiceController::class, 'getLastID'])->middleware('permission:list,certify_invoices');
+        Route::get('/list', [SubCertifyInvoiceController::class, 'getInvoices'])->middleware('permission:list,certify_invoices');
+        Route::get('/getInvoice/{id}', [SubCertifyInvoiceController::class, 'getInvoice'])->middleware('permission:list,certify_invoices');
+        Route::post('/store', [SubCertifyInvoiceController::class, 'store'])->middleware('permission:add,certify_invoices');
+        Route::post('/update/{id}', [SubCertifyInvoiceController::class, 'update'])->middleware('permission:edit,certify_invoices');
+        Route::delete('/delete/{id}', [SubCertifyInvoiceController::class, 'delete'])->middleware('permission:delete,certify_invoices');
+        Route::post('/import-csv', [SubCertifyInvoiceController::class, 'importCsv'])->middleware('permission:add,certify_invoices');
+        Route::post('/import-products-csv', [SubCertifyInvoiceController::class, 'importProductsCsv'])->middleware('permission:add,certify_invoices');
+        Route::get('/getInvoiceData', [SubCertifyInvoiceController::class, 'getInvoiceData'])->middleware('permission:list,certify_invoices');
+        Route::get('/getLastID', [SubCertifyInvoiceController::class, 'getLastID'])->middleware('permission:list,certify_invoices');
     });
 
     Route::group(['prefix' => 'returns'], function () {

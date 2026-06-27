@@ -43,7 +43,25 @@ class EmployeeController extends Controller
             }
         }
 
-        $employees = $query->paginate($perPage, ['*'], 'page', $currentPage);
+        $employees = $query->with([
+            'employeeCareer' => function ($careerQuery) {
+                $careerQuery->orderByDesc('start_date')->orderByDesc('id');
+            },
+        ])->paginate($perPage, ['*'], 'page', $currentPage);
+
+        $employees->getCollection()->transform(function (Employee $employee) {
+            $latestCareer = $employee->employeeCareer->first();
+
+            $birthCertificate = $latestCareer?->getMedia('birth_certificate')->first();
+            $nationalCard = $latestCareer?->getMedia('national_card')->first();
+
+            $employee->setAttribute('BC', $birthCertificate?->getUrl());
+            $employee->setAttribute('NC', $nationalCard?->getUrl());
+            $employee->unsetRelation('employeeCareer');
+
+            return $employee;
+        });
+
         $totalEmployees = $employees->total(); // Total number of users matching the query
         $totalPage = ceil($totalEmployees / $perPage); // Calculate total pages
         $cities = City::all();
