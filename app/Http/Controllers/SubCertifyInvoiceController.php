@@ -70,9 +70,17 @@ class SubCertifyInvoiceController extends Controller
         $invoiceData = $request->input('invoiceData');
         $client = $invoiceData['client'];
         $fac_id = $invoiceData['fac_id'];
+        $parentInvoiceId = data_get($invoiceData, 'certify_invoice_id')
+            ?? data_get($invoiceData, 'certifyInvoiceId');
+
+        if ($parentInvoiceId === null || $parentInvoiceId === '') {
+            return response()->json([
+                'message' => 'Missing certify_invoice_id.',
+            ], 422);
+        }
 
         $invoice = SubCertifyInvoices::create([
-            'certify_invoice_id' => $invoiceData['certify_invoice_id'],
+            'certify_invoice_id' => $parentInvoiceId,
             'fac_id' => $fac_id,
             'date' => $invoiceData['date'],
             'client_id' => $client['id'],
@@ -135,10 +143,13 @@ class SubCertifyInvoiceController extends Controller
         $invoiceData = $request->input('invoiceData');
         $client = $invoiceData['client'];
 
-        $invoice = SubCertifyInvoices::find($invoiceData['id']);
+        $invoice = SubCertifyInvoices::findOrFail(data_get($invoiceData, 'id'));
+        $parentInvoiceId = data_get($invoiceData, 'certify_invoice_id')
+            ?? data_get($invoiceData, 'certifyInvoiceId')
+            ?? $invoice->certify_invoice_id;
 
         $invoice->update([
-            'certify_invoice_id' => $invoiceData['certify_invoice_id'],
+            'certify_invoice_id' => $parentInvoiceId,
             'date' => $invoiceData['date'],
             'client_id' => $client['id'],
             'amount' => $invoiceData['total'] ?? $invoiceData['amount'] ?? 0,

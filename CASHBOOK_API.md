@@ -74,6 +74,12 @@ Adds an income or expense record to a specific cashbook.
 | `amount` | decimal | Yes | Positive numeric value |
 | `note` | string | No | Short description |
 | `transaction_date` | date | Yes | Format: `YYYY-MM-DD` |
+| `attachment` | file | No | Single image or PDF attachment |
+| `attachments[]` | file[] | No | Multiple image or PDF attachments |
+
+### 📡 Get Transaction Detail
+Returns a single transaction with its attachments and related lookup data.
+- **Endpoint**: `GET /api/transactions/{id}`
 
 ### 📡 Update Transaction
 - **Endpoint**: `PUT /api/transactions/{id}`

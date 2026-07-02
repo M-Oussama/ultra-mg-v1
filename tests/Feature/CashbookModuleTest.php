@@ -194,6 +194,54 @@ class CashbookModuleTest extends TestCase
             ->assertStatus(404);
     }
 
+    public function test_transactions_accept_attachment_arrays_on_create_and_update(): void
+    {
+        $admin = $this->seedAdminUser();
+        Sanctum::actingAs($admin);
+
+        $cashbookId = $this->createCashbook('Attachment Array Cashbook', 'Validates multi-file uploads');
+
+        $createResponse = $this->createTransaction($cashbookId, [
+            'type' => 'income',
+            'amount' => '44.00',
+            'note' => 'Batch receipt import',
+            'transaction_date' => '2026-06-14',
+            'attachments' => [
+                UploadedFile::fake()->image('receipt-a.jpg'),
+                UploadedFile::fake()->image('receipt-b.jpg'),
+            ],
+        ]);
+
+        $createResponse->assertCreated();
+        $createResponse->assertJsonPath('transaction.attachments.0.file_name', 'receipt-a.jpg');
+        $createResponse->assertJsonPath('transaction.attachments.1.file_name', 'receipt-b.jpg');
+
+        $transactionId = (int) $createResponse->json('transaction.id');
+
+        $updateResponse = $this->updateTransaction($transactionId, [
+            'type' => 'income',
+            'amount' => '55.00',
+            'note' => 'Batch receipt updated',
+            'transaction_date' => '2026-06-14',
+            'transaction_time' => '09:15:00',
+            'replace_attachments' => true,
+            'attachments' => [
+                UploadedFile::fake()->image('receipt-c.jpg'),
+            ],
+        ]);
+
+        $updateResponse->assertOk();
+        $updateResponse->assertJsonPath('transaction.amount', 55);
+        $updateResponse->assertJsonPath('transaction.attachments.0.file_name', 'receipt-c.jpg');
+        $updateResponse->assertJsonCount(1, 'transaction.attachments');
+
+        $detailResponse = $this->getJson("/api/transactions/{$transactionId}");
+        $detailResponse->assertOk();
+        $detailResponse->assertJsonPath('transaction.id', $transactionId);
+        $detailResponse->assertJsonPath('transaction.attachments.0.file_name', 'receipt-c.jpg');
+        $detailResponse->assertJsonCount(1, 'transaction.attachments');
+    }
+
     public function test_business_creation_endpoint_updates_the_current_business(): void
     {
         $admin = $this->seedAdminUser();
@@ -386,14 +434,10 @@ class CashbookModuleTest extends TestCase
     private function createTransaction(int $cashbookId, array $payload)
     {
         $data = array_filter($payload, static fn ($value) => $value !== null);
-        $attachment = $data['attachment'] ?? null;
-        unset($data['attachment']);
 
-        $response = $attachment instanceof UploadedFile
-            ? $this->post("/api/cashbooks/{$cashbookId}/transactions", array_merge($data, ['attachment' => $attachment]))
+        return $this->payloadContainsFile($data)
+            ? $this->post("/api/cashbooks/{$cashbookId}/transactions", $data)
             : $this->postJson("/api/cashbooks/{$cashbookId}/transactions", $data);
-
-        return $response;
     }
 
     /**
@@ -402,12 +446,25 @@ class CashbookModuleTest extends TestCase
     private function updateTransaction(int $transactionId, array $payload)
     {
         $data = array_filter($payload, static fn ($value) => $value !== null);
-        $attachment = $data['attachment'] ?? null;
-        unset($data['attachment']);
 
-        return $attachment instanceof UploadedFile
-            ? $this->post("/api/transactions/{$transactionId}", array_merge(['_method' => 'PUT'], $data, ['attachment' => $attachment]))
+        return $this->payloadContainsFile($data)
+            ? $this->post("/api/transactions/{$transactionId}", array_merge(['_method' => 'PUT'], $data))
             : $this->postJson("/api/transactions/{$transactionId}", array_merge(['_method' => 'PUT'], $data));
+    }
+
+    private function payloadContainsFile(array $payload): bool
+    {
+        foreach ($payload as $value) {
+            if ($value instanceof UploadedFile) {
+                return true;
+            }
+
+            if (is_array($value) && $this->payloadContainsFile($value)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function seedAdminUser(): User

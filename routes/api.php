@@ -227,6 +227,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pdf/sale-delivery/{id}', [PDFController::class, 'exportSaleDeliveryNote'])->middleware('permission:list,sales')->name('exportSaleDeliveryPdf');
     Route::get('/pdf/sale-preparation/{id}', [PDFController::class, 'exportSalePreparationNote'])->middleware('permission:list,sales')->name('exportSalePreparationNote');
     Route::get('/pdf/certify-invoice/{id}', [PDFController::class, 'exportCertifyInvoice'])->middleware('permission:list,certify_invoices')->name('exportCertifyInvoice');
+    Route::get('/pdf/sub-certify-invoice/{id}', [PDFController::class, 'exportSubCertifyInvoice'])->middleware('permission:list,certify_invoices')->name('exportSubCertifyInvoice');
     Route::get('/pdf/multi-certify-invoices', [PDFController::class, 'exportMultiCertifyInvoices'])->middleware('permission:list,certify_invoices')->name('exportMultiCertifyInvoices');
     Route::get('/pdf/products/list', [PDFController::class, 'exportProductsList'])->middleware('permission:list,products')->name('exportProductsList');
     Route::get('/pdf/clients/list', [PDFController::class, 'exportClientsList'])->middleware('permission:list,clients')->name('exportClientsList');
@@ -508,6 +509,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
     // Standalone Transactions
     Route::group(['prefix' => 'transactions'], function () {
+        Route::get('/{id}', [TransactionController::class, 'show'])->middleware('permission:list,transactions');
         Route::match(['put', 'post'], '/{id}', [TransactionController::class, 'update'])->middleware('permission:edit,transactions');
         Route::delete('/{id}', [TransactionController::class, 'destroy'])->middleware('permission:delete,transactions');
     });

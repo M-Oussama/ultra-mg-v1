@@ -130,36 +130,62 @@ class FakeDataSeeder extends Seeder
     }
 
     public function companies() {
-        $companies = [
-            [
-                'name' => 'EURL SETIFIS DETERGENT',
-                'description' => "PRODUCTION DES PRODUITS DENTRETIEN",
-                'address' => 'ZONE INDUSTRIELLE LOT 34 Section 6 Groupe 51 KASR EL ABTAL SETIF',
-                'email' => 'detergentsetifis@gmail.com',
-                'phone' => '0668154145',
-                'NRC' => '19/-55425995626',
-                'NIF' => '56525686639683',
-                'NART' => '565686868',
-                'NIS' => '65656356888989',
-                'capitale' => '1 000 000 00 DA',
-            ],
-            [
-                'name' => 'DISTRIBUTION ET VENTS EN GROS',
-                'description' => "DISTRIBUTION ET VENTS EN GROS DES PRODUITS DENTRETIEN",
-                'address' => 'EL-DJEBAS GUELLAL SETIF',
-                'email' => '',
-                'phone' => '054000727228/0792128220/0796625691',
-                'NRC' => '19/-55425995626',
-                'NIF' => '56525686639683',
-                'NART' => '565686868',
-                'NIS' => '65656356888989',
-                'capitale' => '',
-            ],
-        ];
+        $now = now();
 
-        foreach ($companies as $company) {
-            Company::firstOrCreate(['name' => $company['name']], $company);
-        }
+        Company::upsert(
+            [
+                [
+                    'id' => 1,
+                    'name' => 'EURL SETIFIS DETERGENTS',
+                    'description' => 'COOPERATIVE IMMOBILIERE EL AFAK 270 GROUPE 65 LOT A SETIF',
+                    'address' => '',
+                    'address2' => '',
+                    'email' => 'ultranew19@gmail.com',
+                    'phone' => '0790.15.92.60',
+                    'NRC' => '19/01-0090505B13',
+                    'NIF' => '0013190090055719001',
+                    'NART' => '19019071023',
+                    'NIS' => '',
+                    'capitale' => '11000000',
+                    'show_company_info' => true,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+                [
+                    'id' => 2,
+                    'name' => 'EURL SETIFIS DETERGENTS',
+                    'description' => 'FABRICATION DES PRODUITS DE BLANCHISSANTS ET CONNEXES',
+                    'address' => 'Lot N° 34 Section 6 Groupe 51 KASR EL ABTAL',
+                    'address2' => '',
+                    'email' => 'ultranew19@gmail.com',
+                    'phone' => '0790.15.92.60',
+                    'NRC' => '19/00-0090505B13',
+                    'NIF' => '001319009050557',
+                    'NART' => '19521701120',
+                    'NIS' => '001319010024074',
+                    'capitale' => '11000000',
+                    'show_company_info' => true,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+            ],
+            ['id'],
+            [
+                'name',
+                'description',
+                'address',
+                'address2',
+                'email',
+                'phone',
+                'NRC',
+                'NIF',
+                'NART',
+                'NIS',
+                'capitale',
+                'show_company_info',
+                'updated_at',
+            ]
+        );
     }
 
     public function createEmployees() {

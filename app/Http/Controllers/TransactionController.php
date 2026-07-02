@@ -6,6 +6,7 @@ use App\Models\Cashbook;
 use App\Models\Transaction;
 use App\Services\CashbookNotificationService;
 use App\Services\CashbookService;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -75,6 +76,15 @@ class TransactionController extends Controller
             'meta' => [
                 'count' => count($transactions),
             ],
+        ]);
+    }
+
+    public function show(Request $request, $id)
+    {
+        $transaction = $this->findTransactionOrFail($request, (int) $id);
+
+        return response()->json([
+            'transaction' => $this->cashbookService->formatTransaction($transaction),
         ]);
     }
 
@@ -155,6 +165,7 @@ class TransactionController extends Controller
             ->where('cashbook_id', $cashbook->id)
             ->with(['contact', 'category', 'paymentMode', 'media', 'user'])
             ->orderByDesc('transaction_date')
+            ->orderByRaw('transaction_time is null')
             ->orderByDesc('transaction_time')
             ->orderByDesc('id');
     }
@@ -189,7 +200,16 @@ class TransactionController extends Controller
                 }),
             ]),
             'attachment' => ['sometimes', 'file', 'mimetypes:image/jpeg,image/png,image/webp,image/gif,application/pdf', 'max:10240'],
-            'attachments' => ['sometimes', 'array'],
+            'attachments' => [
+                'sometimes',
+                function ($attribute, $value, $fail) {
+                    if (is_array($value) || $value instanceof UploadedFile) {
+                        return;
+                    }
+
+                    $fail('The attachments field must be a file or an array of files.');
+                },
+            ],
             'attachments.*' => ['file', 'mimetypes:image/jpeg,image/png,image/webp,image/gif,application/pdf', 'max:10240'],
             'deleted_attachments' => ['sometimes', 'array'],
             'deleted_attachments.*' => ['string'],

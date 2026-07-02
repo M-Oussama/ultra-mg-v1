@@ -201,6 +201,7 @@ class CashbookController extends Controller
             ->where('cashbook_id', $cashbook->id)
             ->with(['contact', 'category', 'paymentMode', 'media', 'user'])
             ->orderBy('transaction_date', 'desc')
+            ->orderByRaw('transaction_time is null')
             ->orderBy('transaction_time', 'desc')
             ->orderBy('id', 'desc');
 
