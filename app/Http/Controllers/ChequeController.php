@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Collection;
 use OpenApi\Attributes as OA;
 
 class ChequeController extends Controller
@@ -25,7 +26,7 @@ class ChequeController extends Controller
     )]
     public function getCheques()
     {
-        $cheques = Cheque::with('client')->get();
+        $cheques = $this->attachUsageStats(Cheque::with('client')->get());
         return response()->json($cheques);
     }
 
@@ -78,6 +79,8 @@ class ChequeController extends Controller
         }
 
         $cheque = Cheque::create($data);
+        $cheque->load('client');
+        $cheque = $this->attachUsageStats(collect([$cheque]))->first();
 
         return response()->json($cheque, 201);
     }
@@ -139,6 +142,8 @@ class ChequeController extends Controller
         }
 
         $cheque->update($data);
+        $cheque->load('client');
+        $cheque = $this->attachUsageStats(collect([$cheque]))->first();
 
         return response()->json($cheque);
     }
@@ -335,36 +340,121 @@ class ChequeController extends Controller
             'used_amount' => (float)$usedAmount,
             'remaining_balance' => (float)$remaining,
             'is_available' => ((float)$remaining > 0),
+            'usage_ratio' => $cheque->amount > 0 ? min(1, $usedAmount / $cheque->amount) : 0,
             'cheque_amount' => (float)$cheque->amount,
         ]);
     }
 
     public function getAvailable()
     {
-        $cheques = Cheque::with('client')->get()->map(function($cheque) {
-            $usedCertify = \App\Models\CertifyInvoices::where(function($q) use ($cheque) {
-                $q->where('cheque_id', $cheque->id)
-                  ->orWhere(function($sq) use ($cheque) {
-                      $sq->whereNotNull('cheque_number')->where('cheque_number', $cheque->cheque_number);
-                  });
-            })->sum('amount');
-            
-            $usedSub = \App\Models\SubCertifyInvoices::where(function($q) use ($cheque) {
-                $q->where('cheque_id', $cheque->id)
-                  ->orWhere(function($sq) use ($cheque) {
-                      $sq->whereNotNull('cheque_number')->where('cheque_number', $cheque->cheque_number);
-                  });
-            })->sum('amount');
-            
-            $used = $usedCertify + $usedSub;
-            $cheque->used_amount = $used;
-            $cheque->remaining_balance = max(0, $cheque->amount - $used);
-            return $cheque;
-        })->filter(function($cheque) {
-            return $cheque->remaining_balance > 0;
-        })->values();
+        $cheques = $this->attachUsageStats(Cheque::with('client')->get())
+            ->filter(function ($cheque) {
+                return $cheque->remaining_balance > 0;
+            })
+            ->values();
 
         return response()->json($cheques);
+    }
+
+    /**
+     * Enrich a cheque collection with usage totals from certify and sub-certify invoices.
+     *
+     * The usage calculation matches the server-side cheque status checks:
+     * a row counts toward a cheque when it references the cheque by ID or by cheque number.
+     */
+    private function attachUsageStats(Collection $cheques): Collection
+    {
+        $cheques = $cheques->values();
+
+        if ($cheques->isEmpty()) {
+            return $cheques;
+        }
+
+        $chequeIds = [];
+        $chequeNumbersByValue = [];
+        $usageByChequeId = [];
+
+        foreach ($cheques as $cheque) {
+            $chequeId = (int) $cheque->id;
+            $chequeIds[] = $chequeId;
+            $usageByChequeId[$chequeId] = 0.0;
+
+            $chequeNumber = (string) ($cheque->cheque_number ?? '');
+            if (trim($chequeNumber) !== '') {
+                $chequeNumbersByValue[$chequeNumber][] = $chequeId;
+            }
+        }
+
+        $chequeIdSet = array_fill_keys($chequeIds, true);
+        $chequeNumbers = array_keys($chequeNumbersByValue);
+
+        $applyUsage = function (Collection $rows) use (&$usageByChequeId, $chequeIdSet, $chequeNumbersByValue): void {
+            foreach ($rows as $row) {
+                $matchedChequeIds = [];
+
+                $rowChequeId = $row->cheque_id !== null ? (int) $row->cheque_id : null;
+                if ($rowChequeId !== null && isset($chequeIdSet[$rowChequeId])) {
+                    $matchedChequeIds[] = $rowChequeId;
+                }
+
+                $rowChequeNumber = (string) ($row->cheque_number ?? '');
+                if (trim($rowChequeNumber) !== '' && isset($chequeNumbersByValue[$rowChequeNumber])) {
+                    foreach ($chequeNumbersByValue[$rowChequeNumber] as $matchedChequeId) {
+                        $matchedChequeIds[] = $matchedChequeId;
+                    }
+                }
+
+                $matchedChequeIds = array_values(array_unique($matchedChequeIds));
+                if ($matchedChequeIds === []) {
+                    continue;
+                }
+
+                $amount = (float) ($row->amount ?? 0);
+                foreach ($matchedChequeIds as $matchedChequeId) {
+                    $usageByChequeId[$matchedChequeId] += $amount;
+                }
+            }
+        };
+
+        $certifyInvoices = \App\Models\CertifyInvoices::query()
+            ->without(['client', 'certifyInvoiceProducts', 'cheque', 'user'])
+            ->select(['id', 'amount', 'cheque_id', 'cheque_number'])
+            ->where(function ($query) use ($chequeIds, $chequeNumbers) {
+                $query->whereIn('cheque_id', $chequeIds);
+
+                if ($chequeNumbers !== []) {
+                    $query->orWhereIn('cheque_number', $chequeNumbers);
+                }
+            })
+            ->get();
+
+        $subInvoices = \App\Models\SubCertifyInvoices::query()
+            ->without(['client', 'subCertifyInvoiceProducts', 'cheque'])
+            ->select(['id', 'amount', 'cheque_id', 'cheque_number'])
+            ->where(function ($query) use ($chequeIds, $chequeNumbers) {
+                $query->whereIn('cheque_id', $chequeIds);
+
+                if ($chequeNumbers !== []) {
+                    $query->orWhereIn('cheque_number', $chequeNumbers);
+                }
+            })
+            ->get();
+
+        $applyUsage($certifyInvoices);
+        $applyUsage($subInvoices);
+
+        return $cheques->map(function ($cheque) use ($usageByChequeId) {
+            $chequeAmount = (float) ($cheque->amount ?? 0);
+            $usedAmount = (float) ($usageByChequeId[(int) $cheque->id] ?? 0);
+            $remainingBalance = max(0, $chequeAmount - $usedAmount);
+
+            $cheque->setAttribute('used_amount', $usedAmount);
+            $cheque->setAttribute('remaining_balance', $remainingBalance);
+            $cheque->setAttribute('is_available', $remainingBalance > 0);
+            $cheque->setAttribute('usage_ratio', $chequeAmount > 0 ? min(1, $usedAmount / $chequeAmount) : 0);
+
+            return $cheque;
+        })->values();
     }
 
     #[OA\Get(
