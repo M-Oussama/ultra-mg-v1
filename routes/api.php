@@ -236,6 +236,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/pdf/employees/list', [PDFController::class, 'exportEmployeesList'])->middleware('permission:list,employees')->name('exportEmployeesList');
     Route::get('/pdf/employees/history/{id}', [PDFController::class, 'exportEmployeeHistory'])->middleware('permission:list,employees')->name('exportEmployeeHistory');
     Route::get('/pdf/employees/contract-template/{careerId}', [PDFController::class, 'exportEmployeeBlankContract'])->middleware('permission:list,employees')->name('exportEmployeeBlankContract');
+    Route::get('/pdf/vacations/certificate/{careerId}', [PDFController::class, 'exportVacationCertificate'])->middleware('permission:list,vacations')->name('exportVacationCertificate');
     Route::get('/pdf/attendances/list', [PDFController::class, 'exportAttendancesList'])->middleware('permission:list,attendances')->name('exportAttendancesList');
     Route::get('/pdf/attendance-plans/monthly-work-days', [PDFController::class, 'exportMonthlyWorkDays'])->middleware('permission:list,attendances')->name('exportMonthlyWorkDays');
     Route::get('/pdf/attendance-plans/payroll-employees', [PDFController::class, 'exportPayrollEmployeesList'])->middleware('permission:list,attendances')->name('exportPayrollEmployeesList');

@@ -883,6 +883,99 @@ class PDFController extends Controller
         return $pdf->download('Employee_History_' . $employee->id . '.pdf');
     }
 
+    public function exportVacationCertificate(Request $request, int $careerId)
+    {
+        $career = EmployeeCareer::with(['employee'])->findOrFail($careerId);
+
+        if (!$career->employee) {
+            abort(404, 'Employee not found');
+        }
+
+        $variant = strtolower(trim((string) $request->query('variant', 'signed')));
+        if (!in_array($variant, ['signed', 'blank', 'both'], true)) {
+            $variant = 'signed';
+        }
+
+        $vacation = null;
+        if ($variant !== 'blank') {
+            $vacationId = $request->query('vacation_id');
+
+            if ($vacationId !== null && $vacationId !== '') {
+                $vacation = YearlyVacation::query()
+                    ->where('employee_id', $career->employee_id)
+                    ->where('employee_career_id', $career->id)
+                    ->find((int) $vacationId);
+            } else {
+                $vacation = YearlyVacation::query()
+                    ->where('employee_id', $career->employee_id)
+                    ->where('employee_career_id', $career->id)
+                    ->orderByDesc('start_date')
+                    ->orderByDesc('id')
+                    ->first();
+            }
+
+            if (!$vacation) {
+                abort(404, 'Vacation record not found');
+            }
+        }
+
+        $context = array_merge($this->companyInfoContext(), [
+            'generatedAt' => now(),
+            'career' => $career,
+            'employee' => $career->employee,
+            'vacation' => $vacation,
+            'variant' => $variant,
+            'certificateNumber' => $vacation !== null
+                ? $this->buildVacationCertificateNumber($vacation)
+                : null,
+        ]);
+
+        $employeeName = trim((string) ($career->employee->name ?? '') . ' ' . (string) ($career->employee->surname ?? ''));
+        $safeName = $employeeName !== ''
+            ? preg_replace('/[^\pL\pN]+/u', '_', $employeeName)
+            : 'Employee';
+        $safeName = trim((string) $safeName, '_');
+        if ($safeName === '') {
+            $safeName = 'Employee';
+        }
+
+        $suffix = $variant === 'both' ? 'bundle' : $variant;
+        $downloadName = sprintf(
+            'Vacation_Certificate_%s_%d_%s.pdf',
+            $safeName,
+            $career->id,
+            $suffix
+        );
+
+        $html = view('exports.vacation_certificate_pdf', $context)->render();
+        $browserPdfPath = $this->renderHtmlToPdfWithBrowser($html, 'vacation_certificate_' . $career->id . '_' . $suffix);
+
+        if ($browserPdfPath !== null) {
+            return response()->download($browserPdfPath, $downloadName)->deleteFileAfterSend(true);
+        }
+
+        $pdf = Pdf::loadView('exports.vacation_certificate_pdf', $context);
+        $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
+
+        return $pdf->download($downloadName);
+    }
+
+    private function buildVacationCertificateNumber(YearlyVacation $vacation): string
+    {
+        $seed = implode('|', [
+            'vacation-certificate',
+            (string) $vacation->id,
+            (string) $vacation->employee_id,
+            (string) $vacation->employee_career_id,
+            (string) optional($vacation->created_at)->timestamp,
+        ]);
+
+        $hash = hash_hmac('sha256', $seed, (string) config('app.key'));
+        $compact = (int) (hexdec(substr($hash, 0, 8)) % 10000);
+
+        return '00' . str_pad((string) $compact, 4, '0', STR_PAD_LEFT);
+    }
+
     public function exportEmployeeBlankContract(int $careerId)
     {
         $career = EmployeeCareer::with([

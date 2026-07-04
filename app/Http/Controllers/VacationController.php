@@ -39,11 +39,13 @@ class VacationController extends Controller
         }
 
         if ($searchValue !== '') {
-            $vacations->whereHas('employee', function ($q) use ($searchValue) {
-                $q->where(function ($nested) use ($searchValue) {
-                    $nested->where('name', 'like', '%' . $searchValue . '%')
-                        ->orWhere('surname', 'like', '%' . $searchValue . '%');
-                });
+            $vacations->where(function ($query) use ($searchValue) {
+                $query->whereHas('employee', function ($employeeQuery) use ($searchValue) {
+                    $employeeQuery->where(function ($nested) use ($searchValue) {
+                        $nested->where('name', 'like', '%' . $searchValue . '%')
+                            ->orWhere('surname', 'like', '%' . $searchValue . '%');
+                    });
+                })->orWhere('vacation_year', 'like', '%' . $searchValue . '%');
             });
         }
 
@@ -227,12 +229,19 @@ class VacationController extends Controller
             'startDate' => 'required|date',
             'endDate' => 'required|date|after_or_equal:startDate',
             'count' => 'required|integer|min:1',
+            'vacationYear' => 'nullable|string|max:32',
         ])->validate();
+
+        $vacationYear = trim((string) ($validated['vacationYear'] ?? ''));
+        if ($vacationYear === '') {
+            $vacationYear = Carbon::parse($validated['startDate'])->year . '/' . Carbon::parse($validated['endDate'])->year;
+        }
 
         $vacation = YearlyVacation::create([
             'start_date' => $validated['startDate'],
             'end_date' => $validated['endDate'],
             'count' => (int) $validated['count'],
+            'vacation_year' => $vacationYear,
             'employee_id' => $career->employee_id,
             'employee_career_id' => $career->id,
         ]);
@@ -255,12 +264,19 @@ class VacationController extends Controller
             'startDate' => 'required|date',
             'endDate' => 'required|date|after_or_equal:startDate',
             'count' => 'required|integer|min:1',
+            'vacationYear' => 'nullable|string|max:32',
         ])->validate();
+
+        $vacationYear = trim((string) ($validated['vacationYear'] ?? ''));
+        if ($vacationYear === '') {
+            $vacationYear = Carbon::parse($validated['startDate'])->year . '/' . Carbon::parse($validated['endDate'])->year;
+        }
 
         $vacation->update([
             'start_date' => $validated['startDate'],
             'end_date' => $validated['endDate'],
             'count' => (int) $validated['count'],
+            'vacation_year' => $vacationYear,
         ]);
 
         return response()->json([
@@ -394,6 +410,7 @@ class VacationController extends Controller
                 'start_date' => $rowData['start_date'] ?? null,
                 'end_date' => $rowData['end_date'] ?? null,
                 'count' => isset($rowData['count']) ? (int) $rowData['count'] : 0,
+                'vacation_year' => trim((string) ($rowData['vacation_year'] ?? $rowData['year'] ?? '')),
                 'employee_id' => isset($rowData['employee_id']) ? (int) $rowData['employee_id'] : null,
                 'employee_career_id' => isset($rowData['employee_career_id']) ? (int) $rowData['employee_career_id'] : null,
                 'created_at' => now(),
@@ -405,6 +422,7 @@ class VacationController extends Controller
                 'start_date' => 'required|date',
                 'end_date' => 'required|date',
                 'count' => 'required|integer|min:0',
+                'vacation_year' => 'nullable|string|max:32',
                 'employee_id' => 'required|integer',
                 'employee_career_id' => 'required|integer',
             ]);
@@ -412,6 +430,10 @@ class VacationController extends Controller
             if ($validator->fails()) {
                 $errors[] = ['row' => $rowNumber, 'errors' => $validator->errors()->all()];
                 continue;
+            }
+
+            if ($payload['vacation_year'] === '') {
+                $payload['vacation_year'] = null;
             }
 
             if (!empty($payload['id']) && DB::table('yearly_vacations')->where('id', $payload['id'])->exists()) {

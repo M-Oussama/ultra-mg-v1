@@ -14,6 +14,7 @@ class YearlyVacation extends Model
       'start_date',
       'end_date',
       'count',
+      'vacation_year',
       'employee_id',
       'employee_career_id'
     ];

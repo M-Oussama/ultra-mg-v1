@@ -18,6 +18,7 @@ return new class extends Migration
             $table->date('start_date');
             $table->date('end_date');
             $table->integer('count');
+            $table->string('vacation_year')->nullable();
             $table->unsignedBigInteger('employee_id');
             $table->unsignedBigInteger('employee_career_id');
             $table->softDeletes();
