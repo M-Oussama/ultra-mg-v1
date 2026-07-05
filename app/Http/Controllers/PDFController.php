@@ -541,56 +541,64 @@ class PDFController extends Controller
             return null;
         }
 
-        file_put_contents($htmlPath, $html);
+        $browserBinary = null;
 
-        $browserBinary = $this->resolveBrowserBinary();
+        try {
+            $htmlWritten = file_put_contents($htmlPath, $html) !== false;
 
-        if ($browserBinary === null) {
-            File::delete($htmlPath);
-            File::deleteDirectory($profileDir);
-            return null;
-        }
+            $browserBinary = $this->resolveBrowserBinary();
 
-        $fileUrl = $this->toFileUrl(realpath($htmlPath) ?: $htmlPath);
-        $headlessFlags = ['--headless=new', '--headless'];
-        $linuxFlags = PHP_OS_FAMILY === 'Windows'
-            ? []
-            : ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
+            if ($htmlWritten && $browserBinary !== null) {
+                $fileUrl = $this->toFileUrl(realpath($htmlPath) ?: $htmlPath);
+                $headlessFlags = ['--headless=new', '--headless'];
+                $linuxFlags = PHP_OS_FAMILY === 'Windows'
+                    ? []
+                    : ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
 
-        foreach ($headlessFlags as $headlessFlag) {
-            $process = new Process([
-                $browserBinary,
-                $headlessFlag,
-                '--lang=ar',
-                '--disable-gpu',
-                '--no-first-run',
-                '--no-default-browser-check',
-                '--disable-extensions',
-                '--allow-file-access-from-files',
-                '--run-all-compositor-stages-before-draw',
-                ...$linuxFlags,
-                '--print-to-pdf=' . $pdfPath,
-                '--no-pdf-header-footer',
-                '--print-to-pdf-no-header',
-                '--user-data-dir=' . $profileDir,
-                $fileUrl,
+                foreach ($headlessFlags as $headlessFlag) {
+                    $process = new Process([
+                        $browserBinary,
+                        $headlessFlag,
+                        '--lang=ar',
+                        '--disable-gpu',
+                        '--no-first-run',
+                        '--no-default-browser-check',
+                        '--disable-extensions',
+                        '--allow-file-access-from-files',
+                        '--run-all-compositor-stages-before-draw',
+                        ...$linuxFlags,
+                        '--print-to-pdf=' . $pdfPath,
+                        '--no-pdf-header-footer',
+                        '--print-to-pdf-no-header',
+                        '--user-data-dir=' . $profileDir,
+                        $fileUrl,
+                    ]);
+
+                    $process->setTimeout(180);
+                    $process->run();
+
+                    if ($process->isSuccessful() && File::exists($pdfPath) && File::size($pdfPath) > 0) {
+                        File::delete($htmlPath);
+                        File::deleteDirectory($profileDir);
+
+                        return $pdfPath;
+                    }
+
+                    if (File::exists($pdfPath)) {
+                        File::delete($pdfPath);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            logger()->warning('Vacation PDF browser render failed; using Dompdf fallback.', [
+                'error' => $e->getMessage(),
+                'prefix' => $prefix,
             ]);
-
-            $process->setTimeout(180);
-            $process->run();
-
-            if ($process->isSuccessful() && File::exists($pdfPath) && File::size($pdfPath) > 0) {
-                File::delete($htmlPath);
-                File::deleteDirectory($profileDir);
-
-                return $pdfPath;
-            }
-
-            if (File::exists($pdfPath)) {
-                File::delete($pdfPath);
-            }
         }
 
+        if (File::exists($pdfPath)) {
+            File::delete($pdfPath);
+        }
         File::delete($htmlPath);
         File::deleteDirectory($profileDir);
 
@@ -987,28 +995,34 @@ class PDFController extends Controller
                 : null,
         ]);
 
-        $employeeName = trim((string) ($career->employee->name ?? '') . ' ' . (string) ($career->employee->surname ?? ''));
-        $safeName = $employeeName !== ''
-            ? preg_replace('/[^\pL\pN]+/u', '_', $employeeName)
-            : 'Employee';
-        $safeName = trim((string) $safeName, '_');
-        if ($safeName === '') {
-            $safeName = 'Employee';
-        }
-
         $suffix = $variant === 'both' ? 'bundle' : $variant;
-        $downloadName = sprintf(
-            'Vacation_Certificate_%s_%d_%s.pdf',
-            $safeName,
-            $career->id,
-            $suffix
-        );
+        $downloadName = sprintf('Vacation_Certificate_%d_%s.pdf', $career->id, $suffix);
 
         $html = view('exports.vacation_certificate_pdf', $context)->render();
         $browserPdfPath = $this->renderHtmlToPdfWithBrowser($html, 'vacation_certificate_' . $career->id . '_' . $suffix);
 
         if ($browserPdfPath !== null) {
-            return response()->download($browserPdfPath, $downloadName)->deleteFileAfterSend(true);
+            try {
+                $browserPdfContent = File::get($browserPdfPath);
+                File::delete($browserPdfPath);
+
+                return response()->streamDownload(
+                    static function () use ($browserPdfContent): void {
+                        echo $browserPdfContent;
+                    },
+                    $downloadName,
+                    ['Content-Type' => 'application/pdf']
+                );
+            } catch (\Throwable $e) {
+                logger()->warning('Vacation PDF browser stream failed; using Dompdf fallback.', [
+                    'error' => $e->getMessage(),
+                    'career_id' => $career->id,
+                ]);
+
+                if (File::exists($browserPdfPath)) {
+                    File::delete($browserPdfPath);
+                }
+            }
         }
 
         $pdf = Pdf::loadView('exports.vacation_certificate_pdf', $context);
@@ -1051,17 +1065,33 @@ class PDFController extends Controller
             'employee' => $career->employee,
         ]);
 
-        $employeeName = trim(($career->employee->name ?? '') . ' ' . ($career->employee->surname ?? ''));
-        $safeName = $employeeName !== ''
-            ? preg_replace('/[^\pL\pN]+/u', '_', $employeeName)
-            : 'Employee';
-        $downloadName = 'Blank_Contract_' . trim((string) $safeName, '_') . '_' . $career->id . '.pdf';
+        $downloadName = sprintf('Blank_Contract_%d.pdf', $career->id);
 
         $html = view('exports.employee_blank_contract_pdf', $context)->render();
         $browserPdfPath = $this->renderHtmlToPdfWithBrowser($html, 'blank_contract_' . $career->id);
 
         if ($browserPdfPath !== null) {
-            return response()->download($browserPdfPath, $downloadName)->deleteFileAfterSend(true);
+            try {
+                $browserPdfContent = File::get($browserPdfPath);
+                File::delete($browserPdfPath);
+
+                return response()->streamDownload(
+                    static function () use ($browserPdfContent): void {
+                        echo $browserPdfContent;
+                    },
+                    $downloadName,
+                    ['Content-Type' => 'application/pdf']
+                );
+            } catch (\Throwable $e) {
+                logger()->warning('Blank contract browser stream failed; using Dompdf fallback.', [
+                    'error' => $e->getMessage(),
+                    'career_id' => $career->id,
+                ]);
+
+                if (File::exists($browserPdfPath)) {
+                    File::delete($browserPdfPath);
+                }
+            }
         }
 
         $pdf = Pdf::loadView('exports.employee_blank_contract_pdf', $context);

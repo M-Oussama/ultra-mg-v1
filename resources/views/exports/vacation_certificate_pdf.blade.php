@@ -95,17 +95,15 @@
         }
 
         .number-row-inner {
-            display: inline-flex;
-            flex-direction: row;
-            align-items: center;
+            display: inline-block;
             white-space: nowrap;
             direction: ltr;
-            gap: 4px;
         }
 
         .number-label {
             direction: rtl;
             unicode-bidi: isolate;
+            margin-right: 4px;
         }
 
         .number-value {
