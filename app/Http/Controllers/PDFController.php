@@ -21,6 +21,7 @@ use App\Models\YearlyVacation;
 use App\Http\Helpers\NumberToLetter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Symfony\Component\Process\ExecutableFinder;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -456,20 +457,71 @@ class PDFController extends Controller
 
     private function resolveBrowserBinary(): ?string
     {
-        $candidates = [
+        $envCandidates = array_filter([
+            env('CHROME_BIN'),
+            env('CHROMIUM_BIN'),
+            env('BROWSER_BIN'),
+        ]);
+
+        foreach ($envCandidates as $candidate) {
+            if ($this->isUsableBinaryPath((string) $candidate)) {
+                return (string) $candidate;
+            }
+        }
+
+        $pathCandidates = [
             'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
             'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
             'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
             'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            '/snap/bin/chromium',
+            '/usr/bin/microsoft-edge',
+            '/usr/bin/microsoft-edge-stable',
         ];
 
-        foreach ($candidates as $candidate) {
-            if (is_file($candidate)) {
+        foreach ($pathCandidates as $candidate) {
+            if ($this->isUsableBinaryPath($candidate)) {
                 return $candidate;
             }
         }
 
+        $finder = new ExecutableFinder();
+        foreach ([
+            'google-chrome',
+            'google-chrome-stable',
+            'chromium',
+            'chromium-browser',
+            'chrome',
+            'msedge',
+            'microsoft-edge',
+        ] as $binaryName) {
+            $found = $finder->find($binaryName);
+            if ($found !== false && $this->isUsableBinaryPath($found)) {
+                return $found;
+            }
+        }
+
         return null;
+    }
+
+    private function isUsableBinaryPath(string $path): bool
+    {
+        return $path !== '' && (is_file($path) || is_executable($path));
+    }
+
+    private function toFileUrl(string $path): string
+    {
+        $normalized = str_replace('\\', '/', $path);
+
+        if (preg_match('/^[A-Za-z]:\\//', $normalized) === 1) {
+            return 'file:///' . $normalized;
+        }
+
+        return 'file://' . $normalized;
     }
 
     private function renderHtmlToPdfWithBrowser(string $html, string $prefix): ?string
@@ -499,19 +551,24 @@ class PDFController extends Controller
             return null;
         }
 
-        $fileUrl = 'file:///' . str_replace('\\', '/', realpath($htmlPath) ?: $htmlPath);
+        $fileUrl = $this->toFileUrl(realpath($htmlPath) ?: $htmlPath);
         $headlessFlags = ['--headless=new', '--headless'];
+        $linuxFlags = PHP_OS_FAMILY === 'Windows'
+            ? []
+            : ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
 
         foreach ($headlessFlags as $headlessFlag) {
             $process = new Process([
                 $browserBinary,
                 $headlessFlag,
+                '--lang=ar',
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-default-browser-check',
                 '--disable-extensions',
                 '--allow-file-access-from-files',
                 '--run-all-compositor-stages-before-draw',
+                ...$linuxFlags,
                 '--print-to-pdf=' . $pdfPath,
                 '--no-pdf-header-footer',
                 '--print-to-pdf-no-header',

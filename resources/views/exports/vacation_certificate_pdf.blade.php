@@ -4,8 +4,17 @@
     <meta charset="UTF-8">
     <title>سند عطلة سنوية</title>
     @php
-        $dejaVuRegular = 'file:///' . str_replace('\\', '/', base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf'));
-        $dejaVuBold = 'file:///' . str_replace('\\', '/', base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans-Bold.ttf'));
+        $toFileUrl = static function (string $path): string {
+            $normalized = str_replace('\\', '/', $path);
+            if (preg_match('/^[A-Za-z]:\//', $normalized) === 1) {
+                return 'file:///' . $normalized;
+            }
+
+            return 'file://' . $normalized;
+        };
+
+        $dejaVuRegular = $toFileUrl(base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf'));
+        $dejaVuBold = $toFileUrl(base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans-Bold.ttf'));
     @endphp
     <style>
         @font-face {
