@@ -3,7 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <title>سند عطلة سنوية</title>
+    @php
+        $dejaVuRegular = 'file:///' . str_replace('\\', '/', base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf'));
+        $dejaVuBold = 'file:///' . str_replace('\\', '/', base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans-Bold.ttf'));
+    @endphp
     <style>
+        @font-face {
+            font-family: 'VacationArabic';
+            src: url('{{ $dejaVuRegular }}') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'VacationArabic';
+            src: url('{{ $dejaVuBold }}') format('truetype');
+            font-weight: 700;
+            font-style: normal;
+        }
+
         @page {
             size: A4;
             margin: 14mm 16mm 14mm 16mm;
@@ -21,7 +39,7 @@
 
         body {
             direction: rtl;
-            font-family: DejaVu Sans, Arial, sans-serif;
+            font-family: 'VacationArabic', 'DejaVu Sans', Arial, sans-serif;
             color: #111111;
             font-size: 12px;
             line-height: 1.8;
@@ -68,9 +86,12 @@
         }
 
         .number-row-inner {
-            display: inline-block;
+            display: inline-flex;
+            flex-direction: row;
+            align-items: center;
             white-space: nowrap;
             direction: ltr;
+            gap: 4px;
         }
 
         .number-label {
@@ -230,10 +251,8 @@
 
         <div class="number-row">
             <div class="number-row-inner">
-               
+                <span class="number-label">رقم:</span>
                 <span class="number-value">{{ $pageType === 'blank' ? $placeholder(16) : $certificateNumber }}</span>
-   <span class="number-label">رقم: </span>              
-         
             </div>
         </div>
 
