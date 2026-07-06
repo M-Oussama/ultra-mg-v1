@@ -177,6 +177,9 @@
         .p-10 {
             padding:10px;
         }
+        .p-30{
+            padding-right:30px
+        }
     </style>
 </head>
 <body class="{{ $dompdfArabic ? 'dompdf-fallback' : '' }}">
@@ -320,9 +323,9 @@
         <div class="note-box">{{ $pdfText('يستفيد بهذا السند لاستعماله في الإطار المسموح به شرعاً.') }}</div>
 
         @if($dompdfArabic)
-            <div class="signature p-10"><span>{{ $placeholder(32) }}</span><span> : </span><span>{{ $pdfText('توقيع المعني') }}</span></div>
+            <div class="signature p-30"><span>{{ $placeholder(32) }}</span><span> : </span><span>{{ $pdfText('توقيع المعني') }}</span></div>
         @else
-            <div class="signature p-10">{{ $pdfText('توقيع المعني : ................................') }}</div>
+            <div class="signature p-30">{{ $pdfText('توقيع المعني : ................................') }}</div>
         @endif
     </div>
 @endforeach
