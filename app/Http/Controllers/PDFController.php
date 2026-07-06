@@ -438,8 +438,16 @@ class PDFController extends Controller
 
     private function pdfOptions(): array
     {
+        $fontDirectory = storage_path('fonts');
+        if (!is_dir($fontDirectory)) {
+            mkdir($fontDirectory, 0777, true);
+        }
+
         return [
             'defaultFont' => 'DejaVu Sans',
+            'fontDir' => $fontDirectory,
+            'fontCache' => $fontDirectory,
+            'chroot' => realpath(base_path()) ?: base_path(),
             'isFontSubsettingEnabled' => true,
             'isRemoteEnabled' => true,
         ];

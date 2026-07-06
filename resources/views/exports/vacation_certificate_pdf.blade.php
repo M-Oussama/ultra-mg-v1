@@ -17,20 +17,29 @@
             return 'file://' . $normalized;
         };
 
-        $dejaVuRegular = $toFileUrl(base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf'));
-        $dejaVuBold = $toFileUrl(base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans-Bold.ttf'));
+        $toFontUrl = static function (string $path) use ($dompdfArabic, $toFileUrl): string {
+            return $dompdfArabic ? str_replace('\\', '/', $path) : $toFileUrl($path);
+        };
+
+        $amiriRegularPath = public_path('fonts/Amiri-Regular.ttf');
+        $amiriBoldPath = public_path('fonts/Amiri-Bold.ttf');
+        $arialPath = public_path('Arial.ttf');
+        $dejaVuRegularPath = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf');
+        $dejaVuBoldPath = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans-Bold.ttf');
+        $arabicRegular = $toFontUrl(is_file($amiriRegularPath) ? $amiriRegularPath : (is_file($arialPath) ? $arialPath : $dejaVuRegularPath));
+        $arabicBold = $toFontUrl(is_file($amiriBoldPath) ? $amiriBoldPath : (is_file($arialPath) ? $arialPath : $dejaVuBoldPath));
     @endphp
     <style>
         @font-face {
             font-family: 'VacationArabic';
-            src: url('{{ $dejaVuRegular }}') format('truetype');
+            src: url('{{ $arabicRegular }}');
             font-weight: 400;
             font-style: normal;
         }
 
         @font-face {
             font-family: 'VacationArabic';
-            src: url('{{ $dejaVuBold }}') format('truetype');
+            src: url('{{ $arabicBold }}');
             font-weight: 700;
             font-style: normal;
         }
@@ -70,6 +79,7 @@
         }
 
         .company-header {
+            font-family: 'DejaVu Sans', Arial, sans-serif;
             text-align: center;
             margin-bottom: 14px;
         }
@@ -274,8 +284,9 @@
         <div class="number-row">
             <div class="number-row-inner">
                 @if($dompdfArabic)
-                    <span class="number-label">{{ $pdfText('رقم') }}:</span>
                     <span class="number-value">{{ $pageType === 'blank' ? $placeholder(16) : $certificateNumber }}</span>
+                    <span> : </span>
+                    <span class="number-label">{{ $pdfText('رقم') }}</span>
                 @else
                     <span class="number-label">رقم:</span>
                     <span class="number-value">{{ $pageType === 'blank' ? $placeholder(16) : $certificateNumber }}</span>
@@ -287,12 +298,12 @@
 
         <div class="content">
             @if($dompdfArabic)
-                <div class="line"><span>{{ $pdfText('اللقب و الاسم') }}</span><span> : </span><span>{{ $pdfText($pageType === 'blank' ? $placeholder(26) : $employeeDisplayName) }}</span></div>
-                <div class="line"><span>{{ $pdfText('الوظيفة') }}</span><span> : </span><span>{{ $pdfText($pageType === 'blank' ? $placeholder(30) : $position) }}</span></div>
-                <div class="line"><span>{{ $pdfText('يستفيد من عطلة') }}</span><span> : </span><span>{{ $pageType === 'blank' ? $placeholder(16) : ($storedVacationYear !== '' ? $storedVacationYear : $yearRange) }}</span></div>
-                <div class="line"><span>{{ $pdfText('عدد الأيام') }}</span><span> : </span><span>{{ $pageType === 'blank' ? $placeholder(20) : ($vacationCount !== '' ? $vacationCount : $placeholder(20)) }}</span></div>
-                <div class="line"><span>{{ $pdfText('من') }}</span><span> : </span><span>{{ $pageType === 'blank' ? $placeholder(20) : $toDate }}</span><span> </span><span>{{ $pdfText('إلى') }}</span><span> : </span><span>{{ $pageType === 'blank' ? $placeholder(20) : $fromDate }}</span><span> </span><span>{{ $pdfText('مدرج') }}</span></div>
-                <div class="line"><span>{{ $pdfText('يستأنف عمله يوم') }}</span><span> : </span><span>{{ $pageType === 'blank' ? $placeholder(20) : $resumeDate }}</span></div>
+                <div class="line"><span>{{ $pdfText($pageType === 'blank' ? $placeholder(26) : $employeeDisplayName) }}</span><span> : </span><span>{{ $pdfText('اللقب و الاسم') }}</span></div>
+                <div class="line"><span>{{ $pdfText($pageType === 'blank' ? $placeholder(30) : $position) }}</span><span> : </span><span>{{ $pdfText('الوظيفة') }}</span></div>
+                <div class="line"><span>{{ $pageType === 'blank' ? $placeholder(16) : ($storedVacationYear !== '' ? $storedVacationYear : $yearRange) }}</span><span> : </span><span>{{ $pdfText('يستفيد من عطلة') }}</span></div>
+                <div class="line"><span>{{ $pageType === 'blank' ? $placeholder(20) : ($vacationCount !== '' ? $vacationCount : $placeholder(20)) }}</span><span> : </span><span>{{ $pdfText('عدد الأيام') }}</span></div>
+                <div class="line"><span>{{ $pdfText('مدرج') }}</span><span> </span><span>{{ $pageType === 'blank' ? $placeholder(20) : $toDate }}</span><span> : </span><span>{{ $pdfText('إلى') }}</span><span> </span><span>{{ $pageType === 'blank' ? $placeholder(20) : $fromDate }}</span><span> : </span><span>{{ $pdfText('من') }}</span></div>
+                <div class="line"><span>{{ $pageType === 'blank' ? $placeholder(20) : $resumeDate }}</span><span> : </span><span>{{ $pdfText('يستأنف عمله يوم') }}</span></div>
             @else
                 <div class="line">{{ $pdfText('اللقب و الاسم : ' . ($pageType === 'blank' ? $placeholder(26) : $employeeDisplayName)) }}</div>
                 <div class="line">{{ $pdfText('الوظيفة : ' . ($pageType === 'blank' ? $placeholder(30) : $position)) }}</div>
@@ -305,7 +316,11 @@
 
         <div class="note-box">{{ $pdfText('يستفيد بهذا السند لاستعماله في الإطار المسموح به شرعاً.') }}</div>
 
-        <div class="signature">{{ $pdfText('توقيع المعني : ................................') }}</div>
+        @if($dompdfArabic)
+            <div class="signature"><span>{{ $placeholder(32) }}</span><span> : </span><span>{{ $pdfText('توقيع المعني') }}</span></div>
+        @else
+            <div class="signature">{{ $pdfText('توقيع المعني : ................................') }}</div>
+        @endif
     </div>
 @endforeach
 </body>
