@@ -524,7 +524,7 @@ class PDFController extends Controller
         return 'file://' . $normalized;
     }
 
-    private function renderHtmlToPdfWithBrowser(string $html, string $prefix): ?string
+    private function renderHtmlToPdfWithBrowser(string $html, string $prefix, int $pageCount = 1): ?string
     {
         $tempRoot = storage_path('app/tmp');
 
@@ -534,7 +534,9 @@ class PDFController extends Controller
 
         $token = $prefix . '_' . uniqid('', true);
         $htmlPath = $tempRoot . DIRECTORY_SEPARATOR . $token . '.html';
+        $pngPath = $tempRoot . DIRECTORY_SEPARATOR . $token . '.png';
         $pdfPath = $tempRoot . DIRECTORY_SEPARATOR . $token . '.pdf';
+        $wrapperPath = $tempRoot . DIRECTORY_SEPARATOR . $token . '_wrapper.html';
         $profileDir = $tempRoot . DIRECTORY_SEPARATOR . $token . '_profile';
 
         if (!is_dir($profileDir) && !mkdir($profileDir, 0777, true) && !is_dir($profileDir)) {
@@ -555,37 +557,85 @@ class PDFController extends Controller
                     ? []
                     : ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
 
+                $pageCount = max(1, $pageCount);
+                $viewportHeight = 1754 * $pageCount;
+                $pageImages = [];
+
                 foreach ($headlessFlags as $headlessFlag) {
-                    $process = new Process([
+                    $screenshotProcess = new Process([
                         $browserBinary,
                         $headlessFlag,
                         '--lang=ar',
                         '--disable-gpu',
+                        '--hide-scrollbars',
                         '--no-first-run',
                         '--no-default-browser-check',
                         '--disable-extensions',
                         '--allow-file-access-from-files',
                         '--run-all-compositor-stages-before-draw',
                         ...$linuxFlags,
-                        '--print-to-pdf=' . $pdfPath,
-                        '--no-pdf-header-footer',
-                        '--print-to-pdf-no-header',
+                        '--window-size=1240,' . $viewportHeight,
+                        '--screenshot=' . $pngPath,
                         '--user-data-dir=' . $profileDir,
                         $fileUrl,
                     ]);
 
-                    $process->setTimeout(180);
-                    $process->run();
+                    $screenshotProcess->setTimeout(180);
+                    $screenshotProcess->run();
 
-                    if ($process->isSuccessful() && File::exists($pdfPath) && File::size($pdfPath) > 0) {
-                        File::delete($htmlPath);
-                        File::deleteDirectory($profileDir);
+                    if ($screenshotProcess->isSuccessful() && File::exists($pngPath) && File::size($pngPath) > 0) {
+                        $pageImages = $this->sliceCertificateScreenshot($pngPath, $pageCount);
+                        if (empty($pageImages)) {
+                            continue;
+                        }
 
-                        return $pdfPath;
+                        $wrapperHtml = $this->buildCertificateImageWrapperHtml($pageImages);
+                        file_put_contents($wrapperPath, $wrapperHtml);
+
+                        $pdfProcess = new Process([
+                            $browserBinary,
+                            $headlessFlag,
+                            '--lang=ar',
+                            '--disable-gpu',
+                            '--hide-scrollbars',
+                            '--no-first-run',
+                            '--no-default-browser-check',
+                            '--disable-extensions',
+                            '--allow-file-access-from-files',
+                            ...$linuxFlags,
+                            '--window-size=1240,' . $viewportHeight,
+                            '--print-to-pdf=' . $pdfPath,
+                            '--no-pdf-header-footer',
+                            '--print-to-pdf-no-header',
+                            '--user-data-dir=' . $profileDir,
+                            $this->toFileUrl(realpath($wrapperPath) ?: $wrapperPath),
+                        ]);
+
+                        $pdfProcess->setTimeout(180);
+                        $pdfProcess->run();
+
+                        if ($pdfProcess->isSuccessful() && File::exists($pdfPath) && File::size($pdfPath) > 0) {
+                            File::delete($htmlPath);
+                            File::delete($pngPath);
+                            File::delete($wrapperPath);
+                            foreach (glob(dirname($pngPath) . DIRECTORY_SEPARATOR . pathinfo($pngPath, PATHINFO_FILENAME) . '_page_*.png') ?: [] as $segmentPath) {
+                                File::delete($segmentPath);
+                            }
+                            File::deleteDirectory($profileDir);
+
+                            return $pdfPath;
+                        }
+
+                        if (File::exists($pdfPath)) {
+                            File::delete($pdfPath);
+                        }
                     }
 
-                    if (File::exists($pdfPath)) {
-                        File::delete($pdfPath);
+                    if (File::exists($pngPath)) {
+                        File::delete($pngPath);
+                    }
+                    if (File::exists($wrapperPath)) {
+                        File::delete($wrapperPath);
                     }
                 }
             }
@@ -599,10 +649,195 @@ class PDFController extends Controller
         if (File::exists($pdfPath)) {
             File::delete($pdfPath);
         }
+        if (File::exists($pngPath)) {
+            File::delete($pngPath);
+        }
+        if (File::exists($wrapperPath)) {
+            File::delete($wrapperPath);
+        }
+        foreach (glob(dirname($pngPath) . DIRECTORY_SEPARATOR . pathinfo($pngPath, PATHINFO_FILENAME) . '_page_*.png') ?: [] as $segmentPath) {
+            File::delete($segmentPath);
+        }
         File::delete($htmlPath);
         File::deleteDirectory($profileDir);
 
         return null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function sliceCertificateScreenshot(string $pngPath, int $pageCount): array
+    {
+        $pageCount = max(1, $pageCount);
+        $source = @imagecreatefrompng($pngPath);
+
+        if ($source === false) {
+            return [];
+        }
+
+        $width = imagesx($source);
+        $height = imagesy($source);
+        if ($width <= 0 || $height <= 0) {
+            imagedestroy($source);
+            return [];
+        }
+
+        $segments = [];
+        $pageHeight = 1754;
+        $splitY = null;
+
+        if ($pageCount > 1) {
+            $splitY = $this->detectCertificateSplitY($source);
+        }
+
+        if ($pageCount === 1 || $splitY === null) {
+            $pageCrop = min($pageHeight, $height);
+            $segments = [$this->createCertificatePageImage($source, $pngPath, 1, 0, $pageCrop, $pageHeight)];
+        } else {
+            $secondStart = max(0, min($height - 1, $splitY));
+            $firstHeight = max(1, min($pageHeight, $secondStart));
+            $secondHeight = max(1, min($pageHeight, $height - $secondStart));
+
+            $firstPath = $this->createCertificatePageImage($source, $pngPath, 1, 0, $firstHeight, $pageHeight);
+            $secondPath = $this->createCertificatePageImage($source, $pngPath, 2, $secondStart, $secondHeight, $pageHeight);
+
+            if ($firstPath !== null) {
+                $segments[] = $firstPath;
+            }
+            if ($secondPath !== null) {
+                $segments[] = $secondPath;
+            }
+        }
+
+        imagedestroy($source);
+
+        return $segments;
+    }
+
+    private function detectCertificateSplitY($source): ?int
+    {
+        $width = imagesx($source);
+        $height = imagesy($source);
+
+        if ($width <= 0 || $height <= 0) {
+            return null;
+        }
+
+        $contentRows = [];
+        $sampleStep = max(1, (int) floor($width / 160));
+
+        for ($y = 0; $y < $height; $y++) {
+            $hasContent = false;
+
+            for ($x = 0; $x < $width; $x += $sampleStep) {
+                $color = imagecolorat($source, $x, $y);
+                $rgb = imagecolorsforindex($source, $color);
+
+                if ($rgb['r'] < 250 || $rgb['g'] < 250 || $rgb['b'] < 250) {
+                    $hasContent = true;
+                    break;
+                }
+            }
+
+            if ($hasContent) {
+                $contentRows[] = $y;
+            }
+        }
+
+        if (count($contentRows) < 2) {
+            return null;
+        }
+
+        $clusters = [];
+        $clusterStart = $contentRows[0];
+        $clusterEnd = $contentRows[0];
+
+        foreach (array_slice($contentRows, 1) as $row) {
+            if ($row - $clusterEnd > 120) {
+                $clusters[] = [$clusterStart, $clusterEnd];
+                $clusterStart = $row;
+                $clusterEnd = $row;
+                continue;
+            }
+
+            $clusterEnd = $row;
+        }
+
+        $clusters[] = [$clusterStart, $clusterEnd];
+
+        if (count($clusters) < 2) {
+            return null;
+        }
+
+        return (int) round(($clusters[0][1] + $clusters[1][0]) / 2);
+    }
+
+    private function createCertificatePageImage($source, string $pngPath, int $pageIndex, int $offsetY, int $cropHeight, int $pageHeight): ?string
+    {
+        $width = imagesx($source);
+        $height = imagesy($source);
+
+        if ($width <= 0 || $height <= 0 || $cropHeight <= 0) {
+            return null;
+        }
+
+        $offsetY = max(0, min($height - 1, $offsetY));
+        $cropHeight = max(1, min($cropHeight, $height - $offsetY));
+
+        $crop = imagecreatetruecolor($width, $cropHeight);
+        $white = imagecolorallocate($crop, 255, 255, 255);
+        imagefill($crop, 0, 0, $white);
+        imagealphablending($crop, true);
+        imagesavealpha($crop, true);
+        imagecopy($crop, $source, 0, 0, 0, $offsetY, $width, $cropHeight);
+
+        $canvas = imagecreatetruecolor($width, $pageHeight);
+        $canvasWhite = imagecolorallocate($canvas, 255, 255, 255);
+        imagefill($canvas, 0, 0, $canvasWhite);
+        imagealphablending($canvas, true);
+        imagesavealpha($canvas, true);
+        imagecopy($canvas, $crop, 0, 0, 0, 0, $width, min($cropHeight, $pageHeight));
+
+        $segmentPath = dirname($pngPath) . DIRECTORY_SEPARATOR . pathinfo($pngPath, PATHINFO_FILENAME) . '_page_' . $pageIndex . '.png';
+        imagepng($canvas, $segmentPath);
+
+        imagedestroy($crop);
+        imagedestroy($canvas);
+
+        if (File::exists($segmentPath) && File::size($segmentPath) > 0) {
+            return $segmentPath;
+        }
+
+        if (File::exists($segmentPath)) {
+            File::delete($segmentPath);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<int, string> $pageImages
+     */
+    private function buildCertificateImageWrapperHtml(array $pageImages): string
+    {
+        $pagesHtml = '';
+
+        foreach ($pageImages as $index => $pageImage) {
+            $imageBytes = File::get($pageImage);
+            $imageBase64 = base64_encode($imageBytes);
+            $pagesHtml .= '<div class="page" style="' . ($index < count($pageImages) - 1 ? 'page-break-after: always;' : '') . '">'
+                . '<img src="data:image/png;base64,' . $imageBase64 . '" alt="Vacation certificate page ' . ($index + 1) . '">'
+                . '</div>';
+        }
+
+        return '<!DOCTYPE html><html lang="ar"><head><meta charset="UTF-8"><style>'
+            . '@page{margin:0;size:A4 portrait;}'
+            . 'html,body{margin:0;padding:0;background:#ffffff;}'
+            . '.page{width:210mm;height:297mm;page-break-after:always;break-after:page;}'
+            . '.page:last-child{page-break-after:auto;break-after:auto;}'
+            . 'img{display:block;width:210mm;height:297mm;}'
+            . '</style></head><body>' . $pagesHtml . '</body></html>';
     }
 
     private function departmentHeaderContext(Request $request): array
@@ -999,7 +1234,11 @@ class PDFController extends Controller
         $downloadName = sprintf('Vacation_Certificate_%d_%s.pdf', $career->id, $suffix);
 
         $html = view('exports.vacation_certificate_pdf', $context)->render();
-        $browserPdfPath = $this->renderHtmlToPdfWithBrowser($html, 'vacation_certificate_' . $career->id . '_' . $suffix);
+        $browserPdfPath = $this->renderHtmlToPdfWithBrowser(
+            $html,
+            'vacation_certificate_' . $career->id . '_' . $suffix,
+            $variant === 'both' ? 2 : 1
+        );
 
         if ($browserPdfPath !== null) {
             try {
@@ -1068,7 +1307,7 @@ class PDFController extends Controller
         $downloadName = sprintf('Blank_Contract_%d.pdf', $career->id);
 
         $html = view('exports.employee_blank_contract_pdf', $context)->render();
-        $browserPdfPath = $this->renderHtmlToPdfWithBrowser($html, 'blank_contract_' . $career->id);
+        $browserPdfPath = $this->renderHtmlToPdfWithBrowser($html, 'blank_contract_' . $career->id, 1);
 
         if ($browserPdfPath !== null) {
             try {
