@@ -586,6 +586,11 @@ class PDFController extends Controller
                     if ($screenshotProcess->isSuccessful() && File::exists($pngPath) && File::size($pngPath) > 0) {
                         $pageImages = $this->sliceCertificateScreenshot($pngPath, $pageCount);
                         if (empty($pageImages)) {
+                            logger()->warning('Vacation PDF screenshot was created but could not be sliced.', [
+                                'prefix' => $prefix,
+                                'png_path' => $pngPath,
+                                'page_count' => $pageCount,
+                            ]);
                             continue;
                         }
 
@@ -629,6 +634,20 @@ class PDFController extends Controller
                         if (File::exists($pdfPath)) {
                             File::delete($pdfPath);
                         }
+
+                        logger()->warning('Vacation PDF browser print failed.', [
+                            'prefix' => $prefix,
+                            'browser' => $browserBinary,
+                            'exit_code' => $pdfProcess->getExitCode(),
+                            'error' => trim($pdfProcess->getErrorOutput()),
+                        ]);
+                    } else {
+                        logger()->warning('Vacation PDF browser screenshot failed.', [
+                            'prefix' => $prefix,
+                            'browser' => $browserBinary,
+                            'exit_code' => $screenshotProcess->getExitCode(),
+                            'error' => trim($screenshotProcess->getErrorOutput()),
+                        ]);
                     }
 
                     if (File::exists($pngPath)) {
@@ -638,9 +657,19 @@ class PDFController extends Controller
                         File::delete($wrapperPath);
                     }
                 }
+            } elseif (!$htmlWritten) {
+                logger()->warning('Vacation PDF temporary HTML could not be written.', [
+                    'prefix' => $prefix,
+                    'html_path' => $htmlPath,
+                ]);
+            } else {
+                logger()->warning('Vacation PDF browser binary was not found.', [
+                    'prefix' => $prefix,
+                    'checked_env' => ['CHROME_BIN', 'CHROMIUM_BIN', 'BROWSER_BIN'],
+                ]);
             }
         } catch (\Throwable $e) {
-            logger()->warning('Vacation PDF browser render failed; using Dompdf fallback.', [
+            logger()->warning('Vacation PDF browser render failed.', [
                 'error' => $e->getMessage(),
                 'prefix' => $prefix,
             ]);
@@ -1253,7 +1282,7 @@ class PDFController extends Controller
                     ['Content-Type' => 'application/pdf']
                 );
             } catch (\Throwable $e) {
-                logger()->warning('Vacation PDF browser stream failed; using Dompdf fallback.', [
+                logger()->error('Vacation PDF browser stream failed.', [
                     'error' => $e->getMessage(),
                     'career_id' => $career->id,
                 ]);
@@ -1264,10 +1293,7 @@ class PDFController extends Controller
             }
         }
 
-        $pdf = Pdf::loadView('exports.vacation_certificate_pdf', $context);
-        $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
-
-        return $pdf->download($downloadName);
+        abort(500, 'Vacation PDF renderer is not available on the server. Install Chrome/Chromium or set CHROME_BIN to the browser executable.');
     }
 
     private function buildVacationCertificateNumber(YearlyVacation $vacation): string
