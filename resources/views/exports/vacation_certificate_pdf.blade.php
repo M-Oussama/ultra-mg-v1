@@ -174,6 +174,9 @@
             font-size: 12px;
             font-weight: 700;
         }
+        .p-10 {
+            padding:10px;
+        }
     </style>
 </head>
 <body class="{{ $dompdfArabic ? 'dompdf-fallback' : '' }}">
@@ -282,7 +285,7 @@
         @endif
 
         <div class="number-row">
-            <div class="number-row-inner">
+            <div class="number-row-inner p-10">
                 @if($dompdfArabic)
                     <span class="number-value">{{ $pageType === 'blank' ? $placeholder(16) : $certificateNumber }}</span>
                     <span> : </span>
@@ -317,9 +320,9 @@
         <div class="note-box">{{ $pdfText('يستفيد بهذا السند لاستعماله في الإطار المسموح به شرعاً.') }}</div>
 
         @if($dompdfArabic)
-            <div class="signature"><span>{{ $placeholder(32) }}</span><span> : </span><span>{{ $pdfText('توقيع المعني') }}</span></div>
+            <div class="signature p-10"><span>{{ $placeholder(32) }}</span><span> : </span><span>{{ $pdfText('توقيع المعني') }}</span></div>
         @else
-            <div class="signature">{{ $pdfText('توقيع المعني : ................................') }}</div>
+            <div class="signature p-10">{{ $pdfText('توقيع المعني : ................................') }}</div>
         @endif
     </div>
 @endforeach
