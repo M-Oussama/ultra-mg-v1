@@ -1,8 +1,12 @@
+@php
+    $dompdfArabic = (bool) ($dompdfArabic ?? false);
+    $pdfText = $pdfText ?? static fn ($value): string => (string) $value;
+@endphp
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="{{ $dompdfArabic ? 'ltr' : 'rtl' }}">
 <head>
     <meta charset="UTF-8">
-    <title>سند عطلة سنوية</title>
+    <title>{{ $pdfText('سند عطلة سنوية') }}</title>
     @php
         $toFileUrl = static function (string $path): string {
             $normalized = str_replace('\\', '/', $path);
@@ -47,7 +51,7 @@
         }
 
         body {
-            direction: rtl;
+            direction: {{ $dompdfArabic ? 'ltr' : 'rtl' }};
             font-family: 'VacationArabic', 'DejaVu Sans', Arial, sans-serif;
             color: #111111;
             font-size: 12px;
@@ -138,6 +142,11 @@
             margin-bottom: 8px;
         }
 
+        .dompdf-fallback .content .line {
+            direction: rtl;
+            unicode-bidi: isolate;
+        }
+
         .note-box {
             margin: 34px auto 0;
             width: 72%;
@@ -157,7 +166,7 @@
         }
     </style>
 </head>
-<body>
+<body class="{{ $dompdfArabic ? 'dompdf-fallback' : '' }}">
 @php
     $variant = strtolower(trim((string) ($variant ?? 'signed')));
     if (!in_array($variant, ['signed', 'blank', 'both'], true)) {
@@ -182,16 +191,22 @@
         }
     };
 
-    $cleanValue = static function ($value, string $fallback): string {
+    $normalizeValue = static function ($value): string {
         $text = trim((string) ($value ?? ''));
+
+        return strcasecmp($text, 'null') === 0 ? '' : $text;
+    };
+
+    $cleanValue = static function ($value, string $fallback) use ($normalizeValue): string {
+        $text = $normalizeValue($value);
         return $text !== '' ? $text : $fallback;
     };
 
-    $joinNonEmpty = static function (array $parts): string {
+    $joinNonEmpty = static function (array $parts) use ($normalizeValue): string {
         $cleaned = [];
 
         foreach ($parts as $part) {
-            $text = trim((string) ($part ?? ''));
+            $text = $normalizeValue($part);
             if ($text !== '') {
                 $cleaned[] = $text;
             }
@@ -218,14 +233,14 @@
         '001319010024074'
     );
 
-    $employeeArabicName = trim((string) data_get($employee, 'name_ar', '') . ' ' . (string) data_get($employee, 'surname_ar', ''));
-    $employeeLatinName = trim((string) data_get($employee, 'name', '') . ' ' . (string) data_get($employee, 'surname', ''));
+    $employeeArabicName = $joinNonEmpty([data_get($employee, 'name_ar'), data_get($employee, 'surname_ar')]);
+    $employeeLatinName = $joinNonEmpty([data_get($employee, 'name'), data_get($employee, 'surname')]);
     $employeeDisplayName = $employeeArabicName !== '' ? $employeeArabicName : $employeeLatinName;
     $employeeDisplayName = $employeeDisplayName !== '' ? $employeeDisplayName : '.................';
 
-    $position = trim((string) data_get($career, 'position_ar', ''));
+    $position = $normalizeValue(data_get($career, 'position_ar'));
     if ($position === '') {
-        $position = trim((string) data_get($career, 'position', ''));
+        $position = $normalizeValue(data_get($career, 'position'));
     }
     if ($position === '') {
         $position = '.................';
@@ -258,25 +273,39 @@
 
         <div class="number-row">
             <div class="number-row-inner">
-                <span class="number-label">رقم:</span>
-                <span class="number-value">{{ $pageType === 'blank' ? $placeholder(16) : $certificateNumber }}</span>
+                @if($dompdfArabic)
+                    <span class="number-label">{{ $pdfText('رقم') }}:</span>
+                    <span class="number-value">{{ $pageType === 'blank' ? $placeholder(16) : $certificateNumber }}</span>
+                @else
+                    <span class="number-label">رقم:</span>
+                    <span class="number-value">{{ $pageType === 'blank' ? $placeholder(16) : $certificateNumber }}</span>
+                @endif
             </div>
         </div>
 
-        <div class="title-box">سند عطلة سنوية</div>
+        <div class="title-box">{{ $pdfText('سند عطلة سنوية') }}</div>
 
         <div class="content">
-            <div class="line">اللقب و الاسم : {{ $pageType === 'blank' ? $placeholder(26) : $employeeDisplayName }}</div>
-            <div class="line">الوظيفة : {{ $pageType === 'blank' ? $placeholder(30) : $position }}</div>
-            <div class="line">يستفيد من عطلة : {{ $pageType === 'blank' ? $placeholder(16) : ($storedVacationYear !== '' ? $storedVacationYear : $yearRange) }}</div>
-            <div class="line">عدد الأيام : {{ $pageType === 'blank' ? $placeholder(20) : ($vacationCount !== '' ? $vacationCount : $placeholder(20)) }}</div>
-            <div class="line">من : {{ $pageType === 'blank' ? $placeholder(20) : $fromDate }} إلى : {{ $pageType === 'blank' ? $placeholder(20) : $toDate }} مدرج</div>
-            <div class="line">يستأنف عمله يوم : {{ $pageType === 'blank' ? $placeholder(20) : $resumeDate }}</div>
+            @if($dompdfArabic)
+                <div class="line"><span>{{ $pdfText('اللقب و الاسم') }}</span><span> : </span><span>{{ $pdfText($pageType === 'blank' ? $placeholder(26) : $employeeDisplayName) }}</span></div>
+                <div class="line"><span>{{ $pdfText('الوظيفة') }}</span><span> : </span><span>{{ $pdfText($pageType === 'blank' ? $placeholder(30) : $position) }}</span></div>
+                <div class="line"><span>{{ $pdfText('يستفيد من عطلة') }}</span><span> : </span><span>{{ $pageType === 'blank' ? $placeholder(16) : ($storedVacationYear !== '' ? $storedVacationYear : $yearRange) }}</span></div>
+                <div class="line"><span>{{ $pdfText('عدد الأيام') }}</span><span> : </span><span>{{ $pageType === 'blank' ? $placeholder(20) : ($vacationCount !== '' ? $vacationCount : $placeholder(20)) }}</span></div>
+                <div class="line"><span>{{ $pdfText('من') }}</span><span> : </span><span>{{ $pageType === 'blank' ? $placeholder(20) : $toDate }}</span><span> </span><span>{{ $pdfText('إلى') }}</span><span> : </span><span>{{ $pageType === 'blank' ? $placeholder(20) : $fromDate }}</span><span> </span><span>{{ $pdfText('مدرج') }}</span></div>
+                <div class="line"><span>{{ $pdfText('يستأنف عمله يوم') }}</span><span> : </span><span>{{ $pageType === 'blank' ? $placeholder(20) : $resumeDate }}</span></div>
+            @else
+                <div class="line">{{ $pdfText('اللقب و الاسم : ' . ($pageType === 'blank' ? $placeholder(26) : $employeeDisplayName)) }}</div>
+                <div class="line">{{ $pdfText('الوظيفة : ' . ($pageType === 'blank' ? $placeholder(30) : $position)) }}</div>
+                <div class="line">{{ $pdfText('يستفيد من عطلة : ' . ($pageType === 'blank' ? $placeholder(16) : ($storedVacationYear !== '' ? $storedVacationYear : $yearRange))) }}</div>
+                <div class="line">{{ $pdfText('عدد الأيام : ' . ($pageType === 'blank' ? $placeholder(20) : ($vacationCount !== '' ? $vacationCount : $placeholder(20)))) }}</div>
+                <div class="line">{{ $pdfText('من : ' . ($pageType === 'blank' ? $placeholder(20) : $fromDate) . ' إلى : ' . ($pageType === 'blank' ? $placeholder(20) : $toDate) . ' مدرج') }}</div>
+                <div class="line">{{ $pdfText('يستأنف عمله يوم : ' . ($pageType === 'blank' ? $placeholder(20) : $resumeDate)) }}</div>
+            @endif
         </div>
 
-        <div class="note-box">يستفيد بهذا السند لاستعماله في الإطار المسموح به شرعاً.</div>
+        <div class="note-box">{{ $pdfText('يستفيد بهذا السند لاستعماله في الإطار المسموح به شرعاً.') }}</div>
 
-        <div class="signature">توقيع المعني : ................................</div>
+        <div class="signature">{{ $pdfText('توقيع المعني : ................................') }}</div>
     </div>
 @endforeach
 </body>

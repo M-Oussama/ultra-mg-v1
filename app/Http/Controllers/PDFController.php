@@ -1293,7 +1293,13 @@ class PDFController extends Controller
             }
         }
 
-        abort(500, 'Vacation PDF renderer is not available on the server. Install Chrome/Chromium or set CHROME_BIN to the browser executable.');
+        $pdf = Pdf::loadView('exports.vacation_certificate_pdf', array_merge($context, [
+            'dompdfArabic' => true,
+            'pdfText' => fn ($value): string => $this->shapeArabicForDompdf((string) $value),
+        ]));
+        $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
+
+        return $pdf->download($downloadName);
     }
 
     private function buildVacationCertificateNumber(YearlyVacation $vacation): string
@@ -1310,6 +1316,166 @@ class PDFController extends Controller
         $compact = (int) (hexdec(substr($hash, 0, 8)) % 10000);
 
         return '00' . str_pad((string) $compact, 4, '0', STR_PAD_LEFT);
+    }
+
+    private function shapeArabicForDompdf(string $text): string
+    {
+        if ($text === '' || !preg_match('/[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}]/u', $text)) {
+            return $text;
+        }
+
+        preg_match_all(
+            '/[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}]+|[^\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}]+/u',
+            $text,
+            $matches
+        );
+
+        $runs = [];
+        foreach ($matches[0] as $run) {
+            $runs[] = preg_match('/[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}]/u', $run)
+                ? $this->reverseUtf8($this->shapeArabicRunForDompdf($run))
+                : $run;
+        }
+
+        return implode('', array_reverse($runs));
+    }
+
+    private function shapeArabicRunForDompdf(string $text): string
+    {
+        $text = preg_replace('/[\x{064B}-\x{065F}\x{0670}]/u', '', $text) ?? $text;
+        $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY);
+        if ($chars === false || $chars === []) {
+            return $text;
+        }
+
+        $codes = array_map(static fn (string $char): int => mb_ord($char, 'UTF-8'), $chars);
+        $result = '';
+
+        for ($index = 0, $count = count($codes); $index < $count; $index++) {
+            $code = $codes[$index];
+            $nextCode = $codes[$index + 1] ?? null;
+
+            if ($code === 0x0644 && $nextCode !== null && isset($this->arabicLamAlefForms()[$nextCode])) {
+                $previousCode = $codes[$index - 1] ?? null;
+                $connectsToPrevious = $previousCode !== null
+                    && $this->arabicCanConnectAfter($previousCode)
+                    && $this->arabicCanConnectBefore($code);
+                $forms = $this->arabicLamAlefForms()[$nextCode];
+                $result .= $this->codepointFromHex($connectsToPrevious ? $forms[1] : $forms[0]);
+                $index++;
+                continue;
+            }
+
+            $forms = $this->arabicPresentationForms()[$code] ?? null;
+            if ($forms === null) {
+                $result .= mb_chr($code, 'UTF-8');
+                continue;
+            }
+
+            $previousCode = $codes[$index - 1] ?? null;
+            $connectsToPrevious = $previousCode !== null
+                && $this->arabicCanConnectAfter($previousCode)
+                && $this->arabicCanConnectBefore($code);
+            $connectsToNext = $nextCode !== null
+                && $this->arabicCanConnectAfter($code)
+                && $this->arabicCanConnectBefore($nextCode);
+
+            if ($connectsToPrevious && $connectsToNext && $forms[3] !== null) {
+                $result .= $this->codepointFromHex($forms[3]);
+            } elseif ($connectsToPrevious && $forms[1] !== null) {
+                $result .= $this->codepointFromHex($forms[1]);
+            } elseif ($connectsToNext && $forms[2] !== null) {
+                $result .= $this->codepointFromHex($forms[2]);
+            } else {
+                $result .= $this->codepointFromHex($forms[0]);
+            }
+        }
+
+        return $result;
+    }
+
+    private function reverseUtf8(string $text): string
+    {
+        $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY);
+        if ($chars === false) {
+            return $text;
+        }
+
+        return implode('', array_reverse($chars));
+    }
+
+    private function arabicCanConnectBefore(int $code): bool
+    {
+        return ($this->arabicPresentationForms()[$code][1] ?? null) !== null;
+    }
+
+    private function arabicCanConnectAfter(int $code): bool
+    {
+        return ($this->arabicPresentationForms()[$code][2] ?? null) !== null;
+    }
+
+    private function codepointFromHex(string $hex): string
+    {
+        return mb_chr(hexdec($hex), 'UTF-8');
+    }
+
+    /**
+     * @return array<int, array{0: string, 1: string|null, 2: string|null, 3: string|null}>
+     */
+    private function arabicPresentationForms(): array
+    {
+        return [
+            0x0621 => ['FE80', null, null, null],
+            0x0622 => ['FE81', 'FE82', null, null],
+            0x0623 => ['FE83', 'FE84', null, null],
+            0x0624 => ['FE85', 'FE86', null, null],
+            0x0625 => ['FE87', 'FE88', null, null],
+            0x0626 => ['FE89', 'FE8A', 'FE8B', 'FE8C'],
+            0x0627 => ['FE8D', 'FE8E', null, null],
+            0x0628 => ['FE8F', 'FE90', 'FE91', 'FE92'],
+            0x0629 => ['FE93', 'FE94', null, null],
+            0x062A => ['FE95', 'FE96', 'FE97', 'FE98'],
+            0x062B => ['FE99', 'FE9A', 'FE9B', 'FE9C'],
+            0x062C => ['FE9D', 'FE9E', 'FE9F', 'FEA0'],
+            0x062D => ['FEA1', 'FEA2', 'FEA3', 'FEA4'],
+            0x062E => ['FEA5', 'FEA6', 'FEA7', 'FEA8'],
+            0x062F => ['FEA9', 'FEAA', null, null],
+            0x0630 => ['FEAB', 'FEAC', null, null],
+            0x0631 => ['FEAD', 'FEAE', null, null],
+            0x0632 => ['FEAF', 'FEB0', null, null],
+            0x0633 => ['FEB1', 'FEB2', 'FEB3', 'FEB4'],
+            0x0634 => ['FEB5', 'FEB6', 'FEB7', 'FEB8'],
+            0x0635 => ['FEB9', 'FEBA', 'FEBB', 'FEBC'],
+            0x0636 => ['FEBD', 'FEBE', 'FEBF', 'FEC0'],
+            0x0637 => ['FEC1', 'FEC2', 'FEC3', 'FEC4'],
+            0x0638 => ['FEC5', 'FEC6', 'FEC7', 'FEC8'],
+            0x0639 => ['FEC9', 'FECA', 'FECB', 'FECC'],
+            0x063A => ['FECD', 'FECE', 'FECF', 'FED0'],
+            0x0640 => ['0640', null, null, null],
+            0x0641 => ['FED1', 'FED2', 'FED3', 'FED4'],
+            0x0642 => ['FED5', 'FED6', 'FED7', 'FED8'],
+            0x0643 => ['FED9', 'FEDA', 'FEDB', 'FEDC'],
+            0x0644 => ['FEDD', 'FEDE', 'FEDF', 'FEE0'],
+            0x0645 => ['FEE1', 'FEE2', 'FEE3', 'FEE4'],
+            0x0646 => ['FEE5', 'FEE6', 'FEE7', 'FEE8'],
+            0x0647 => ['FEE9', 'FEEA', 'FEEB', 'FEEC'],
+            0x0648 => ['FEED', 'FEEE', null, null],
+            0x0649 => ['FEEF', 'FEF0', null, null],
+            0x064A => ['FEF1', 'FEF2', 'FEF3', 'FEF4'],
+        ];
+    }
+
+    /**
+     * @return array<int, array{0: string, 1: string}>
+     */
+    private function arabicLamAlefForms(): array
+    {
+        return [
+            0x0622 => ['FEF5', 'FEF6'],
+            0x0623 => ['FEF7', 'FEF8'],
+            0x0625 => ['FEF9', 'FEFA'],
+            0x0627 => ['FEFB', 'FEFC'],
+        ];
     }
 
     public function exportEmployeeBlankContract(int $careerId)
