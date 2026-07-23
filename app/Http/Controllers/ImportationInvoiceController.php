@@ -11,6 +11,34 @@ use Illuminate\Support\Facades\Auth;
 
 class ImportationInvoiceController extends Controller
 {
+    private function normalizeFinancialFields(Request $request): array
+    {
+        $fields = [];
+
+        foreach ([
+            'freight_cost',
+            'customs_cost',
+            'transport_freight_cost',
+            'supplier_percentage_rate',
+        ] as $field) {
+            if ($request->has($field)) {
+                $value = $request->input($field);
+                $fields[$field] = $value === '' || $value === null ? null : (float) $value;
+            }
+        }
+
+        if ($request->has('is_paid')) {
+            $fields['is_paid'] = $request->boolean('is_paid');
+        }
+
+        if ($request->has('payment_status')) {
+            $status = trim((string) $request->input('payment_status'));
+            $fields['payment_status'] = $status !== '' ? $status : null;
+        }
+
+        return $fields;
+    }
+
     #[OA\Get(
         path: "/api/importation-invoices/list",
         summary: "List all importation invoices",
@@ -25,7 +53,7 @@ class ImportationInvoiceController extends Controller
     )]
     public function list(Request $request)
     {
-        $query = ImportationInvoice::with('supplier');
+        $query = ImportationInvoice::with(['supplier', 'payments']);
         $from = $request->input('from', '');
         $to = $request->input('to', '');
 
@@ -79,6 +107,12 @@ class ImportationInvoiceController extends Controller
                         new OA\Property(property: "arrive_date", type: "string", format: "date"),
                         new OA\Property(property: "amount", type: "number", format: "float"),
                         new OA\Property(property: "container_status", type: "string"),
+                        new OA\Property(property: "is_paid", type: "boolean"),
+                        new OA\Property(property: "payment_status", type: "string"),
+                        new OA\Property(property: "freight_cost", type: "number", format: "float"),
+                        new OA\Property(property: "customs_cost", type: "number", format: "float"),
+                        new OA\Property(property: "transport_freight_cost", type: "number", format: "float"),
+                        new OA\Property(property: "supplier_percentage_rate", type: "number", format: "float"),
                         new OA\Property(property: "notes", type: "string"),
                         new OA\Property(property: "vessel_name", type: "string"),
                         new OA\Property(property: "vessel_number", type: "string"),
@@ -104,6 +138,12 @@ class ImportationInvoiceController extends Controller
             'arrive_date' => 'required|date',
             'amount' => 'required|numeric',
             'container_status' => 'required|string',
+            'is_paid' => 'sometimes|boolean',
+            'payment_status' => 'nullable|string|max:50',
+            'freight_cost' => 'nullable|numeric|min:0',
+            'customs_cost' => 'nullable|numeric|min:0',
+            'transport_freight_cost' => 'nullable|numeric|min:0',
+            'supplier_percentage_rate' => 'nullable|numeric|min:0|max:100',
             'notes' => 'nullable|string',
             'vessel_name' => 'nullable|string',
             'vessel_number' => 'nullable|string',
@@ -121,6 +161,10 @@ class ImportationInvoiceController extends Controller
             'vessel_name', 'vessel_number', 'container_number'
         ]);
 
+        $data = array_merge($data, $this->normalizeFinancialFields($request));
+        $data['is_paid'] = $request->boolean('is_paid', false);
+        $data['payment_status'] = $data['payment_status'] ?? ($data['is_paid'] ? 'paid' : 'pending');
+
         $data['user_id'] = Auth::id();
 
         $invoice = ImportationInvoice::create($data);
@@ -129,7 +173,7 @@ class ImportationInvoiceController extends Controller
             $invoice->addMediaFromRequest('file')->toMediaCollection('invoice_pdf');
         }
 
-        return response()->json($invoice, 201);
+        return response()->json($invoice->load(['supplier', 'payments']), 201);
     }
 
     #[OA\Post(
@@ -150,6 +194,12 @@ class ImportationInvoiceController extends Controller
                         new OA\Property(property: "arrive_date", type: "string", format: "date"),
                         new OA\Property(property: "amount", type: "number", format: "float"),
                         new OA\Property(property: "container_status", type: "string"),
+                        new OA\Property(property: "is_paid", type: "boolean"),
+                        new OA\Property(property: "payment_status", type: "string"),
+                        new OA\Property(property: "freight_cost", type: "number", format: "float"),
+                        new OA\Property(property: "customs_cost", type: "number", format: "float"),
+                        new OA\Property(property: "transport_freight_cost", type: "number", format: "float"),
+                        new OA\Property(property: "supplier_percentage_rate", type: "number", format: "float"),
                         new OA\Property(property: "notes", type: "string"),
                         new OA\Property(property: "vessel_name", type: "string"),
                         new OA\Property(property: "vessel_number", type: "string"),
@@ -180,6 +230,12 @@ class ImportationInvoiceController extends Controller
             'arrive_date' => 'sometimes|date',
             'amount' => 'sometimes|numeric',
             'container_status' => 'sometimes|string',
+            'is_paid' => 'sometimes|boolean',
+            'payment_status' => 'nullable|string|max:50',
+            'freight_cost' => 'nullable|numeric|min:0',
+            'customs_cost' => 'nullable|numeric|min:0',
+            'transport_freight_cost' => 'nullable|numeric|min:0',
+            'supplier_percentage_rate' => 'nullable|numeric|min:0|max:100',
             'notes' => 'nullable|string',
             'vessel_name' => 'nullable|string',
             'vessel_number' => 'nullable|string',
@@ -201,6 +257,8 @@ class ImportationInvoiceController extends Controller
             'start_date', 'arrive_date', 'amount', 'container_status', 'notes'
         ]);
 
+        $data = array_merge($data, $this->normalizeFinancialFields($request));
+
         $invoice->update($data);
 
         if ($request->has('deleted_attachments')) {
@@ -219,7 +277,7 @@ class ImportationInvoiceController extends Controller
             $invoice->addMediaFromRequest('file')->toMediaCollection('invoice_pdf');
         }
 
-        return response()->json($invoice);
+        return response()->json($invoice->load(['supplier', 'payments']));
     }
 
     #[OA\Delete(

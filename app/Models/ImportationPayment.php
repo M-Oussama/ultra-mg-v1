@@ -15,8 +15,15 @@ class ImportationPayment extends Model implements HasMedia
         'importation_invoice_id',
         'amount',
         'type',
+        'percentage_rate',
         'payment_date',
         'notes',
+    ];
+
+    protected $casts = [
+        'amount' => 'float',
+        'percentage_rate' => 'float',
+        'payment_date' => 'date',
     ];
 
     public function invoice()

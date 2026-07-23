@@ -104,7 +104,10 @@ class AttendancePlanningController extends Controller
             ->keyBy('employee_id');
 
         $employees->each(function (Employee $employee) use ($entries) {
-            $employee->setAttribute('work_days', (int) ($entries[$employee->id]->work_days ?? 0));
+            $entry = $entries->get($employee->id);
+            $employee->setAttribute('work_days', (int) ($entry?->work_days ?? 0));
+            $employee->setAttribute('out_date', $entry?->out_date);
+            $employee->setAttribute('in_date', $entry?->in_date);
         });
 
         return response()->json([
@@ -126,19 +129,30 @@ class AttendancePlanningController extends Controller
             'entries' => ['required', 'array'],
             'entries.*.employee_id' => ['required', 'integer', 'exists:employees,id'],
             'entries.*.work_days' => ['required', 'integer', 'min:0', 'max:31'],
+            'entries.*.out_date' => ['nullable', 'string', 'max:32'],
+            'entries.*.in_date' => ['nullable', 'string', 'max:32'],
         ]);
 
         foreach ($validated['entries'] as $entry) {
-            EmployeeMonthlyWorkDay::updateOrCreate(
+            $workDay = EmployeeMonthlyWorkDay::firstOrNew(
                 [
                     'employee_id' => (int) $entry['employee_id'],
                     'month' => (int) $validated['month'],
                     'year' => (int) $validated['year'],
-                ],
-                [
-                    'work_days' => (int) $entry['work_days'],
                 ]
             );
+
+            $workDay->work_days = (int) $entry['work_days'];
+
+            if (array_key_exists('out_date', $entry)) {
+                $workDay->out_date = $entry['out_date'];
+            }
+
+            if (array_key_exists('in_date', $entry)) {
+                $workDay->in_date = $entry['in_date'];
+            }
+
+            $workDay->save();
         }
 
         return response()->json([

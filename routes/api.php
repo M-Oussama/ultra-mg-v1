@@ -21,7 +21,10 @@ use App\Http\Controllers\ProductReturnController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ImportationInvoiceController;
+use App\Http\Controllers\ImportationMoneyBalanceController;
 use App\Http\Controllers\ImportationPaymentController;
+use App\Http\Controllers\MoneyReceiptPaperController;
+use App\Http\Controllers\EntrepreneurSettlementController;
 use App\Http\Controllers\SalesSupplierController;
 use App\Http\Controllers\SupplyController;
 use App\Http\Controllers\UserController;
@@ -336,6 +339,33 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/store', [ImportationPaymentController::class, 'store'])->middleware('permission:add,importations');
         Route::post('/update/{id}', [ImportationPaymentController::class, 'update'])->middleware('permission:edit,importations');
         Route::delete('/delete/{id}', [ImportationPaymentController::class, 'delete'])->middleware('permission:delete,importations');
+    });
+
+    Route::group(['prefix' => 'importation-money-balance'], function () {
+        Route::get('/list', [ImportationMoneyBalanceController::class, 'list'])->middleware('permission:list,importations');
+        Route::post('/store', [ImportationMoneyBalanceController::class, 'store'])->middleware('permission:add,importations');
+        Route::post('/update/{id}', [ImportationMoneyBalanceController::class, 'update'])->middleware('permission:edit,importations');
+        Route::delete('/delete/{id}', [ImportationMoneyBalanceController::class, 'delete'])->middleware('permission:delete,importations');
+    });
+
+    Route::group(['prefix' => 'money-receipt-papers'], function () {
+        Route::get('/list', [MoneyReceiptPaperController::class, 'list'])->middleware('permission:list,importations');
+        Route::post('/store', [MoneyReceiptPaperController::class, 'store'])->middleware('permission:add,importations');
+        Route::post('/update/{id}', [MoneyReceiptPaperController::class, 'update'])->middleware('permission:edit,importations');
+        Route::delete('/delete/{id}', [MoneyReceiptPaperController::class, 'delete'])->middleware('permission:delete,importations');
+    });
+
+    Route::group(['prefix' => 'entrepreneur-settlements'], function () {
+        Route::get('/entrepreneurs/list', [EntrepreneurSettlementController::class, 'listEntrepreneurs'])->middleware('permission:list,importations');
+        Route::post('/entrepreneurs/store', [EntrepreneurSettlementController::class, 'storeEntrepreneur'])->middleware('permission:add,importations');
+        Route::delete('/entrepreneurs/delete/{id}', [EntrepreneurSettlementController::class, 'deleteEntrepreneur'])->middleware('permission:delete,importations');
+        Route::get('/list', [EntrepreneurSettlementController::class, 'list'])->middleware('permission:list,importations');
+        Route::post('/store', [EntrepreneurSettlementController::class, 'store'])->middleware('permission:add,importations');
+        Route::post('/update/{id}', [EntrepreneurSettlementController::class, 'update'])->middleware('permission:edit,importations');
+        Route::delete('/delete/{id}', [EntrepreneurSettlementController::class, 'delete'])->middleware('permission:delete,importations');
+        Route::post('/{settlement_id}/transactions/store', [EntrepreneurSettlementController::class, 'storeTransaction'])->middleware('permission:add,importations');
+        Route::post('/transactions/update/{id}', [EntrepreneurSettlementController::class, 'updateTransaction'])->middleware('permission:edit,importations');
+        Route::delete('/transactions/delete/{id}', [EntrepreneurSettlementController::class, 'deleteTransaction'])->middleware('permission:delete,importations');
     });
 
     Route::group(['prefix' => 'sub-certify-invoices'], function () {

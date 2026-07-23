@@ -6,7 +6,7 @@
 <html lang="ar" dir="{{ $dompdfArabic ? 'ltr' : 'rtl' }}">
 <head>
     <meta charset="UTF-8">
-    <title>{{ $pdfText('سند عطلة سنوية') }}</title>
+    <title>Vacation Certificate</title>
     @php
         $toFileUrl = static function (string $path): string {
             $normalized = str_replace('\\', '/', $path);
@@ -21,13 +21,10 @@
             return $dompdfArabic ? str_replace('\\', '/', $path) : $toFileUrl($path);
         };
 
-        $amiriRegularPath = public_path('fonts/Amiri-Regular.ttf');
-        $amiriBoldPath = public_path('fonts/Amiri-Bold.ttf');
-        $arialPath = public_path('Arial.ttf');
         $dejaVuRegularPath = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans.ttf');
         $dejaVuBoldPath = base_path('vendor/dompdf/dompdf/lib/fonts/DejaVuSans-Bold.ttf');
-        $arabicRegular = $toFontUrl(is_file($amiriRegularPath) ? $amiriRegularPath : (is_file($arialPath) ? $arialPath : $dejaVuRegularPath));
-        $arabicBold = $toFontUrl(is_file($amiriBoldPath) ? $amiriBoldPath : (is_file($arialPath) ? $arialPath : $dejaVuBoldPath));
+        $arabicRegular = $toFontUrl($dejaVuRegularPath);
+        $arabicBold = $toFontUrl($dejaVuBoldPath);
     @endphp
     <style>
         @font-face {

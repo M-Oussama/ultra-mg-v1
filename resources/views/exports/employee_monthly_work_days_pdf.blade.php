@@ -1,48 +1,234 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Employee Monthly Work Days</title>
+    <title>Pointage des employés</title>
     <style>
-        body { font-family: DejaVu Sans, Arial, sans-serif; color: #1f2937; font-size: 12px; }
-        .header { margin-bottom: 20px; }
-        .title { font-size: 20px; font-weight: bold; margin: 0; }
-        .meta { color: #6b7280; font-size: 11px; margin-top: 4px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        th, td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; }
-        th { background: #f3f4f6; font-weight: bold; }
-        .badge { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #e5f7ee; color: #166534; font-weight: bold; }
+        @page {
+            margin: 24px 28px;
+        }
+
+        body {
+            font-family: DejaVu Sans, Arial, sans-serif;
+            color: #1f2937;
+            font-size: 12px;
+            margin: 0;
+            padding: 0;
+        }
+
+        .page {
+            width: 100%;
+        }
+
+        .header {
+            display: table;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        .company,
+        .meta {
+            display: table-cell;
+            vertical-align: top;
+        }
+
+        .company {
+            width: 68%;
+            padding-right: 12px;
+        }
+
+        .meta {
+            width: 32%;
+            text-align: right;
+        }
+
+        .company-name {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            color: #0f172a;
+        }
+
+        .company-line {
+            margin: 3px 0 0;
+            font-size: 11.5px;
+            color: #4b5563;
+            line-height: 1.35;
+        }
+
+        .meta-label {
+            margin: 0;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #6b7280;
+        }
+
+        .meta-value {
+            margin: 2px 0 0;
+            font-size: 12px;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .report-title {
+            margin: 8px 0 14px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+            letter-spacing: 0.2px;
+        }
+
+        .divider {
+            height: 1px;
+            background: #dbe2ea;
+            margin-bottom: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        th,
+        td {
+            border: 1px solid #d7dce3;
+            padding: 7px 8px;
+            vertical-align: top;
+            word-wrap: break-word;
+        }
+
+        th {
+            background: #f3f4f6;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #111827;
+            text-align: left;
+        }
+
+        tbody tr:nth-child(even) td {
+            background: #fafafa;
+        }
+
+        .col-mat {
+            width: 7%;
+            text-align: center;
+        }
+
+        .col-nom {
+            width: 24%;
+        }
+
+        .col-prenom {
+            width: 24%;
+        }
+
+        .col-jours {
+            width: 9%;
+            text-align: center;
+        }
+
+        .col-dates {
+            width: 36%;
+        }
+
+        .dates {
+            white-space: pre-line;
+            line-height: 1.25;
+        }
+
+        .empty {
+            color: #6b7280;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <p class="title">{{ $company->name ?? 'Company' }} - Employee Monthly Work Days</p>
-        <p class="meta">Month: {{ str_pad((string) $month, 2, '0', STR_PAD_LEFT) }} / Year: {{ $year }}</p>
-    </div>
+    @php
+        $monthNames = [
+            1 => 'JANVIER',
+            2 => 'FÉVRIER',
+            3 => 'MARS',
+            4 => 'AVRIL',
+            5 => 'MAI',
+            6 => 'JUIN',
+            7 => 'JUILLET',
+            8 => 'AOÛT',
+            9 => 'SEPTEMBRE',
+            10 => 'OCTOBRE',
+            11 => 'NOVEMBRE',
+            12 => 'DÉCEMBRE',
+        ];
+        $monthLabel = $monthNames[(int) $month] ?? strtoupper((string) $month);
+        $companyName = $company?->name ?? 'SOCIÉTÉ';
+        $companyAddress = trim((string) ($company?->address ?? ''));
+        $companyDescription = trim((string) ($company?->description ?? ''));
+    @endphp
 
-    <table>
-        <thead>
-            <tr>
-                <th style="width: 54px;">#</th>
-                <th>Employee</th>
-                <th>Position</th>
-                <th style="width: 120px;">Work Days</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($employees as $index => $employee)
+    <div class="page">
+        <div class="header">
+            <div class="company">
+                <p class="company-name">{{ $companyName }}</p>
+                @if($companyAddress !== '')
+                    <p class="company-line">{{ $companyAddress }}</p>
+                @endif
+                @if($companyDescription !== '')
+                    <p class="company-line">{{ $companyDescription }}</p>
+                @endif
+            </div>
+            <div class="meta">
+                <p class="meta-label">Généré le</p>
+                <p class="meta-value">{{ now()->format('d/m/Y H:i') }}</p>
+                <p class="meta-label" style="margin-top: 10px;">Période</p>
+                <p class="meta-value">MOIS : {{ $monthLabel }} / {{ str_pad((string) $month, 2, '0', STR_PAD_LEFT) }} / ANNÉE : {{ $year }}</p>
+            </div>
+        </div>
+
+        <div class="report-title">POINTAGE DES EMPLOYÉS</div>
+        <div class="divider"></div>
+
+        <table>
+            <thead>
                 <tr>
-                    <td>{{ $index + 1 }}</td>
-                    <td>{{ trim($employee->name . ' ' . ($employee->surname ?? '')) }}</td>
-                    <td>{{ $employee->position ?? '-' }}</td>
-                    <td><span class="badge">{{ (int) ($employee->work_days ?? 0) }} days</span></td>
+                    <th class="col-mat">MAT</th>
+                    <th class="col-nom">NOM</th>
+                    <th class="col-prenom">PRÉNOM</th>
+                    <th class="col-jours">JOURS</th>
+                    <th class="col-dates">ENTRÉE / SORTIE</th>
                 </tr>
-            @empty
-                <tr>
-                    <td colspan="4" style="text-align:center; color:#6b7280;">No active employees found.</td>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @forelse ($employees as $employee)
+                    @php
+                        $dateLines = [];
+                        if (!empty($employee->out_date)) {
+                            $dateLines[] = 'SORTIE : ' . $employee->out_date;
+                        }
+                        if (!empty($employee->in_date)) {
+                            $dateLines[] = 'ENTRÉE : ' . $employee->in_date;
+                        }
+                        $entryExit = empty($dateLines) ? '-' : implode("\n", $dateLines);
+                    @endphp
+                    <tr>
+                        <td class="col-mat">{{ $employee->id }}</td>
+                        <td class="col-nom">{{ $employee->surname ?? '-' }}</td>
+                        <td class="col-prenom">{{ $employee->name ?? '-' }}</td>
+                        <td class="col-jours">{{ (int) ($employee->work_days ?? 0) }}</td>
+                        <td class="col-dates">
+                            <div class="dates">{{ $entryExit }}</div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="5" class="empty">Aucun employé actif pour cette période.</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
 </body>
 </html>

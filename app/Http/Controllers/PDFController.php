@@ -345,7 +345,8 @@ class PDFController extends Controller
 
         $cartons = (int) floor($quantity / $unitsPerPackage);
         $remainder = (int) round(fmod($quantity, $unitsPerPackage));
-        $label = $cartons . ' Cartons (' . $unitsPerPackage . ')';
+        $packageType = $this->resolvedPackageType($saleItem);
+        $label = $cartons . ' ' . $packageType . ' (' . $unitsPerPackage . ')';
 
         if ($remainder > 0) {
             $label .= ' + ' . $remainder . ' pcs isolées';
@@ -1348,6 +1349,40 @@ class PDFController extends Controller
         return implode('', array_reverse($runs));
     }
 
+    private function shapeArabicHtmlForDompdf(string $html): string
+    {
+        if ($html === '' || !preg_match('/[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}]/u', $html)) {
+            return $html;
+        }
+
+        $segments = preg_split('/(<[^>]+>)/u', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
+        if ($segments === false || $segments === []) {
+            return $html;
+        }
+
+        $skipDepth = 0;
+        foreach ($segments as $index => $segment) {
+            if ($segment === '') {
+                continue;
+            }
+
+            if ($segment[0] === '<') {
+                if (preg_match('/^<(script|style|title)\b/i', $segment)) {
+                    $skipDepth++;
+                } elseif ($skipDepth > 0 && preg_match('/^<\/(script|style|title)\b/i', $segment)) {
+                    $skipDepth--;
+                }
+                continue;
+            }
+
+            if ($skipDepth === 0 && preg_match('/[\x{0600}-\x{06FF}\x{0750}-\x{077F}\x{08A0}-\x{08FF}]/u', $segment)) {
+                $segments[$index] = $this->shapeArabicForDompdf($segment);
+            }
+        }
+
+        return implode('', $segments);
+    }
+
     private function shapeArabicRunForDompdf(string $text): string
     {
         $text = preg_replace('/[\x{064B}-\x{065F}\x{0670}]/u', '', $text) ?? $text;
@@ -1507,7 +1542,7 @@ class PDFController extends Controller
         $downloadName = sprintf('Blank_Contract_%d.pdf', $career->id);
 
         $html = view('exports.employee_blank_contract_pdf', $context)->render();
-        $browserPdfPath = $this->renderHtmlToPdfWithBrowser($html, 'blank_contract_' . $career->id, 1);
+        $browserPdfPath = $this->renderHtmlToPdfWithBrowser($html, 'blank_contract_' . $career->id, 4);
 
         if ($browserPdfPath !== null) {
             try {
@@ -1533,7 +1568,12 @@ class PDFController extends Controller
             }
         }
 
-        $pdf = Pdf::loadView('exports.employee_blank_contract_pdf', $context);
+        $fallbackHtml = view('exports.employee_blank_contract_pdf', array_merge($context, [
+            'dompdfArabic' => true,
+        ]))->render();
+        $fallbackHtml = $this->shapeArabicHtmlForDompdf($fallbackHtml);
+
+        $pdf = Pdf::loadHTML($fallbackHtml);
         $pdf->setPaper('a4', 'portrait')->setOptions($this->pdfOptions());
 
         return $pdf->download($downloadName);
@@ -1592,7 +1632,10 @@ class PDFController extends Controller
             ->keyBy('employee_id');
 
         $employees->each(function (Employee $employee) use ($entries) {
-            $employee->setAttribute('work_days', (int) ($entries[$employee->id]->work_days ?? 0));
+            $entry = $entries->get($employee->id);
+            $employee->setAttribute('work_days', (int) ($entry?->work_days ?? 0));
+            $employee->setAttribute('out_date', $entry?->out_date);
+            $employee->setAttribute('in_date', $entry?->in_date);
         });
 
         $context = $this->companyInfoContext();

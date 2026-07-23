@@ -82,7 +82,8 @@ class ImportationPaymentController extends Controller
                     properties: [
                         new OA\Property(property: "importation_invoice_id", type: "integer"),
                         new OA\Property(property: "amount", type: "number", format: "float"),
-                        new OA\Property(property: "type", type: "string", description: "invoice_settlement, customs fee, freight/transit"),
+                        new OA\Property(property: "type", type: "string", description: "invoice_settlement, deposit, supplier_percentage, customs fee, freight/transit"),
+                        new OA\Property(property: "percentage_rate", type: "number", format: "float"),
                         new OA\Property(property: "payment_date", type: "string", format: "date"),
                         new OA\Property(property: "notes", type: "string"),
                         new OA\Property(property: "files[]", type: "array", items: new OA\Items(type: "string", format: "binary"), description: "One or many PDF files")
@@ -100,7 +101,8 @@ class ImportationPaymentController extends Controller
         $validator = Validator::make($request->all(), [
             'importation_invoice_id' => 'required|exists:importation_invoices,id',
             'amount' => 'required|numeric',
-            'type' => 'required|string|in:invoice_settlement,customs fee,freight/transit',
+            'type' => 'required|string|in:invoice_settlement,deposit,supplier_percentage,customs fee,freight/transit',
+            'percentage_rate' => 'nullable|numeric|min:0|max:100|required_if:type,supplier_percentage',
             'payment_date' => 'required|date',
             'notes' => 'nullable|string',
             'files' => 'nullable|array',
@@ -112,7 +114,7 @@ class ImportationPaymentController extends Controller
         }
 
         $payment = ImportationPayment::create($request->only([
-            'importation_invoice_id', 'amount', 'type', 'payment_date', 'notes'
+            'importation_invoice_id', 'amount', 'type', 'percentage_rate', 'payment_date', 'notes'
         ]));
 
         if ($request->hasFile('files')) {
@@ -137,6 +139,7 @@ class ImportationPaymentController extends Controller
                         new OA\Property(property: "importation_invoice_id", type: "integer"),
                         new OA\Property(property: "amount", type: "number", format: "float"),
                         new OA\Property(property: "type", type: "string"),
+                        new OA\Property(property: "percentage_rate", type: "number", format: "float"),
                         new OA\Property(property: "payment_date", type: "string", format: "date"),
                         new OA\Property(property: "notes", type: "string"),
                         new OA\Property(property: "files[]", type: "array", items: new OA\Items(type: "string", format: "binary"))
@@ -159,7 +162,8 @@ class ImportationPaymentController extends Controller
         $validator = Validator::make($request->all(), [
             'importation_invoice_id' => 'sometimes|exists:importation_invoices,id',
             'amount' => 'sometimes|numeric',
-            'type' => 'sometimes|string|in:invoice_settlement,customs fee,freight/transit',
+            'type' => 'sometimes|string|in:invoice_settlement,deposit,supplier_percentage,customs fee,freight/transit',
+            'percentage_rate' => 'nullable|numeric|min:0|max:100|required_if:type,supplier_percentage',
             'payment_date' => 'sometimes|date',
             'notes' => 'nullable|string',
             'files' => 'nullable|array',
@@ -171,7 +175,7 @@ class ImportationPaymentController extends Controller
         }
 
         $payment->update($request->only([
-            'importation_invoice_id', 'amount', 'type', 'payment_date', 'notes'
+            'importation_invoice_id', 'amount', 'type', 'percentage_rate', 'payment_date', 'notes'
         ]));
 
         if ($request->hasFile('files')) {

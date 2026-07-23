@@ -1,8 +1,11 @@
+@php
+    $dompdfArabic = (bool) ($dompdfArabic ?? false);
+@endphp
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="{{ $dompdfArabic ? 'ltr' : 'rtl' }}">
 <head>
     <meta charset="UTF-8">
-    <title>عقد عمل محدد المدة</title>
+    <title>Employment Contract</title>
     <style>
         @page {
             size: A4;
@@ -20,7 +23,7 @@
         }
 
         body {
-            direction: rtl;
+            direction: {{ $dompdfArabic ? 'ltr' : 'rtl' }};
             font-family: Tahoma, "Segoe UI", Arial, "DejaVu Sans", sans-serif;
             color: #111111;
             font-size: 12px;
@@ -146,7 +149,7 @@
         }
     </style>
 </head>
-<body>
+<body class="{{ $dompdfArabic ? 'dompdf-fallback' : '' }}">
 @php
     $formatDate = static function ($value, string $format = 'd-m-Y'): string {
         if (empty($value)) {
