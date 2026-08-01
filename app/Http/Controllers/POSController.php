@@ -1197,6 +1197,417 @@ class POSController extends Controller
     }
 
     /**
+     * Import a sales bundle while resolving legacy client IDs to local IDs.
+     *
+     * A source system may use client 42 while this database already has that
+     * person as client 117. external_id keeps that relationship stable across
+     * re-imports and prevents sales from being attached by accident.
+     */
+    public function importBundle(Request $request): JsonResponse
+    {
+        $request->validate([
+            'sales' => 'nullable|file|mimes:csv,txt|max:20480',
+            'clients' => 'nullable|file|mimes:csv,txt|max:20480',
+            'sale_items' => 'nullable|file|mimes:csv,txt|max:20480',
+            'payments' => 'nullable|file|mimes:csv,txt|max:20480',
+            'department_id' => 'required|integer|exists:departments,id',
+        ]);
+
+        $departmentId = (int) $request->input('department_id');
+        $errors = [];
+        $warnings = [];
+        $counts = [
+            'clients_created' => 0,
+            'clients_reused' => 0,
+            'sales_created' => 0,
+            'sale_items_created' => 0,
+            'payments_created' => 0,
+        ];
+
+        if (!$request->hasFile('clients') && !$request->hasFile('sales') && !$request->hasFile('sale_items') && !$request->hasFile('payments')) {
+            return response()->json(['message' => 'At least one CSV file is required.'], 422);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $clientRows = $this->readImportCsv($request->file('clients'));
+            $saleRows = $this->readImportCsv($request->file('sales'));
+            $itemRows = $this->readImportCsv($request->file('sale_items'));
+            $paymentRows = $this->readImportCsv($request->file('payments'));
+
+            $clientMap = [];
+            foreach ($clientRows as $index => $row) {
+                $rowNumber = $index + 2;
+                $legacyId = $this->nullableImportValue($this->importValue($row, [
+                    'external_id', 'legacy_id', 'source_id', 'client_id', 'id',
+                ]));
+                $name = $this->nullableImportValue($this->importValue($row, [
+                    'name', 'first_name', 'firstname', 'client_name',
+                ]));
+                $surname = $this->nullableImportValue($this->importValue($row, [
+                    'surname', 'last_name', 'lastname', 'client_surname',
+                ]));
+
+                if ($name === null) {
+                    $fullName = $this->nullableImportValue($this->importValue($row, [
+                        'full_name', 'fullname', 'client_full_name',
+                    ]));
+                    if ($fullName !== null) {
+                        $parts = preg_split('/\s+/', $fullName, 2);
+                        $name = $parts[0] ?? null;
+                        $surname = $surname ?? ($parts[1] ?? null);
+                    }
+                }
+                if ($name === null) {
+                    $errors[] = ['file' => 'clients', 'row' => $rowNumber, 'message' => 'Client name is required.'];
+                    continue;
+                }
+
+                $client = $this->findImportedClient($row, $legacyId, $departmentId);
+                if ($client !== null) {
+                    if ($legacyId !== null && !$client->external_id) {
+                        $client->external_id = $legacyId;
+                        $client->save();
+                    }
+                    $counts['clients_reused']++;
+                } else {
+                    $cityId = (int) ($this->importNumber($this->importValue($row, [
+                        'city_id', 'city', 'wilaya_id',
+                    ])) ?? 0);
+                    if ($cityId <= 0 || !DB::table('cities')->where('id', $cityId)->exists()) {
+                        $cityId = (int) (DB::table('cities')->orderBy('id')->value('id') ?? 0);
+                    }
+                    if ($cityId <= 0) {
+                        $errors[] = ['file' => 'clients', 'row' => $rowNumber, 'message' => 'No valid city_id is available for this client.'];
+                        continue;
+                    }
+
+                    $email = $this->nullableImportValue($this->importValue($row, ['email', 'client_email']));
+                    $client = Client::create([
+                        'external_id' => $legacyId,
+                        'department_id' => $departmentId,
+                        'user_id' => auth()->id(),
+                        'name' => $name,
+                        'surname' => $surname,
+                        'address' => $this->nullableImportValue($this->importValue($row, ['address', 'client_address'])),
+                        'email' => filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null,
+                        'phone' => $this->nullableImportValue($this->importValue($row, ['phone', 'mobile', 'client_phone'])),
+                        'NRC' => $this->nullableImportValue($this->importValue($row, ['nrc'])),
+                        'NIF' => $this->nullableImportValue($this->importValue($row, ['nif', 'tax_id'])),
+                        'NART' => $this->nullableImportValue($this->importValue($row, ['nart'])),
+                        'NIS' => $this->nullableImportValue($this->importValue($row, ['nis'])),
+                        'city_id' => $cityId,
+                        'brand' => $this->nullableImportValue($this->importValue($row, ['brand'])),
+                        'company_name' => $this->nullableImportValue($this->importValue($row, ['company_name', 'company'])),
+                    ]);
+                    $counts['clients_created']++;
+                }
+
+                if ($legacyId !== null) $clientMap[$legacyId] = (int) $client->id;
+            }
+
+            $saleMap = [];
+            foreach ($saleRows as $index => $row) {
+                $rowNumber = $index + 2;
+                $legacyId = $this->nullableImportValue($this->importValue($row, [
+                    'external_id', 'legacy_id', 'source_id', 'sale_id', 'id',
+                ]));
+                $clientReference = $this->nullableImportValue($this->importValue($row, [
+                    'client_external_id', 'legacy_client_id', 'old_client_id', 'client_id',
+                ]));
+                $clientId = $this->resolveImportedClientId($clientReference, $row, $clientMap, $departmentId);
+                if ($clientReference !== null && $clientId === null) {
+                    $errors[] = ['file' => 'sales', 'row' => $rowNumber, 'message' => "Client '$clientReference' could not be mapped."];
+                    continue;
+                }
+
+                $date = $this->importDate($this->importValue($row, ['sale_date', 'date', 'invoice_date']));
+                $total = $this->importNumber($this->importValue($row, ['total_amount', 'total', 'amount']));
+                if ($date === null || $total === null) {
+                    $errors[] = ['file' => 'sales', 'row' => $rowNumber, 'message' => 'sale_date and total_amount are required.'];
+                    continue;
+                }
+
+                $sale = $legacyId === null ? null : Sale::where('external_id', $legacyId)
+                    ->where('department_id', $departmentId)
+                    ->first();
+                if ($sale !== null) {
+                    $warnings[] = ['file' => 'sales', 'row' => $rowNumber, 'message' => "Sale '$legacyId' already exists; reused it."];
+                } else {
+                    $paidAmount = $this->importNumber($this->importValue($row, [
+                        'paid_amount', 'payment_amount', 'regulation', 'paid',
+                    ])) ?? 0;
+                    $balance = $this->importNumber($this->importValue($row, ['balance', 'remaining'])) ?? ($total - $paidAmount);
+                    $statusId = (int) ($this->importNumber($this->importValue($row, [
+                        'sale_statuses_id', 'status_id',
+                    ])) ?? SaleStatus::NOT_PAID_ID);
+                    if (!DB::table('sale_statuses')->where('id', $statusId)->exists()) $statusId = SaleStatus::NOT_PAID_ID;
+
+                    $sale = Sale::create([
+                        'external_id' => $legacyId,
+                        'sale_date' => $date,
+                        'client_id' => $clientId,
+                        'total_amount' => $total,
+                        'sale_statuses_id' => $statusId,
+                        'regulation' => $paidAmount,
+                        'payment' => $this->importBoolean($this->importValue($row, ['payment', 'paid_flag'])) || $paidAmount > 0,
+                        'balance' => $balance,
+                        'notes' => $this->nullableImportValue($this->importValue($row, ['notes', 'note'])),
+                        'department_id' => $departmentId,
+                        'truck_driver_id' => $this->nullableImportInteger($this->importValue($row, ['truck_driver_id', 'driver_id'])),
+                        'picked_up' => $this->importBoolean($this->importValue($row, ['picked_up'])),
+                        'user_id' => auth()->id(),
+                        'paid_amount' => $paidAmount,
+                    ]);
+                    $counts['sales_created']++;
+                }
+                if ($legacyId !== null) $saleMap[$legacyId] = (int) $sale->id;
+            }
+
+            foreach ($itemRows as $index => $row) {
+                $rowNumber = $index + 2;
+                $saleReference = $this->nullableImportValue($this->importValue($row, [
+                    'sale_external_id', 'legacy_sale_id', 'old_sale_id', 'sale_id',
+                ]));
+                $saleId = $saleReference === null ? null : ($saleMap[$saleReference] ?? null);
+                if ($saleId === null && $saleReference !== null && ctype_digit($saleReference) && Sale::where('id', (int) $saleReference)->exists()) $saleId = (int) $saleReference;
+                $sale = $saleId === null ? null : Sale::find($saleId);
+                $productId = $this->resolveImportedProductId($row);
+                $quantity = $this->importNumber($this->importValue($row, ['quantity', 'qty']));
+                $price = $this->importNumber($this->importValue($row, ['price', 'unit_price']));
+
+                if ($sale === null || $productId === null || $quantity === null || $price === null) {
+                    $errors[] = ['file' => 'sale_items', 'row' => $rowNumber, 'message' => 'sale_id, product_id, quantity and price must map to existing records.'];
+                    continue;
+                }
+
+                $itemExternalId = $this->nullableImportValue($this->importValue($row, [
+                    'external_id', 'legacy_id', 'source_id', 'sale_item_id', 'id',
+                ]));
+                if ($itemExternalId !== null && SaleItem::where('external_id', $itemExternalId)->where('sale_id', $sale->id)->exists()) continue;
+                $itemClientId = $sale->client_id ?? $this->resolveImportedClientId(
+                    $this->nullableImportValue($this->importValue($row, ['client_external_id', 'client_id'])),
+                    $row,
+                    $clientMap,
+                    $departmentId,
+                );
+                if ($itemClientId === null) {
+                    $errors[] = ['file' => 'sale_items', 'row' => $rowNumber, 'message' => 'A client is required for each sale item.'];
+                    continue;
+                }
+
+                SaleItem::create([
+                    'external_id' => $itemExternalId,
+                    'sale_id' => $sale->id,
+                    'client_id' => $itemClientId,
+                    'product_id' => $productId,
+                    'quantity' => $quantity,
+                    'price' => $price,
+                    'total_price' => $this->importNumber($this->importValue($row, ['total_price', 'subtotal'])) ?? ($quantity * $price),
+                    'sale_date' => $this->importDate($this->importValue($row, ['sale_date', 'date'])) ?? $sale->sale_date,
+                    'package_type' => $this->nullableImportValue($this->importValue($row, ['package_type'])),
+                    'units_per_package' => $this->nullableImportInteger($this->importValue($row, ['units_per_package'])),
+                    'package_quantity' => $this->nullableImportInteger($this->importValue($row, ['package_quantity'])),
+                    'number_of_packages' => $this->nullableImportInteger($this->importValue($row, ['number_of_packages'])),
+                    'items_per_package' => $this->nullableImportInteger($this->importValue($row, ['items_per_package'])),
+                    'price_active' => $this->importBoolean($this->importValue($row, ['price_active']), true),
+                ]);
+                $counts['sale_items_created']++;
+            }
+
+            foreach ($paymentRows as $index => $row) {
+                $rowNumber = $index + 2;
+                $paymentExternalId = $this->nullableImportValue($this->importValue($row, [
+                    'external_id', 'legacy_id', 'source_id', 'payment_id', 'id',
+                ]));
+                $clientReference = $this->nullableImportValue($this->importValue($row, ['client_external_id', 'legacy_client_id', 'client_id']));
+                $clientId = $this->resolveImportedClientId($clientReference, $row, $clientMap, $departmentId);
+                $saleReference = $this->nullableImportValue($this->importValue($row, ['sale_external_id', 'legacy_sale_id', 'sale_id']));
+                $saleId = $saleReference === null ? null : ($saleMap[$saleReference] ?? null);
+                if ($saleId === null && $saleReference !== null && ctype_digit($saleReference)) $saleId = Sale::where('id', (int) $saleReference)->value('id');
+                $amount = $this->importNumber($this->importValue($row, ['amount_paid', 'amount', 'paid_amount']));
+                $date = $this->importDate($this->importValue($row, ['payment_date', 'date'])) ?? now()->toDateString();
+
+                if ($amount === null || ($clientId === null && $saleId === null)) {
+                    $errors[] = ['file' => 'payments', 'row' => $rowNumber, 'message' => 'amount and a mapped client or sale are required.'];
+                    continue;
+                }
+                if ($saleId !== null && $clientId === null) $clientId = Sale::where('id', $saleId)->value('client_id');
+                if ($paymentExternalId !== null && Payment::where('external_id', $paymentExternalId)->where('client_id', $clientId)->exists()) continue;
+
+                Payment::create([
+                    'external_id' => $paymentExternalId,
+                    'sale_id' => $saleId,
+                    'client_id' => $clientId,
+                    'department_id' => $departmentId,
+                    'amount_paid' => $amount,
+                    'payment_date' => $date,
+                    'note' => $this->nullableImportValue($this->importValue($row, ['note', 'notes'])),
+                    'active' => $this->importBoolean($this->importValue($row, ['active']), true),
+                ]);
+                $counts['payments_created']++;
+            }
+
+            if ($request->hasFile('payments') && !empty($saleMap)) {
+                foreach (Sale::whereIn('id', array_values($saleMap))->get() as $sale) {
+                    $paid = (float) Payment::where('sale_id', $sale->id)->where('active', true)->sum('amount_paid');
+                    $paid += (float) PartialPayment::where('sale_id', $sale->id)->sum('amount');
+                    $sale->update([
+                        'paid_amount' => $paid,
+                        'regulation' => $paid,
+                        'balance' => (float) $sale->total_amount - $paid,
+                        'payment' => $paid > 0,
+                        'sale_statuses_id' => $paid >= (float) $sale->total_amount ? SaleStatus::PAID_ID : ($paid > 0 ? SaleStatus::PARTIALLY_PAID_ID : SaleStatus::NOT_PAID_ID),
+                    ]);
+                }
+            }
+
+            DB::commit();
+        } catch (\Throwable $exception) {
+            DB::rollBack();
+            return response()->json(['message' => 'Sales bundle import failed: ' . $exception->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => 'Sales bundle imported successfully.',
+            'counts' => $counts,
+            'errors' => $errors,
+            'warnings' => $warnings,
+        ]);
+    }
+
+    private function readImportCsv($file): array
+    {
+        if ($file === null) return [];
+        $handle = fopen($file->getRealPath(), 'r');
+        if ($handle === false) throw new \RuntimeException('Unable to read one of the CSV files.');
+        $firstLine = fgets($handle);
+        if ($firstLine === false) { fclose($handle); return []; }
+        $delimiter = substr_count($firstLine, ';') > substr_count($firstLine, ',') ? ';' : ',';
+        rewind($handle);
+        $header = fgetcsv($handle, 0, $delimiter);
+        if (!$header) { fclose($handle); return []; }
+        $headers = array_map(fn ($value) => $this->normalizeImportHeader($value), $header);
+        $rows = [];
+        while (($values = fgetcsv($handle, 0, $delimiter)) !== false) {
+            if (count(array_filter($values, fn ($value) => trim((string) $value) !== '')) === 0) continue;
+            $row = [];
+            foreach ($headers as $index => $name) if ($name !== '') $row[$name] = isset($values[$index]) ? trim((string) $values[$index]) : null;
+            $rows[] = $row;
+        }
+        fclose($handle);
+        return $rows;
+    }
+
+    private function normalizeImportHeader($value): string
+    {
+        $value = preg_replace('/^\xEF\xBB\xBF/', '', (string) $value);
+        return trim((string) preg_replace('/[^a-z0-9]+/i', '_', strtolower(trim($value))), '_');
+    }
+
+    private function importValue(array $row, array $keys, $default = null)
+    {
+        foreach ($keys as $key) {
+            $normalized = $this->normalizeImportHeader($key);
+            if (array_key_exists($normalized, $row) && trim((string) $row[$normalized]) !== '') return $row[$normalized];
+        }
+        return $default;
+    }
+
+    private function nullableImportValue($value): ?string
+    {
+        $value = trim((string) ($value ?? ''));
+        return $value === '' || strtolower($value) === 'null' || $value === '-' ? null : $value;
+    }
+
+    private function importNumber($value): ?float
+    {
+        $value = $this->nullableImportValue($value);
+        if ($value === null) return null;
+        $normalized = str_contains($value, '.') ? str_replace(',', '', $value) : str_replace(',', '.', $value);
+        $normalized = str_replace(' ', '', $normalized);
+        return is_numeric($normalized) ? (float) $normalized : null;
+    }
+
+    private function nullableImportInteger($value): ?int
+    {
+        $number = $this->importNumber($value);
+        return $number === null ? null : (int) $number;
+    }
+
+    private function importBoolean($value, bool $default = false): bool
+    {
+        $value = $this->nullableImportValue($value);
+        if ($value === null) return $default;
+        return in_array(strtolower($value), ['1', 'true', 'yes', 'y', 'paid'], true);
+    }
+
+    private function importDate($value): ?string
+    {
+        $value = $this->nullableImportValue($value);
+        if ($value === null) return null;
+        $timestamp = strtotime($value);
+        return $timestamp === false ? null : date('Y-m-d', $timestamp);
+    }
+
+    private function findImportedClient(array $row, ?string $externalId, int $departmentId): ?Client
+    {
+        if ($externalId !== null) {
+            $client = Client::where('external_id', $externalId)->where('department_id', $departmentId)->first();
+            if ($client !== null) return $client;
+        }
+        foreach ([
+            'NIF' => ['nif', 'tax_id'],
+            'NRC' => ['nrc'],
+            'NIS' => ['nis'],
+            'phone' => ['phone', 'mobile'],
+            'email' => ['email'],
+        ] as $column => $keys) {
+            $value = $this->nullableImportValue($this->importValue($row, $keys));
+            if ($value !== null) {
+                $client = Client::where('department_id', $departmentId)->where($column, $value)->first();
+                if ($client !== null) return $client;
+            }
+        }
+        $name = $this->nullableImportValue($this->importValue($row, ['name', 'first_name', 'firstname', 'client_name']));
+        $surname = $this->nullableImportValue($this->importValue($row, ['surname', 'last_name', 'lastname']));
+        if ($name !== null) {
+            return Client::where('department_id', $departmentId)
+                ->whereRaw('LOWER(name) = ?', [strtolower($name)])
+                ->whereRaw('LOWER(COALESCE(surname, "")) = ?', [strtolower($surname ?? '')])
+                ->first();
+        }
+        return null;
+    }
+
+    private function resolveImportedClientId(?string $reference, array $row, array $clientMap, int $departmentId): ?int
+    {
+        if ($reference !== null && isset($clientMap[$reference])) return $clientMap[$reference];
+        $client = $this->findImportedClient($row, $reference, $departmentId);
+        if ($client !== null) return (int) $client->id;
+        if ($reference !== null && ctype_digit($reference)) {
+            $localId = Client::where('id', (int) $reference)->where('department_id', $departmentId)->value('id');
+            if ($localId !== null) return (int) $localId;
+        }
+        return null;
+    }
+
+    private function resolveImportedProductId(array $row): ?int
+    {
+        $productId = $this->nullableImportInteger($this->importValue($row, ['product_id', 'product']));
+        if ($productId !== null && Product::where('id', $productId)->exists()) return $productId;
+        foreach (['product_code' => 'product_code', 'sku' => 'SKU', 'product_name' => 'name', 'name' => 'name'] as $key => $column) {
+            $value = $this->nullableImportValue($this->importValue($row, [$key]));
+            if ($value !== null) {
+                $resolved = Product::where($column, $value)->value('id');
+                if ($resolved !== null) return (int) $resolved;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Import sales from CSV with one department_id applied to all rows.
      */
     public function importCsv(Request $request): JsonResponse

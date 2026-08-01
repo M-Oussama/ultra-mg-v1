@@ -197,6 +197,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/pos/sales/store', [POSController::class, 'store'])->middleware('permission:add,sales')->name('store');
     Route::post('/pos/sales/import-csv', [POSController::class, 'importCsv'])->middleware('permission:add,sales')->name('importSalesCsv');
     Route::post('/pos/sales/import-items-csv', [POSController::class, 'importSaleItemsCsv'])->middleware('permission:add,sales')->name('importSaleItemsCsv');
+    Route::post('/pos/sales/import-bundle', [POSController::class, 'importBundle'])->middleware('permission:add,sales')->name('importSalesBundle');
     Route::post('/pos/sales/delete', [POSController::class, 'deleteSale'])->middleware('permission:delete,sales')->name('deleteSale');
     Route::get('/pos/sale/getSale/{id}', [POSController::class, 'getSale'])->middleware('permission:list,sales')->name('getSale');
     Route::get('/pos/sale/getSaleData/{id}', [POSController::class, 'getSaleData'])->middleware('permission:list,sales')->name('getSale');

@@ -11,6 +11,7 @@ class SaleItem extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'external_id',
         'sale_id',
         'product_id',
         'quantity',

@@ -11,6 +11,7 @@ class Sale extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'external_id',
         'sale_date',
         'client_id',
         'total_amount',
@@ -18,7 +19,9 @@ class Sale extends Model
         'notes',
         'balance',
         'regulation',
+        'payment',
         'driver_id',
+        'truck_driver_id',
         'picked_up',
         'department_id',
         'show_company_info',

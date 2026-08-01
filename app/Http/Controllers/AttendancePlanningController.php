@@ -106,6 +106,7 @@ class AttendancePlanningController extends Controller
         $employees->each(function (Employee $employee) use ($entries) {
             $entry = $entries->get($employee->id);
             $employee->setAttribute('work_days', (int) ($entry?->work_days ?? 0));
+            $employee->setAttribute('cnas_days', (int) ($entry?->cnas_days ?? 0));
             $employee->setAttribute('out_date', $entry?->out_date);
             $employee->setAttribute('in_date', $entry?->in_date);
         });
@@ -129,6 +130,7 @@ class AttendancePlanningController extends Controller
             'entries' => ['required', 'array'],
             'entries.*.employee_id' => ['required', 'integer', 'exists:employees,id'],
             'entries.*.work_days' => ['required', 'integer', 'min:0', 'max:31'],
+            'entries.*.cnas_days' => ['nullable', 'integer', 'min:0', 'max:31'],
             'entries.*.out_date' => ['nullable', 'string', 'max:32'],
             'entries.*.in_date' => ['nullable', 'string', 'max:32'],
         ]);
@@ -143,6 +145,9 @@ class AttendancePlanningController extends Controller
             );
 
             $workDay->work_days = (int) $entry['work_days'];
+            if (array_key_exists('cnas_days', $entry)) {
+                $workDay->cnas_days = (int) ($entry['cnas_days'] ?? 0);
+            }
 
             if (array_key_exists('out_date', $entry)) {
                 $workDay->out_date = $entry['out_date'];
@@ -188,6 +193,7 @@ class AttendancePlanningController extends Controller
         $employees->each(function (Employee $employee) use ($workDayEntries, $payrollEntries, $activeMap) {
             $payroll = $payrollEntries[$employee->id] ?? null;
             $employee->setAttribute('work_days', (int) ($workDayEntries[$employee->id]->work_days ?? 0));
+            $employee->setAttribute('cnas_days', (int) ($workDayEntries[$employee->id]->cnas_days ?? 0));
             $employee->setAttribute('monthly_salary', (float) ($payroll->monthly_salary ?? 0));
             $employee->setAttribute('objectives_amount', (float) ($payroll->objectives_amount ?? 0));
             $employee->setAttribute('is_payroll_selected', isset($activeMap[$employee->id]));
@@ -214,6 +220,7 @@ class AttendancePlanningController extends Controller
             'entries' => ['required', 'array'],
             'entries.*.employee_id' => ['required', 'integer', 'exists:employees,id'],
             'entries.*.work_days' => ['required', 'integer', 'min:0', 'max:31'],
+            'entries.*.cnas_days' => ['nullable', 'integer', 'min:0', 'max:31'],
             'entries.*.monthly_salary' => ['nullable', 'numeric', 'min:0'],
             'entries.*.objectives_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
@@ -222,12 +229,17 @@ class AttendancePlanningController extends Controller
         $year = (int) $validated['year'];
         $entries = collect($validated['entries'])
             ->map(static function (array $entry) {
-                return [
+                $payload = [
                     'employee_id' => (int) $entry['employee_id'],
                     'work_days' => (int) $entry['work_days'],
                     'monthly_salary' => (float) ($entry['monthly_salary'] ?? 0),
                     'objectives_amount' => (float) ($entry['objectives_amount'] ?? 0),
                 ];
+                if (array_key_exists('cnas_days', $entry)) {
+                    $payload['cnas_days'] = (int) ($entry['cnas_days'] ?? 0);
+                }
+
+                return $payload;
             })
             ->unique('employee_id')
             ->values();
@@ -263,15 +275,20 @@ class AttendancePlanningController extends Controller
             $stalePayrollQuery->delete();
 
             foreach ($entries as $entry) {
+                $workDayValues = [
+                    'work_days' => $entry['work_days'],
+                ];
+                if (array_key_exists('cnas_days', $entry)) {
+                    $workDayValues['cnas_days'] = $entry['cnas_days'];
+                }
+
                 EmployeeMonthlyWorkDay::updateOrCreate(
                     [
                         'employee_id' => $entry['employee_id'],
                         'month' => $month,
                         'year' => $year,
                     ],
-                    [
-                        'work_days' => $entry['work_days'],
-                    ]
+                    $workDayValues
                 );
 
                 EmployeeMonthlyPayroll::updateOrCreate(

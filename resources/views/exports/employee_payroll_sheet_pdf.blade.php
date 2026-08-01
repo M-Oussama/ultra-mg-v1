@@ -56,6 +56,7 @@
                 <th style="width: 32px;">#</th>
                 <th>Employee</th>
                 <th style="width: 80px;">Work Days</th>
+                <th style="width: 75px;">CNAS Days</th>
                 <th style="width: 95px;">Monthly Salary</th>
                 <th style="width: 95px;">Salary Part</th>
                 <th style="width: 95px;">Objectives</th>
@@ -70,6 +71,7 @@
                     <td>{{ $index + 1 }}</td>
                     <td>{{ trim($employee->name . ' ' . ($employee->surname ?? '')) }}</td>
                     <td>{{ (int) ($employee->work_days ?? 0) }}</td>
+                    <td>{{ (int) ($employee->cnas_days ?? 0) }}</td>
                     <td class="amount">{{ number_format((float) ($employee->monthly_salary ?? 0), 2, '.', ',') }}</td>
                     <td class="amount">{{ number_format((float) ($employee->salary_part ?? 0), 2, '.', ',') }}</td>
                     <td class="amount">{{ number_format((float) ($employee->objectives_amount ?? 0), 2, '.', ',') }}</td>
@@ -79,7 +81,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="empty">No payroll employees found for this period.</td>
+                    <td colspan="10" class="empty">No payroll employees found for this period.</td>
                 </tr>
             @endforelse
         </tbody>

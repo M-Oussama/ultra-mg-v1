@@ -36,6 +36,7 @@ class Client extends Model
      */
     protected $with = ['city', 'department'];
     protected $fillable = [
+        'external_id',
         'name',
         'surname',
         'address',
@@ -82,4 +83,3 @@ class Client extends Model
         return $this->hasMany(RealLogisticsInvoice::class);
     }
 }
-

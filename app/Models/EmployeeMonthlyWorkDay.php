@@ -15,6 +15,7 @@ class EmployeeMonthlyWorkDay extends Model
         'month',
         'year',
         'work_days',
+        'cnas_days',
         'out_date',
         'in_date',
     ];
@@ -23,6 +24,7 @@ class EmployeeMonthlyWorkDay extends Model
         'month' => 'integer',
         'year' => 'integer',
         'work_days' => 'integer',
+        'cnas_days' => 'integer',
     ];
 
     public function setOutDateAttribute($value): void

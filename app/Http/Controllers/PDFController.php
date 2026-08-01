@@ -1634,6 +1634,7 @@ class PDFController extends Controller
         $employees->each(function (Employee $employee) use ($entries) {
             $entry = $entries->get($employee->id);
             $employee->setAttribute('work_days', (int) ($entry?->work_days ?? 0));
+            $employee->setAttribute('cnas_days', (int) ($entry?->cnas_days ?? 0));
             $employee->setAttribute('out_date', $entry?->out_date);
             $employee->setAttribute('in_date', $entry?->in_date);
         });
@@ -1698,12 +1699,14 @@ class PDFController extends Controller
         $employees->each(function (Employee $employee) use ($workDayEntries, $payrollEntries, &$totals) {
             $payroll = $payrollEntries[$employee->id] ?? null;
             $workDays = (int) ($workDayEntries[$employee->id]->work_days ?? 0);
+            $cnasDays = (int) ($workDayEntries[$employee->id]->cnas_days ?? 0);
             $monthlySalary = (float) ($payroll->monthly_salary ?? 0);
             $objectives = (float) ($payroll->objectives_amount ?? 0);
             $salaryPart = $monthlySalary * ($workDays / 30);
             $total = $salaryPart + $objectives;
 
             $employee->setAttribute('work_days', $workDays);
+            $employee->setAttribute('cnas_days', $cnasDays);
             $employee->setAttribute('monthly_salary', $monthlySalary);
             $employee->setAttribute('objectives_amount', $objectives);
             $employee->setAttribute('salary_part', $salaryPart);
