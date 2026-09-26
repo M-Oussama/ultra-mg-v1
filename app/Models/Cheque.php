@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use OpenApi\Attributes as OA;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
 #[OA\Schema(
     schema: "ICheque",
@@ -25,9 +27,9 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: "updated_at", type: "string", format: "date-time", example: "2024-02-12T10:00:00Z"),
     ]
 )]
-class Cheque extends Model
+class Cheque extends Model implements HasMedia
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, InteractsWithMedia;
 
     protected $fillable = [
         'id',
@@ -45,6 +47,11 @@ class Cheque extends Model
     protected $casts = [
         'amount' => 'double',
     ];
+
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('cheques');
+    }
 
     public function client()
     {

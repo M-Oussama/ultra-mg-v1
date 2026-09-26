@@ -125,29 +125,21 @@ class CertifyClient extends Model implements HasMedia
     {
         $media = $this->getFirstMedia('pdf_file');
 
-        return $media ? $media->getFullUrl() : null;
+        return $media?->getFullUrl() ?: $this->getRawOriginal('pdf_file');
     }
 
     public function getNifFileAttribute(): ?string
     {
-        if (! $this->is_nif_active) {
-            return null;
-        }
-
         $media = $this->getFirstMedia('nif_file');
 
-        return $media ? $media->getFullUrl() : null;
+        return $media?->getFullUrl() ?: $this->getRawOriginal('nif_file');
     }
 
     public function getCnrcFileAttribute(): ?string
     {
-        if (! $this->is_cnrc_active) {
-            return null;
-        }
-
         $media = $this->getFirstMedia('cnrc_file');
 
-        return $media ? $media->getFullUrl() : null;
+        return $media?->getFullUrl() ?: $this->getRawOriginal('cnrc_file');
     }
 
     public function getHasPdfFileAttribute(): bool

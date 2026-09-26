@@ -36,8 +36,13 @@ class CertifyClientController extends Controller
             $request->input('sub_certify_only', false),
             FILTER_VALIDATE_BOOLEAN
         );
+        $compact = filter_var($request->input('compact', false), FILTER_VALIDATE_BOOLEAN);
+        $withMedia = filter_var($request->input('with_media', false), FILTER_VALIDATE_BOOLEAN);
+        $withClientDetails = ! $compact || $withMedia;
 
-        $clientsQuery = CertifyClient::with(['city', 'media'])
+        $clientsQuery = ($withClientDetails
+            ? CertifyClient::with(['city', 'media'])
+            : CertifyClient::without(['city']))
             ->when($subCertifyOnly, function ($queryBuilder) {
                 $queryBuilder->where('is_sub_certify', true);
             })
@@ -50,13 +55,19 @@ class CertifyClientController extends Controller
             ->orderBy('name')
             ->orderBy('surname');
 
-        $clientsAll = (clone $clientsQuery)->get();
+        $clientsAll = $compact && ! $withMedia ? collect() : (clone $clientsQuery)->get();
         $clientsPage = $clientsQuery->paginate($perPage, ['*'], 'page', $currentPage);
+
+        if ($compact && ! $withMedia) {
+            $clientsPage->getCollection()->each(function ($client) {
+                $client->setAppends([]);
+            });
+        }
 
         $totalClients = $clientsPage->total();
         $totalPage = ceil($totalClients / $perPage);
 
-        $cities = City::orderBy('name')->get();
+        $cities = $compact && ! $withMedia ? collect() : City::orderBy('name')->get();
 
         return response()->json([
             "clients" => $clientsPage,

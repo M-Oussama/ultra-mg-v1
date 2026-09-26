@@ -153,9 +153,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     /** Certify Invoices */
     Route::get('/certifyInvoices/list', [CertifyInvoiceController::class, 'getInvoices'])->middleware('permission:list,certify_invoices')->name('getInvoices');
+    Route::get('/certifyInvoices/summary', [CertifyInvoiceController::class, 'getSummary'])->middleware('permission:list,certify_invoices')->name('getCertifyInvoiceSummary');
     Route::get('/certifyInvoices/getInvoice/{id}', [CertifyInvoiceController::class, 'getInvoice'])->middleware('permission:list,certify_invoices')->name('getInvoice');
     Route::post('/certifyInvoices/store', [CertifyInvoiceController::class, 'store'])->middleware('permission:add,certify_invoices')->name('store');
     Route::post('/certifyInvoices/import-csv', [CertifyInvoiceController::class, 'importCsv'])->middleware('permission:add,certify_invoices')->name('importCertifyInvoiceCsv');
+    Route::post('/certifyInvoices/import-bundle', [CertifyInvoiceController::class, 'importBundle'])->middleware('permission:add,certify_invoices')->name('importCertifyInvoiceBundle');
+    Route::post('/certifyInvoices/import-media-bundle', [CertifyInvoiceController::class, 'importMediaBundle'])->middleware('permission:add,certify_invoices')->name('importCertifyMediaBundle');
     Route::post('/certifyInvoices/import-products-csv', [CertifyInvoiceController::class, 'importProductsCsv'])->middleware('permission:add,certify_invoices')->name('importCertifyInvoiceProductsCsv');
     Route::post('/certifyInvoices/update/{id}', [CertifyInvoiceController::class, 'update'])->middleware('permission:edit,certify_invoices')->name('update');
     Route::delete('/certifyInvoices/delete/{id}', [CertifyInvoiceController::class, 'delete'])->middleware('permission:delete,certify_invoices')->name('deleteCertifyInvoice');

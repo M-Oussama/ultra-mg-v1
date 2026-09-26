@@ -3,6 +3,7 @@
 /public/hot
 /public/storage
 /storage/*.key
+/storage/app/public
 .env
 .env.backup
 .env.production
@@ -53,3 +54,8 @@ public/agbofyCoreMs/target/
 **/application-test.yml
 *firebase-adminsdk*.json
 artisan
+storage/app/public/2/Facture.pdf
+storage/app/public/3/IMG20260624232326.jpg
+storage/app/public/4/IMG20260624232423.jpg
+storage/app/public/5/NOTICE_AUTO_01261344-(2).pdf
+storage/app/public/6/208XDR2026-3-ALL.pdf

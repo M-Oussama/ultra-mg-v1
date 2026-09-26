@@ -11,11 +11,572 @@ use App\Models\CertifyProduct;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use OpenApi\Attributes as OA;
+use ZipArchive;
 
 class CertifyInvoiceController extends Controller
 {
+
+    /**
+     * Import client and cheque media without importing the reference tables.
+     *
+     * clients.csv and cheques.csv are deliberately read only for validation.
+     * The relationship for every attachment comes from owner_table + owner_id
+     * in media.csv, and the physical file is attached through Spatie Media
+     * Library so the media table and storage path stay consistent.
+     */
+    public function importMediaBundle(Request $request): JsonResponse
+    {
+        $file = $request->file('bundle') ?? $request->file('file');
+        if (! $file || strtolower($file->getClientOriginalExtension()) !== 'zip') {
+            return response()->json(['message' => 'A ZIP media bundle file is required.'], 422);
+        }
+        if (! class_exists(ZipArchive::class)) {
+            return response()->json(['message' => 'The PHP ZIP extension is required.'], 422);
+        }
+
+        $directory = storage_path('app/import-media-bundle-'.uniqid('', true));
+        File::makeDirectory($directory, 0755, true);
+
+        try {
+            $zip = new ZipArchive();
+            if ($zip->open($file->getRealPath()) !== true || ! $zip->extractTo($directory)) {
+                return response()->json(['message' => 'Unable to extract the ZIP media bundle.'], 422);
+            }
+            $zip->close();
+
+            $requiredFiles = ['manifest.json', 'clients.csv', 'cheques.csv', 'media.csv'];
+            $missingFiles = array_values(array_filter(
+                $requiredFiles,
+                fn (string $name): bool => ! is_file($directory.'/'.$name),
+            ));
+            if ($missingFiles !== []) {
+                return response()->json([
+                    'message' => 'The media ZIP is missing required files.',
+                    'missing_files' => $missingFiles,
+                ], 422);
+            }
+
+            $manifest = json_decode((string) file_get_contents($directory.'/manifest.json'), true);
+            if (! is_array($manifest)) {
+                return response()->json(['message' => 'manifest.json is invalid JSON.'], 422);
+            }
+            $relatedMedia = $manifest['related_media'] ?? null;
+            if (! is_array($relatedMedia)
+                || ($relatedMedia['metadata_file'] ?? null) !== 'media.csv'
+                || ($relatedMedia['files_directory'] ?? null) !== 'media-files'
+            ) {
+                return response()->json([
+                    'message' => 'manifest.json does not describe the expected media export structure.',
+                ], 422);
+            }
+
+            $referenceCounts = [
+                'clients' => count($this->bundleCsv($directory, 'clients.csv')),
+                'cheques' => count($this->bundleCsv($directory, 'cheques.csv')),
+            ];
+            $counts = [
+                'media_rows' => 0,
+                'attached' => 0,
+                'already_attached' => 0,
+                'not_exported' => 0,
+                'missing_files' => 0,
+            ];
+            $skipped = [];
+
+            DB::transaction(function () use ($directory, &$counts, &$skipped) {
+                foreach ($this->bundleCsv($directory, 'media.csv') as $row) {
+                    $counts['media_rows']++;
+                    $mediaId = $this->nullableBundleValue($row['id'] ?? null);
+                    $ownerTable = strtolower((string) ($row['owner_table'] ?? ''));
+                    $ownerId = $this->nullableBundleValue($row['owner_id'] ?? null);
+                    $sourceCollection = strtolower(trim((string) ($row['collection_name'] ?? '')));
+                    $relativePath = $this->nullableBundleValue($row['relative_path'] ?? null);
+                    $fileExported = strtolower(trim((string) ($row['file_exported'] ?? '')));
+
+                    if (in_array($fileExported, ['', 'no', 'n', 'false', '0'], true)) {
+                        $counts['not_exported']++;
+                        $skipped[] = [
+                            'file' => 'media.csv',
+                            'id' => $mediaId,
+                            'owner_table' => $ownerTable,
+                            'owner_id' => $ownerId,
+                            'reason' => 'file_exported=no; the physical file is not in the ZIP',
+                        ];
+                        continue;
+                    }
+
+                    $collection = match ($ownerTable.':'.$sourceCollection) {
+                        'clients:documents' => 'pdf_file',
+                        'clients:cnrc' => 'cnrc_file',
+                        'clients:nif' => 'nif_file',
+                        'cheques:cheques' => 'cheques',
+                        default => null,
+                    };
+                    $model = match ($ownerTable) {
+                        'clients' => $ownerId === null ? null : CertifyClient::find($ownerId),
+                        'cheques' => $ownerId === null ? null : \App\Models\Cheque::find($ownerId),
+                        default => null,
+                    };
+
+                    if ($mediaId === null || $ownerId === null || $collection === null || $model === null) {
+                        $skipped[] = [
+                            'file' => 'media.csv',
+                            'id' => $mediaId,
+                            'owner_table' => $ownerTable,
+                            'owner_id' => $ownerId,
+                            'reason' => $model === null
+                                ? 'No existing '.$ownerTable.' record with this database id'
+                                : 'Unsupported owner_table or collection_name',
+                        ];
+                        continue;
+                    }
+
+                    $path = $relativePath === null
+                        ? null
+                        : $this->bundleMediaPath($directory, $relativePath);
+                    if ($path === null || ! is_file($path)) {
+                        $counts['missing_files']++;
+                        $skipped[] = [
+                            'file' => 'media.csv',
+                            'id' => $mediaId,
+                            'owner_table' => $ownerTable,
+                            'owner_id' => $ownerId,
+                            'reason' => 'Referenced physical file is missing from the ZIP',
+                        ];
+                        continue;
+                    }
+
+                    $sourceHash = strtolower((string) ($this->nullableBundleValue($row['sha256'] ?? null) ?? ''));
+                    if ($sourceHash !== '' && hash_file('sha256', $path) !== $sourceHash) {
+                        $counts['missing_files']++;
+                        $skipped[] = [
+                            'file' => 'media.csv',
+                            'id' => $mediaId,
+                            'owner_table' => $ownerTable,
+                            'owner_id' => $ownerId,
+                            'reason' => 'Physical file checksum does not match sha256',
+                        ];
+                        continue;
+                    }
+
+                    $existingQuery = $model->media()->where('collection_name', $collection);
+                    $alreadyAttached = false;
+                    if ($sourceHash !== '') {
+                        $alreadyAttached = (clone $existingQuery)
+                            ->where('custom_properties->source_media_sha256', $sourceHash)
+                            ->exists();
+                    }
+                    if (! $alreadyAttached && $mediaId !== null) {
+                        $alreadyAttached = (clone $existingQuery)
+                            ->where('custom_properties->source_media_id', (string) $mediaId)
+                            ->exists();
+                    }
+                    if (! $alreadyAttached) {
+                        $alreadyAttached = (clone $existingQuery)
+                            ->where('file_name', (string) ($row['file_name'] ?? basename($path)))
+                            ->where('size', filesize($path))
+                            ->exists();
+                    }
+                    if ($alreadyAttached) {
+                        $counts['already_attached']++;
+                        $this->activateCertifyClientMediaFlag($model, $collection);
+                        continue;
+                    }
+
+                    $customProperties = json_decode((string) ($row['custom_properties'] ?? ''), true);
+                    if (! is_array($customProperties)) {
+                        $customProperties = [];
+                    }
+                    $customProperties['source_media_id'] = (string) $mediaId;
+                    $customProperties['source_media_sha256'] = $sourceHash !== ''
+                        ? $sourceHash
+                        : hash_file('sha256', $path);
+                    $customProperties['source_owner_table'] = $ownerTable;
+                    $customProperties['source_owner_id'] = (string) $ownerId;
+                    $customProperties['source_collection_name'] = $sourceCollection;
+
+                    $model->addMedia($path)
+                        ->usingName((string) ($row['name'] ?? pathinfo($path, PATHINFO_FILENAME)))
+                        ->usingFileName((string) ($row['file_name'] ?? basename($path)))
+                        ->withCustomProperties($customProperties)
+                        ->toMediaCollection($collection);
+                    $this->activateCertifyClientMediaFlag($model, $collection);
+                    $counts['attached']++;
+                }
+            });
+
+            return response()->json([
+                'message' => 'Client and cheque media imported successfully.',
+                'reference_counts' => $referenceCounts,
+                'counts' => $counts,
+                'skipped' => $skipped,
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+            return response()->json(['message' => 'Media bundle import failed: '.$exception->getMessage()], 422);
+        } finally {
+            File::deleteDirectory($directory);
+        }
+    }
+
+    private function activateCertifyClientMediaFlag($model, string $collection): void
+    {
+        if (! $model instanceof CertifyClient) {
+            return;
+        }
+
+        $column = match ($collection) {
+            'cnrc_file' => 'is_cnrc_active',
+            'nif_file' => 'is_nif_active',
+            default => null,
+        };
+        if ($column === null || $model->{$column}) {
+            return;
+        }
+
+        $model->forceFill([$column => true])->save();
+    }
+
+    /**
+     * Import the command-related ZIP exported by Ultra.
+     *
+     * The source and destination applications use different table names, so
+     * the bundle is mapped into the certify_* tables while preserving IDs.
+     */
+    public function importBundle(Request $request): JsonResponse
+    {
+        $file = $request->file('bundle') ?? $request->file('file');
+        if (! $file || strtolower($file->getClientOriginalExtension()) !== 'zip') {
+            return response()->json(['message' => 'A ZIP bundle file is required.'], 422);
+        }
+        if (! class_exists(ZipArchive::class)) {
+            return response()->json(['message' => 'The PHP ZIP extension is required.'], 422);
+        }
+
+        $directory = storage_path('app/import-bundle-'.uniqid('', true));
+        File::makeDirectory($directory, 0755, true);
+
+        try {
+            $zip = new ZipArchive();
+            if ($zip->open($file->getRealPath()) !== true || ! $zip->extractTo($directory)) {
+                return response()->json(['message' => 'Unable to extract the ZIP bundle.'], 422);
+            }
+            $zip->close();
+
+            $counts = [
+                'clients' => 0,
+                'products' => 0,
+                'cheques' => 0,
+                'media' => 0,
+                'invoices' => 0,
+                'invoice_products' => 0,
+            ];
+            $skipped = [];
+
+            DB::transaction(function () use ($directory, &$counts, &$skipped) {
+                foreach ($this->bundleCsv($directory, 'clients.csv') as $row) {
+                    $id = $this->nullableBundleValue($row['id'] ?? null);
+                    if ($id === null) {
+                        $skipped[] = ['file' => 'clients.csv', 'reason' => 'Missing id'];
+                        continue;
+                    }
+                    $cityId = $this->destinationCityId(
+                        $row['city_id'] ?? null,
+                        $row['city_name'] ?? $row['city'] ?? $row['wilaya'] ?? null,
+                    );
+                    $this->upsertBundle('certify_clients', $id, [
+                        'name' => $row['name'] ?? '',
+                        'surname' => $this->nullableBundleValue($row['surname'] ?? null),
+                        'full_name' => trim(($row['name'] ?? '').' '.($row['surname'] ?? '')),
+                        'address' => $this->nullableBundleValue($row['address'] ?? null),
+                        'email' => $this->nullableBundleValue($row['email'] ?? null),
+                        'phone' => $this->nullableBundleValue($row['phone'] ?? null),
+                        // bundleCsv normalizes headers to lowercase.
+                        'NRC' => $this->nullableBundleValue($row['nrc'] ?? null),
+                        'NIF' => $this->nullableBundleValue($row['nif'] ?? null),
+                        'NART' => $this->nullableBundleValue($row['nart'] ?? null),
+                        'NIS' => $this->nullableBundleValue($row['nis'] ?? null),
+                        'city_id' => $cityId,
+                    ]);
+                    $counts['clients']++;
+                }
+
+                foreach ($this->bundleCsv($directory, 'products.csv') as $row) {
+                    $id = $this->nullableBundleValue($row['id'] ?? null);
+                    if ($id === null) {
+                        $skipped[] = ['file' => 'products.csv', 'reason' => 'Missing id'];
+                        continue;
+                    }
+                    $this->upsertBundle('certify_products', $id, [
+                        'name' => $row['name'] ?? '',
+                        'product_code' => $this->nullableBundleValue($row['barcode'] ?? null),
+                        'price' => (float) ($row['price'] ?? 0),
+                        'tax_rate' => 0,
+                        'stockable' => true,
+                        'weight' => 0,
+                        'min_stock_level' => 0,
+                    ]);
+                    $counts['products']++;
+                }
+
+                foreach ($this->bundleCsv($directory, 'cheques.csv') as $row) {
+                    $id = $this->nullableBundleValue($row['id'] ?? null);
+                    $clientId = $this->existingId('certify_clients', $row['client_id'] ?? null);
+                    $reasons = [];
+                    if ($id === null) {
+                        $reasons[] = 'Missing id';
+                    }
+                    if ($clientId === null) {
+                        $reasons[] = 'Missing client or client was not imported';
+                    }
+                    if ($reasons !== []) {
+                        $skipped[] = [
+                            'file' => 'cheques.csv',
+                            'id' => $id,
+                            'reason' => implode('; ', $reasons),
+                        ];
+                        continue;
+                    }
+                    $this->upsertBundle('cheques', $id, [
+                        'cheque_date' => $this->nullableBundleValue($row['date'] ?? $row['cheque_date'] ?? null)
+                            ?? now()->toDateString(),
+                        'cheque_number' => $this->nullableBundleValue($row['number'] ?? $row['cheque_number'] ?? null) ?? '',
+                        'client_id' => $clientId,
+                        'amount' => $this->nullableBundleValue($row['amount'] ?? null) ?? '0',
+                        'banque' => $this->nullableBundleValue($row['bank'] ?? $row['banque'] ?? null),
+                        'file_path' => $this->nullableBundleValue($row['pdf_url'] ?? null),
+                        'pdf_name' => $this->nullableBundleValue($row['pdf_name'] ?? null),
+                        'company_id' => $this->nullableBundleValue($row['company_id'] ?? null),
+                        'notes' => $this->nullableBundleValue($row['notes'] ?? null),
+                    ]);
+                    $counts['cheques']++;
+                }
+
+                $this->importBundleMedia($directory, $counts, $skipped);
+
+                foreach ($this->bundleCsv($directory, 'commands.csv') as $row) {
+                    $id = $this->nullableBundleValue($row['id'] ?? null);
+                    if ($id === null) {
+                        $skipped[] = ['file' => 'commands.csv', 'reason' => 'Missing id'];
+                        continue;
+                    }
+                    $this->upsertBundle('certify_invoices', $id, [
+                        'fac_id' => (int) ($row['fac_id'] ?? 0),
+                        'date' => $row['date'] ?? now()->toDateString(),
+                        'client_id' => $this->existingId('certify_clients', $row['client_id'] ?? null),
+                        'amount' => (float) (($row['amount_ttc'] ?? null) ?: ($row['amount'] ?? 0)),
+                        'payment_type' => $this->nullableBundleValue($row['payment_type'] ?? null),
+                        'cheque_id' => $this->existingId('cheques', $row['cheque_id'] ?? null),
+                        'tva_amount' => (float) ($row['tva'] ?? 0),
+                        'ht_amount' => (float) ($row['amount'] ?? 0),
+                    ]);
+                    $counts['invoices']++;
+                }
+
+                foreach ($this->bundleCsv($directory, 'command_products.csv') as $row) {
+                    $id = $this->nullableBundleValue($row['id'] ?? null);
+                    $invoiceId = $this->existingId('certify_invoices', $row['command_id'] ?? null);
+                    $productId = $this->existingId('certify_products', $row['product_id'] ?? null);
+                    if ($id === null || $invoiceId === null || $productId === null) {
+                        $skipped[] = ['file' => 'command_products.csv', 'id' => $id, 'reason' => 'Missing invoice or product'];
+                        continue;
+                    }
+                    $this->upsertBundle('certify_invoice_products', $id, [
+                        'certify_invoice_id' => $invoiceId,
+                        'product_id' => $productId,
+                        'price' => (int) ($row['price'] ?? 0),
+                        'quantity' => (int) ($row['quantity'] ?? 0),
+                        'total' => (int) ($row['amount'] ?? 0),
+                    ]);
+                    $counts['invoice_products']++;
+                }
+            });
+
+            $unsupported = [];
+            foreach (['avoir_invoices.csv', 'avoir_invoice_items.csv', 'payment_types.csv'] as $name) {
+                if (is_file($directory.'/'.$name)) {
+                    $unsupported[] = $name;
+                }
+            }
+
+            return response()->json([
+                'message' => 'Command-related bundle imported successfully.',
+                'counts' => $counts,
+                'skipped' => $skipped,
+                'unsupported_files' => $unsupported,
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+            return response()->json(['message' => 'Bundle import failed: '.$exception->getMessage()], 422);
+        } finally {
+            File::deleteDirectory($directory);
+        }
+    }
+
+    private function bundleCsv(string $directory, string $filename): array
+    {
+        $path = $directory.'/'.$filename;
+        if (! is_file($path)) {
+            return [];
+        }
+        $handle = fopen($path, 'r');
+        $header = fgetcsv($handle);
+        if (! $header) {
+            fclose($handle);
+            return [];
+        }
+        $header[0] = preg_replace('/^\\xEF\\xBB\\xBF/', '', (string) $header[0]);
+        $rows = [];
+        while (($values = fgetcsv($handle)) !== false) {
+            if (count(array_filter($values, fn ($value) => trim((string) $value) !== '')) === 0) {
+                continue;
+            }
+            $row = [];
+            foreach ($header as $index => $column) {
+                $value = $values[$index] ?? null;
+                $row[strtolower(trim($column))] = $value === '\\N' ? null : $value;
+            }
+            $rows[] = $row;
+        }
+        fclose($handle);
+        return $rows;
+    }
+
+    private function upsertBundle(string $table, $id, array $values): void
+    {
+        $values['id'] = $id;
+        $values['created_at'] = $values['created_at'] ?? now();
+        $values['updated_at'] = $values['updated_at'] ?? now();
+        $columns = array_flip(Schema::getColumnListing($table));
+        // Cheque deletion is a Laravel soft delete. Re-importing the same
+        // source row must make it visible again instead of only updating the
+        // hidden row that still has deleted_at set.
+        if (isset($columns['deleted_at'])) {
+            $values['deleted_at'] = null;
+        }
+        $values = array_intersect_key($values, $columns);
+        DB::table($table)->updateOrInsert(['id' => $id], $values);
+    }
+
+    private function existingId(string $table, $id): ?int
+    {
+        $id = $this->nullableBundleValue($id);
+        return $id !== null && DB::table($table)->where('id', $id)->exists() ? (int) $id : null;
+    }
+
+    private function destinationCityId($sourceCityId, $sourceCityName = null): ?int
+    {
+        if (! Schema::hasTable('cities')) {
+            return null;
+        }
+        $sourceCityId = $this->nullableBundleValue($sourceCityId);
+        if ($sourceCityId !== null && DB::table('cities')->where('id', $sourceCityId)->exists()) {
+            return (int) $sourceCityId;
+        }
+
+        $sourceCityName = $this->nullableBundleValue($sourceCityName);
+        if ($sourceCityName !== null) {
+            $normalize = static function (string $value): string {
+                $value = trim(mb_strtolower($value));
+                $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+                return preg_replace('/[^a-z0-9]+/', '', $ascii !== false ? $ascii : $value) ?? '';
+            };
+            $normalizedSource = $normalize($sourceCityName);
+            foreach (DB::table('cities')->select(['id', 'name'])->get() as $city) {
+                if ($normalize((string) $city->name) === $normalizedSource) {
+                    return (int) $city->id;
+                }
+            }
+        }
+
+        // Never silently turn an unknown source city into the first city
+        // (which is Adrar in this database). Preserve an unknown value as
+        // null so the import report/data can be corrected explicitly.
+        return null;
+    }
+
+    private function nullableBundleValue($value)
+    {
+        return $value === null || trim((string) $value) === '' || $value === '\\N' ? null : trim((string) $value);
+    }
+
+    private function bundleMediaPath(string $directory, string $relativePath): ?string
+    {
+        $root = realpath($directory);
+        if ($root === false || str_contains($relativePath, "\0")) {
+            return null;
+        }
+
+        $candidate = realpath($directory.DIRECTORY_SEPARATOR.str_replace(
+            ['/', '\\'],
+            DIRECTORY_SEPARATOR,
+            ltrim($relativePath, '/\\'),
+        ));
+        if ($candidate === false) {
+            return null;
+        }
+
+        $rootPrefix = rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+        return str_starts_with(strtolower($candidate), strtolower($rootPrefix)) ? $candidate : null;
+    }
+
+    private function importBundleMedia(string $directory, array &$counts, array &$skipped): void
+    {
+        foreach ($this->bundleCsv($directory, 'media.csv') as $row) {
+            $mediaId = $this->nullableBundleValue($row['id'] ?? null);
+            $modelId = $this->nullableBundleValue($row['model_id'] ?? null);
+            $sourceType = (string) ($row['model_type'] ?? '');
+            $relativePath = $this->nullableBundleValue($row['relative_path'] ?? null);
+
+            $model = match ($sourceType) {
+                \App\Models\Client::class, 'App\\Models\\Client' => $modelId === null ? null : CertifyClient::find($modelId),
+                \App\Models\Cheque::class, 'App\\Models\\Cheque' => $modelId === null ? null : \App\Models\Cheque::find($modelId),
+                default => null,
+            };
+
+            $collection = match ([$sourceType, (string) ($row['collection_name'] ?? '')]) {
+                [\App\Models\Client::class, 'documents'], ['App\\Models\\Client', 'documents'] => 'pdf_file',
+                [\App\Models\Client::class, 'cnrc'], ['App\\Models\\Client', 'cnrc'] => 'cnrc_file',
+                [\App\Models\Client::class, 'nif'], ['App\\Models\\Client', 'nif'] => 'nif_file',
+                [\App\Models\Cheque::class, 'cheques'], ['App\\Models\\Cheque', 'cheques'] => 'cheques',
+                default => null,
+            };
+
+            $path = $relativePath === null ? null : $directory.'/'.$relativePath;
+            if ($mediaId === null || $model === null || $collection === null || $path === null || ! is_file($path)) {
+                $skipped[] = [
+                    'file' => 'media.csv',
+                    'id' => $mediaId,
+                    'reason' => 'Missing target record, unsupported collection, or media file',
+                ];
+                continue;
+            }
+
+            if ($model->media()
+                ->where('collection_name', $collection)
+                ->where('custom_properties->source_media_id', (string) $mediaId)
+                ->exists()) {
+                continue;
+            }
+
+            $customProperties = json_decode((string) ($row['custom_properties'] ?? ''), true);
+            if (! is_array($customProperties)) {
+                $customProperties = [];
+            }
+            $customProperties['source_media_id'] = (string) $mediaId;
+
+            $model->addMedia($path)
+                ->usingName((string) ($row['name'] ?? pathinfo($path, PATHINFO_FILENAME)))
+                ->usingFileName((string) ($row['file_name'] ?? basename($path)))
+                ->withCustomProperties($customProperties)
+                ->toMediaCollection($collection);
+            $counts['media']++;
+        }
+    }
 
     /**
      * get List Of All Invoices
@@ -41,9 +602,14 @@ class CertifyInvoiceController extends Controller
         $startDate = $request->input('start_date');
         $endDate = $request->input('end_date');
         $modifiedOnly = filter_var($request->input('modified_only', false), FILTER_VALIDATE_BOOLEAN);
+        $compact = filter_var($request->input('compact', false), FILTER_VALIDATE_BOOLEAN);
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
         $invoices = CertifyInvoices::orderBy('date', 'desc');
+
+        if ($compact) {
+            $invoices->without(['certifyInvoiceProducts', 'cheque', 'user']);
+        }
 
         if ($searchValue !== '') {
             $invoices->where(function ($query) use ($searchValue) {
@@ -78,26 +644,98 @@ class CertifyInvoiceController extends Controller
             $invoices->whereColumn('updated_at', '>', 'created_at');
         }
 
-        // Hierarchical Data Isolation
-        $user = \Illuminate\Support\Facades\Auth::user();
-        if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
-                // Managers see all invoices in their assigned departments (via client)
-                $deptIds = $user->departments->pluck('id')->toArray();
-                $invoices->whereHas('client', function($q) use ($deptIds) {
-                    $q->whereIn('department_id', $deptIds);
-                });
-            } else {
-                // Others (Salespeople) see only their own invoices
-                $invoices->where('user_id', $user->id);
-            }
-        }
+        $this->applyInvoiceVisibility($invoices);
 
         $invoices = $invoices->paginate($perPage, ['*'], 'page', $currentPage);
+
+        if ($compact) {
+            $invoices->getCollection()->each(function ($invoice) {
+                $client = $invoice->getRelation('client');
+                if ($client) {
+                    $client->setAppends([]);
+                }
+            });
+        }
+
         $totalInvoices = $invoices->total(); // Total number of invoices matching the query
         $totalPage = ceil($totalInvoices / $perPage); // Calculate total pages
 
         return response()->json(["invoices" => $invoices, "totalPage" => $totalPage, "totalInvoices"=>$totalInvoices]);
+    }
+
+    /**
+     * Return aggregate invoice statistics without pagination.
+     *
+     * The list endpoint intentionally returns one page. Dashboard counters
+     * must use this endpoint so they are calculated from the complete set the
+     * authenticated user is allowed to see.
+     */
+    public function getSummary(Request $request): JsonResponse
+    {
+        $invoices = CertifyInvoices::query();
+        $this->applyInvoiceVisibility($invoices);
+
+        $summary = (clone $invoices)
+            ->selectRaw('COALESCE(SUM(amount), 0) as total_amount')
+            ->selectRaw('COUNT(*) as invoice_count')
+            ->selectRaw('COUNT(DISTINCT client_id) as client_count')
+            ->first();
+
+        $invoiceCount = (int) ($summary?->invoice_count ?? 0);
+        $paymentTypeBreakdown = (clone $invoices)
+            ->select('payment_type')
+            ->selectRaw('COUNT(*) as invoice_count')
+            ->selectRaw('COALESCE(SUM(amount), 0) as total_amount')
+            ->groupBy('payment_type')
+            ->orderBy('payment_type')
+            ->get()
+            ->map(function ($row) {
+                $rawType = $row->payment_type;
+                $type = $rawType === null || trim((string) $rawType) === ''
+                    ? 'unknown'
+                    : (string) $rawType;
+
+                return [
+                    'payment_type' => $type,
+                    'label' => match ($type) {
+                        '1' => 'Espece',
+                        '2' => 'Cheque',
+                        '3' => 'Virement Bancaire',
+                        '4' => 'Versement Espece',
+                        default => $type === 'unknown' ? 'Unknown' : $type,
+                    },
+                    'invoice_count' => (int) $row->invoice_count,
+                    'total_amount' => (float) $row->total_amount,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return response()->json([
+            'total_amount' => (float) ($summary?->total_amount ?? 0),
+            'invoice_count' => $invoiceCount,
+            'paid_invoices' => 0,
+            'draft_invoices' => $invoiceCount,
+            'client_count' => (int) ($summary?->client_count ?? 0),
+            'payment_type_breakdown' => $paymentTypeBreakdown,
+        ]);
+    }
+
+    private function applyInvoiceVisibility($query)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user || $user->isGlobalAdmin()) {
+            return $query;
+        }
+
+        if ($user->isDepartmentManager()) {
+            $deptIds = $user->departments->pluck('id')->toArray();
+            return $query->whereHas('client', function ($clientQuery) use ($deptIds) {
+                $clientQuery->whereIn('department_id', $deptIds);
+            });
+        }
+
+        return $query->where('user_id', $user->id);
     }
 
     public function getInvoice($id): JsonResponse

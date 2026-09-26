@@ -24,10 +24,17 @@ class ChequeController extends Controller
             )
         ]
     )]
-    public function getCheques()
+    public function getCheques(Request $request)
     {
-        $cheques = $this->attachUsageStats(Cheque::with('client')->get());
-        return response()->json($cheques);
+        $includeSubCertifyUsage = filter_var(
+            $request->input('include_sub_certify', true),
+            FILTER_VALIDATE_BOOLEAN
+        );
+        $cheques = $this->attachUsageStats(
+            Cheque::with('client')->get(),
+            includeSubCertifyUsage: $includeSubCertifyUsage,
+        );
+        return response()->json($this->withMediaUrls($cheques));
     }
 
     #[OA\Post(
@@ -81,6 +88,7 @@ class ChequeController extends Controller
         $cheque = Cheque::create($data);
         $cheque->load('client');
         $cheque = $this->attachUsageStats(collect([$cheque]))->first();
+        $cheque = $this->withMediaUrls(collect([$cheque]))->first();
 
         return response()->json($cheque, 201);
     }
@@ -144,6 +152,7 @@ class ChequeController extends Controller
         $cheque->update($data);
         $cheque->load('client');
         $cheque = $this->attachUsageStats(collect([$cheque]))->first();
+        $cheque = $this->withMediaUrls(collect([$cheque]))->first();
 
         return response()->json($cheque);
     }
@@ -353,7 +362,27 @@ class ChequeController extends Controller
             })
             ->values();
 
-        return response()->json($cheques);
+        return response()->json($this->withMediaUrls($cheques));
+    }
+
+    /**
+     * Prefer the current Spatie media URL for imported scans, while keeping
+     * the legacy file_path/pdf_url values for cheques that predate Media
+     * Library. This is intentionally limited to cheque API serialization.
+     */
+    private function withMediaUrls(Collection $cheques): Collection
+    {
+        return $cheques->each(function (Cheque $cheque): void {
+            $media = $cheque->getFirstMedia('cheques');
+            if (! $media) {
+                return;
+            }
+
+            $url = $media->getFullUrl();
+            $cheque->setAttribute('file_path', $url);
+            $cheque->setAttribute('pdf_url', $url);
+            $cheque->setAttribute('pdf_name', $media->file_name);
+        });
     }
 
     /**
@@ -362,7 +391,10 @@ class ChequeController extends Controller
      * The usage calculation matches the server-side cheque status checks:
      * a row counts toward a cheque when it references the cheque by ID or by cheque number.
      */
-    private function attachUsageStats(Collection $cheques): Collection
+    private function attachUsageStats(
+        Collection $cheques,
+        bool $includeSubCertifyUsage = true,
+    ): Collection
     {
         $cheques = $cheques->values();
 
@@ -428,20 +460,22 @@ class ChequeController extends Controller
             })
             ->get();
 
-        $subInvoices = \App\Models\SubCertifyInvoices::query()
-            ->without(['client', 'subCertifyInvoiceProducts', 'cheque'])
-            ->select(['id', 'amount', 'cheque_id', 'cheque_number'])
-            ->where(function ($query) use ($chequeIds, $chequeNumbers) {
-                $query->whereIn('cheque_id', $chequeIds);
-
-                if ($chequeNumbers !== []) {
-                    $query->orWhereIn('cheque_number', $chequeNumbers);
-                }
-            })
-            ->get();
-
         $applyUsage($certifyInvoices);
-        $applyUsage($subInvoices);
+        if ($includeSubCertifyUsage) {
+            $subInvoices = \App\Models\SubCertifyInvoices::query()
+                ->without(['client', 'subCertifyInvoiceProducts', 'cheque'])
+                ->select(['id', 'amount', 'cheque_id', 'cheque_number'])
+                ->where(function ($query) use ($chequeIds, $chequeNumbers) {
+                    $query->whereIn('cheque_id', $chequeIds);
+
+                    if ($chequeNumbers !== []) {
+                        $query->orWhereIn('cheque_number', $chequeNumbers);
+                    }
+                })
+                ->get();
+
+            $applyUsage($subInvoices);
+        }
 
         return $cheques->map(function ($cheque) use ($usageByChequeId) {
             $chequeAmount = (float) ($cheque->amount ?? 0);
