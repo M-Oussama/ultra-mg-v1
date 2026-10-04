@@ -566,6 +566,48 @@ class PDFController extends Controller
                     ? []
                     : ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
 
+                // Some documents contain more than two pages. Do not run
+                // them through the legacy screenshot slicer (which was built
+                // for the two-page vacation certificate); print the HTML
+                // directly so Chromium preserves every RTL page and its
+                // native Arabic bidi layout.
+                if ($pageCount === 0) {
+                    foreach ($headlessFlags as $headlessFlag) {
+                        $pdfProcess = new Process([
+                            $browserBinary,
+                            $headlessFlag,
+                            '--lang=ar',
+                            '--disable-gpu',
+                            '--hide-scrollbars',
+                            '--no-first-run',
+                            '--no-default-browser-check',
+                            '--disable-extensions',
+                            '--allow-file-access-from-files',
+                            ...$linuxFlags,
+                            '--window-size=1240,1754',
+                            '--print-to-pdf=' . $pdfPath,
+                            '--no-pdf-header-footer',
+                            '--print-to-pdf-no-header',
+                            '--user-data-dir=' . $profileDir,
+                            $fileUrl,
+                        ]);
+
+                        $pdfProcess->setTimeout(180);
+                        $pdfProcess->run();
+
+                        if ($pdfProcess->isSuccessful() && File::exists($pdfPath) && File::size($pdfPath) > 0) {
+                            File::delete($htmlPath);
+                            File::deleteDirectory($profileDir);
+
+                            return $pdfPath;
+                        }
+
+                        if (File::exists($pdfPath)) {
+                            File::delete($pdfPath);
+                        }
+                    }
+                }
+
                 $pageCount = max(1, $pageCount);
                 $viewportHeight = 1754 * $pageCount;
                 $pageImages = [];
@@ -772,7 +814,11 @@ class PDFController extends Controller
                 $color = imagecolorat($source, $x, $y);
                 $rgb = imagecolorsforindex($source, $color);
 
-                if ($rgb['r'] < 250 || $rgb['g'] < 250 || $rgb['b'] < 250) {
+                // imagecolorsforindex() returns red/green/blue keys for
+                // true-colour PNGs. The old r/g/b keys made every Chromium
+                // render fail here and silently forced the broken Dompdf
+                // Arabic fallback.
+                if ($rgb['red'] < 250 || $rgb['green'] < 250 || $rgb['blue'] < 250) {
                     $hasContent = true;
                     break;
                 }
@@ -1541,8 +1587,16 @@ class PDFController extends Controller
 
         $downloadName = sprintf('Blank_Contract_%d.pdf', $career->id);
 
+        // Chromium has native Arabic shaping and bidi support. Prefer it for
+        // contracts so Arabic text, Latin names, dates and numbers stay in
+        // the correct visual order. Dompdf is retained below as a fallback
+        // for installations where a browser binary is unavailable.
         $html = view('exports.employee_blank_contract_pdf', $context)->render();
-        $browserPdfPath = $this->renderHtmlToPdfWithBrowser($html, 'blank_contract_' . $career->id, 4);
+        $browserPdfPath = $this->renderHtmlToPdfWithBrowser(
+            $html,
+            'employee_blank_contract_' . $career->id,
+            0
+        );
 
         if ($browserPdfPath !== null) {
             try {
@@ -1557,7 +1611,7 @@ class PDFController extends Controller
                     ['Content-Type' => 'application/pdf']
                 );
             } catch (\Throwable $e) {
-                logger()->warning('Blank contract browser stream failed; using Dompdf fallback.', [
+                logger()->error('Employee contract browser PDF stream failed.', [
                     'error' => $e->getMessage(),
                     'career_id' => $career->id,
                 ]);

@@ -1,5 +1,21 @@
 @php
     $dompdfArabic = (bool) ($dompdfArabic ?? false);
+    $toFileUrl = static function (string $path): string {
+        $normalized = str_replace('\\', '/', $path);
+        if (preg_match('/^[A-Za-z]:\//', $normalized) === 1) {
+            return 'file:///' . $normalized;
+        }
+
+        return 'file://' . $normalized;
+    };
+    $arabicRegularPath = resource_path('fonts/tahoma.ttf');
+    $arabicBoldPath = resource_path('fonts/tahomabd.ttf');
+    $arabicRegular = $dompdfArabic
+        ? str_replace('\\', '/', $arabicRegularPath)
+        : $toFileUrl($arabicRegularPath);
+    $arabicBold = $dompdfArabic
+        ? str_replace('\\', '/', $arabicBoldPath)
+        : $toFileUrl($arabicBoldPath);
 @endphp
 <!DOCTYPE html>
 <html lang="ar" dir="{{ $dompdfArabic ? 'ltr' : 'rtl' }}">
@@ -7,6 +23,20 @@
     <meta charset="UTF-8">
     <title>Employment Contract</title>
     <style>
+        @font-face {
+            font-family: 'ContractArabic';
+            src: url('{{ $arabicRegular }}');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'ContractArabic';
+            src: url('{{ $arabicBold }}');
+            font-weight: 700;
+            font-style: normal;
+        }
+
         @page {
             size: A4;
             margin: 14mm 16mm 12mm 16mm;
@@ -23,36 +53,106 @@
         }
 
         body {
-            direction: {{ $dompdfArabic ? 'ltr' : 'rtl' }};
-            font-family: Tahoma, "Segoe UI", Arial, "DejaVu Sans", sans-serif;
+            /* Keep the document canvas LTR; apply RTL to the Arabic page
+             * content only so Chromium does not shift the page box itself. */
+            direction: ltr;
+            /* Segoe UI has a cleaner Arabic face than the old Tahoma-first
+             * stack and is embedded by Chromium when it prints the PDF. */
+            font-family: 'ContractArabic', Tahoma, Arial, sans-serif;
             color: #111111;
-            font-size: 12px;
-            line-height: 1.8;
+            font-size: 14.5px;
+            line-height: 1.9;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
 
         .page {
+            width: 100%;
+            max-width: 178mm;
+            margin: 0 auto;
+            direction: {{ $dompdfArabic ? 'ltr' : 'rtl' }};
             page-break-after: always;
+            overflow: hidden;
         }
 
         .page:last-child {
             page-break-after: auto;
         }
 
+        /* The employment contract is intended to be a single A4 sheet. Keep
+         * its tighter rhythm local to this document so the receipt and
+         * resignation forms below retain their existing spacing. */
+        .contract-page {
+            page-break-inside: avoid;
+        }
+
+        .contract-page .company-header {
+            margin-bottom: 6px;
+        }
+
+        .contract-page .company-name {
+            font-size: 16px;
+        }
+
+        .contract-page .company-line {
+            font-size: 10px;
+            margin-top: 1px;
+        }
+
+        .contract-page .top-number {
+            margin: 3px 0 5px;
+            font-size: 11px;
+        }
+
+        .contract-page .contract-title {
+            font-size: 21px;
+            margin: 4px 0 7px;
+        }
+
+        .contract-page p,
+        .contract-page .article {
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .contract-page p {
+            margin-bottom: 5px;
+        }
+
+        .contract-page .article {
+            margin-bottom: 5px;
+        }
+
+        .contract-page .blank {
+            height: 13px;
+        }
+
+        .contract-page .signature-row {
+            margin-top: 9px;
+        }
+
+        .contract-page .signature-line {
+            margin-top: 6px;
+        }
+
+        .contract-page .note {
+            font-size: 11px;
+        }
+
         .company-header {
+            font-family: Arial, sans-serif;
             text-align: center;
             margin-bottom: 10px;
         }
 
         .company-name {
-            font-size: 17px;
+            font-size: 18px;
             font-weight: 700;
             margin-bottom: 2px;
         }
 
         .company-line {
-            font-size: 11.5px;
+            font-size: 12px;
             margin-top: 2px;
         }
 
@@ -64,23 +164,44 @@
 
         .contract-title {
             text-align: center;
-            font-size: 22px;
+            font-size: 26px;
             font-weight: 700;
             margin: 8px 0 14px;
         }
 
         p {
-            margin: 0 0 8px;
+            margin: 0 0 10px;
             text-align: right;
+            direction: rtl;
+            unicode-bidi: plaintext;
+            overflow-wrap: break-word;
+            word-break: normal;
         }
 
         .center {
             text-align: center;
         }
 
+        .latin {
+            direction: ltr;
+            unicode-bidi: isolate;
+            white-space: nowrap;
+        }
+
+        .number {
+            direction: ltr;
+            unicode-bidi: isolate;
+            white-space: nowrap;
+        }
+
         .article {
-            margin: 0 0 8px;
+            margin: 0 0 10px;
             text-align: right;
+            direction: rtl;
+            unicode-bidi: plaintext;
+            line-height: 1.9;
+            overflow-wrap: break-word;
+            word-break: normal;
         }
 
         .article-title {
@@ -90,14 +211,29 @@
 
         .blank {
             display: inline-block;
-            min-width: 160px;
-            height: 14px;
-            border-bottom: 1px solid #111111;
+            width: 160px;
+            height: 16px;
+            border-bottom: 0;
             vertical-align: baseline;
+            white-space: nowrap;
+            direction: ltr;
+            unicode-bidi: isolate;
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            letter-spacing: 1px;
+            overflow: hidden;
         }
 
         .blank.long {
-            min-width: 280px;
+            width: 280px;
+        }
+
+        .blank::after {
+            content: '................................';
+        }
+
+        .blank.long::after {
+            content: '........................................................';
         }
 
         .signature-row {
@@ -118,17 +254,18 @@
 
         .section-title {
             text-align: center;
-            font-size: 16px;
+            font-size: 19px;
             font-weight: 700;
             margin: 10px 0 10px;
         }
 
         .note {
-            font-size: 11px;
+            font-size: 13px;
         }
 
         .ltr-page {
             direction: ltr;
+            font-family: Arial, sans-serif;
         }
 
         .ltr-page p,
@@ -146,6 +283,32 @@
 
         .small-gap {
             margin-top: 4px;
+        }
+
+        /* Dompdf receives visually shaped Arabic text from the controller.
+         * Keep that fallback in visual left-to-right order so long lines wrap
+         * inside the page instead of being clipped at the right edge. */
+        .dompdf-fallback .page,
+        .dompdf-fallback p,
+        .dompdf-fallback .article {
+            direction: ltr;
+            text-align: left;
+        }
+
+        .dompdf-fallback .company-header,
+        .dompdf-fallback .contract-title,
+        .dompdf-fallback .section-title {
+            direction: ltr;
+        }
+
+        .dompdf-fallback .contract-title,
+        .dompdf-fallback .section-title,
+        .dompdf-fallback .company-name {
+            text-align: center;
+        }
+
+        .dompdf-fallback .top-number {
+            text-align: left;
         }
     </style>
 </head>
@@ -226,7 +389,7 @@
     $genderedBirthLabel = trim((string) ($employee->gender ?? '')) === 'f' ? 'المولودة' : 'المولود(ة)';
 @endphp
 
-<div class="page">
+<div class="page contract-page">
     <div class="company-header">
         <div class="company-name"><u>{{ $companyName }}</u></div>
         <div class="company-line"><u>Adresse</u> : {{ $companyAddress }}</div>
@@ -242,14 +405,14 @@
 
     <p class="center"><u>تم الاتفاق بين:</u></p>
 
-    <p>شركة <strong>{{ $companyName }}</strong> الكائن مقرها قطعة رقم 34 تجزئة 06 مجموعة رقم 51 قصر الأبطال، عين ولمان، سطيف</p>
+    <p>شركة <strong class="latin">{{ $companyName }}</strong> الكائن مقرها قطعة رقم 34 تجزئة 06 مجموعة رقم 51 قصر الأبطال، عين ولمان، سطيف</p>
     <p><u>من جهة</u></p>
-    <p>و {{ $genderedBirthLabel }} : <strong>{{ $employeeArabicName }}</strong>، {{ $genderedBirthLabel }} بتاريخ: {{ $birthdate }} بـ: {{ trim((string) ($employee->birthplace ?? '.................')) }}, {{ $birthCityArabic }}</p>
-    <p>حامل لبطاقة التعريف الوطنية رقم : {{ $employeeNcN }} ورقم التعريف الوطني : {{ $employeeNin }} المسلمة بتاريخ: {{ $cardIssueDate }}</p>
+    <p>و {{ $genderedBirthLabel }} : <strong>{{ $employeeArabicName }}</strong>، {{ $genderedBirthLabel }} بتاريخ: <span class="number">{{ $birthdate }}</span> بـ: {{ trim((string) ($employee->birthplace ?? '.................')) }}, {{ $birthCityArabic }}</p>
+    <p>حامل لبطاقة التعريف الوطنية رقم : <span class="number">{{ $employeeNcN }}</span> ورقم التعريف الوطني : <span class="number">{{ $employeeNin }}</span> المسلمة بتاريخ: <span class="number">{{ $cardIssueDate }}</span></p>
     <p><u>من جهة أخرى</u></p>
     <p><u>و تم الاتفاق على ما يلي:</u></p>
 
-    <div class="article"><span class="article-title">المادة 01:</span> تشغل <strong>{{ $companyName }}</strong> السيد: {{ $employeeArabicName }} بصفته: <span class="blank">&nbsp;</span></div>
+    <div class="article"><span class="article-title">المادة 01:</span> تشغل <strong class="latin">{{ $companyName }}</strong> السيد: {{ $employeeArabicName }} بصفته: <span class="blank">&nbsp;</span></div>
     <div class="article"><span class="article-title">المادة 02:</span> يتقاضى على هذا الأساس مبلغا قاعديا: <span class="blank long">&nbsp;</span> دج</div>
     <div class="article"><span class="article-title">المادة 03:</span> يستفيد المعني من مزايا الضمان الاجتماعي، العطل والخدمات الاجتماعية.</div>
     <div class="article"><span class="article-title">المادة 04:</span> يسري هذا العقد من: <span class="blank">&nbsp;</span> إلى <span class="blank">&nbsp;</span></div>
@@ -287,9 +450,9 @@
 
     <p class="note">رقم العقد: <span class="blank">&nbsp;</span> &nbsp; المؤرخ في: <span class="blank">&nbsp;</span></p>
     <p>طبقا للمادة 10 من قانون العمل.</p>
-    <p>يصرح المسمى <strong>{{ $employeeArabicName }}</strong>، {{ $genderedBirthLabel }} بتاريخ: {{ $birthdate }}، بـ: {{ trim((string) ($employee->birthplace ?? '.................')) }}, {{ $birthCityArabic }}.</p>
+    <p>يصرح المسمى <strong>{{ $employeeArabicName }}</strong>، {{ $genderedBirthLabel }} بتاريخ: <span class="number">{{ $birthdate }}</span>، بـ: {{ trim((string) ($employee->birthplace ?? '.................')) }}, {{ $birthCityArabic }}.</p>
     <p>إبن: {{ $fatherNameArabic }}. و: {{ $motherNameArabic }}.</p>
-    <p>الحامل لبطاقة التعريف الوطنية رقم: {{ $employeeNcN }} ورقم التعريف الوطني: {{ $employeeNin }} الصادرة بتاريخ: {{ $cardIssueDate }}، عن {{ trim((string) ($employee->card_issue_place ?? '.................')) ?: '.................' }}، الولاية: {{ $issueCityArabic }}.</p>
+    <p>الحامل لبطاقة التعريف الوطنية رقم: <span class="number">{{ $employeeNcN }}</span> ورقم التعريف الوطني: <span class="number">{{ $employeeNin }}</span> الصادرة بتاريخ: <span class="number">{{ $cardIssueDate }}</span>، عن {{ trim((string) ($employee->card_issue_place ?? '.................')) ?: '.................' }}، الولاية: {{ $issueCityArabic }}.</p>
     <p>إنني إستلمت جميع حقوقي وأمضيتها بمحضر إرادتي ودون إكراه من أحد.</p>
     <p>حرر بسطيف يوم: <span class="blank long">&nbsp;</span></p>
     <p>إمضاء وبصمة المعني</p>
@@ -325,13 +488,13 @@
 
     <p><strong>الاسم:</strong> {{ $employeeArabicName ?: $employeeLatinName }}</p>
     <p><strong>اللقب:</strong> {{ $employee->surname_ar ?? $employee->surname ?? '.................' }}</p>
-    <p><strong>رقم البطاقة الوطنية:</strong> {{ $employeeNcN }}</p>
-    <p><strong>رقم التعريف الوطني:</strong> {{ $employeeNin }}</p>
+    <p><strong>رقم البطاقة الوطنية:</strong> <span class="number">{{ $employeeNcN }}</span></p>
+    <p><strong>رقم التعريف الوطني:</strong> <span class="number">{{ $employeeNin }}</span></p>
     <p><strong>الموضوع :</strong> الاستقالة</p>
 
     <p>سيدي المدير،</p>
 
-    <p>أنا الموظف: {{ $employeeArabicName ?: $employeeLatinName }}، حامل لبطاقة الهوية الوطنية رقم {{ $employeeNcN }} ورقم التعريف الوطني {{ $employeeNin }}، أعلمكم بقراري بالاستقالة من منصبي في شركة <strong>{{ $companyName }}</strong>. اعتباراً من <strong>............................</strong>.</p>
+    <p>أنا الموظف: {{ $employeeArabicName ?: $employeeLatinName }}، حامل لبطاقة الهوية الوطنية رقم <span class="number">{{ $employeeNcN }}</span> ورقم التعريف الوطني <span class="number">{{ $employeeNin }}</span>، أعلمكم بقراري بالاستقالة من منصبي في شركة <strong class="latin">{{ $companyName }}</strong>. اعتباراً من <strong>............................</strong>.</p>
 
     <p style="text-align: left; margin-top: 18px;">سطيف في :..............</p>
     <p style="text-align: right; margin-top: 6px;"><strong>التوقيع</strong></p>
