@@ -1208,8 +1208,11 @@ class POSController extends Controller
         $request->validate([
             'sales' => 'nullable|file|mimes:csv,txt|max:20480',
             'clients' => 'nullable|file|mimes:csv,txt|max:20480',
+            'products' => 'nullable|file|mimes:csv,txt|max:20480',
             'sale_items' => 'nullable|file|mimes:csv,txt|max:20480',
             'payments' => 'nullable|file|mimes:csv,txt|max:20480',
+            'product_returns' => 'nullable|file|mimes:csv,txt|max:20480',
+            'product_return_lists' => 'nullable|file|mimes:csv,txt|max:20480',
             'department_id' => 'required|integer|exists:departments,id',
         ]);
 
@@ -1222,9 +1225,20 @@ class POSController extends Controller
             'sales_created' => 0,
             'sale_items_created' => 0,
             'payments_created' => 0,
+            'product_returns_created' => 0,
+            'product_returns_reused' => 0,
+            'product_return_items_created' => 0,
+            'product_return_items_reused' => 0,
         ];
 
-        if (!$request->hasFile('clients') && !$request->hasFile('sales') && !$request->hasFile('sale_items') && !$request->hasFile('payments')) {
+        if (!$request->hasFile('clients')
+            && !$request->hasFile('products')
+            && !$request->hasFile('sales')
+            && !$request->hasFile('sale_items')
+            && !$request->hasFile('payments')
+            && !$request->hasFile('product_returns')
+            && !$request->hasFile('product_return_lists')
+        ) {
             return response()->json(['message' => 'At least one CSV file is required.'], 422);
         }
 
@@ -1232,9 +1246,13 @@ class POSController extends Controller
             DB::beginTransaction();
 
             $clientRows = $this->readImportCsv($request->file('clients'));
+            $productRows = $this->readImportCsv($request->file('products'));
             $saleRows = $this->readImportCsv($request->file('sales'));
             $itemRows = $this->readImportCsv($request->file('sale_items'));
             $paymentRows = $this->readImportCsv($request->file('payments'));
+            $returnRows = $this->readImportCsv($request->file('product_returns'));
+            $returnItemRows = $this->readImportCsv($request->file('product_return_lists'));
+            $productMap = $this->buildImportedProductMap($productRows);
 
             $clientMap = [];
             foreach ($clientRows as $index => $row) {
@@ -1449,6 +1467,16 @@ class POSController extends Controller
                 $counts['payments_created']++;
             }
 
+            $this->importSalesProductReturns(
+                $returnRows,
+                $returnItemRows,
+                $clientMap,
+                $productMap,
+                $departmentId,
+                $counts,
+                $errors,
+            );
+
             if ($request->hasFile('payments') && !empty($saleMap)) {
                 foreach (Sale::whereIn('id', array_values($saleMap))->get() as $sale) {
                     $paid = (float) Payment::where('sale_id', $sale->id)->where('active', true)->sum('amount_paid');
@@ -1605,6 +1633,152 @@ class POSController extends Controller
             }
         }
         return null;
+    }
+
+    private function buildImportedProductMap(array $rows): array
+    {
+        $map = [];
+        foreach ($rows as $row) {
+            $sourceId = $this->nullableImportValue($this->importValue($row, ['id', 'product_id']));
+            if ($sourceId === null) continue;
+            $productId = $this->resolveImportedProductId($row);
+            if ($productId !== null) $map[$sourceId] = $productId;
+        }
+        return $map;
+    }
+
+    private function importSalesProductReturns(
+        array $returnRows,
+        array $returnItemRows,
+        array $clientMap,
+        array $productMap,
+        int $departmentId,
+        array &$counts,
+        array &$errors,
+    ): void {
+        if ($returnRows === [] && $returnItemRows === []) return;
+        if ($returnRows === [] || $returnItemRows === []) {
+            $errors[] = [
+                'file' => 'product_returns.csv/product_return_lists.csv',
+                'message' => 'Both product return CSV files are required when either one is present.',
+            ];
+            return;
+        }
+
+        $returnMap = [];
+        $returnClientMap = [];
+        foreach ($returnRows as $index => $row) {
+            $rowNumber = $index + 2;
+            $sourceId = $this->nullableImportValue($this->importValue($row, ['id', 'return_id']));
+            $clientReference = $this->nullableImportValue($this->importValue($row, [
+                'client_external_id', 'legacy_client_id', 'client_id',
+            ]));
+            $clientId = $this->resolveImportedClientId($clientReference, $row, $clientMap, $departmentId);
+            $date = $this->importDate($this->importValue($row, ['date', 'return_date']));
+            $totalAmount = $this->nullableImportValue($this->importValue($row, ['total_amount', 'total', 'amount']));
+            $paid = $this->importBoolean($this->importValue($row, ['paid', 'is_paid']));
+
+            if ($sourceId === null || $clientId === null || $date === null || $totalAmount === null) {
+                $errors[] = [
+                    'file' => 'product_returns.csv',
+                    'row' => $rowNumber,
+                    'message' => 'id, client_id, date and total_amount must map to valid values.',
+                ];
+                continue;
+            }
+
+            $existing = DB::table('product_returns')
+                ->where('client_id', $clientId)
+                ->where('total_amount', $totalAmount)
+                ->whereDate('date', $date)
+                ->where('paid', $paid)
+                ->where('department_id', $departmentId)
+                ->whereNull('deleted_at')
+                ->first();
+            if ($existing !== null) {
+                $localReturnId = (int) $existing->id;
+                $counts['product_returns_reused']++;
+            } else {
+                $localReturnId = (int) DB::table('product_returns')->insertGetId([
+                    'total_amount' => $totalAmount,
+                    'client_id' => $clientId,
+                    'date' => $date,
+                    'paid' => $paid,
+                    'department_id' => $departmentId,
+                    'created_at' => $this->nullableImportValue($this->importValue($row, ['created_at'])) ?? now(),
+                    'updated_at' => $this->nullableImportValue($this->importValue($row, ['updated_at'])) ?? now(),
+                ]);
+                $counts['product_returns_created']++;
+            }
+            $returnMap[$sourceId] = $localReturnId;
+            $returnClientMap[$sourceId] = $clientId;
+        }
+
+        foreach ($returnItemRows as $index => $row) {
+            $rowNumber = $index + 2;
+            $sourceId = $this->nullableImportValue($this->importValue($row, ['id', 'return_item_id']));
+            $sourceReturnId = $this->nullableImportValue($this->importValue($row, [
+                'return_external_id', 'legacy_return_id', 'old_return_id', 'return_id',
+            ]));
+            $returnId = $sourceReturnId === null ? null : ($returnMap[$sourceReturnId] ?? null);
+            $clientReference = $this->nullableImportValue($this->importValue($row, [
+                'client_external_id', 'legacy_client_id', 'client_id',
+            ]));
+            $clientId = $clientReference === null
+                ? ($sourceReturnId === null ? null : ($returnClientMap[$sourceReturnId] ?? null))
+                : $this->resolveImportedClientId($clientReference, $row, $clientMap, $departmentId);
+            $productReference = $this->nullableImportValue($this->importValue($row, ['product_external_id', 'product_id', 'product']));
+            $productId = $productReference === null
+                ? $this->resolveImportedProductId($row)
+                : ($productMap[$productReference] ?? $this->resolveImportedProductId($row));
+            $quantity = $this->nullableImportValue($this->importValue($row, ['quantity', 'qty']));
+            $price = $this->nullableImportValue($this->importValue($row, ['price', 'unit_price']));
+            $totalPrice = $this->nullableImportValue($this->importValue($row, ['total_price', 'subtotal', 'amount']));
+            $date = $this->importDate($this->importValue($row, ['date', 'return_date']));
+
+            if ($sourceId === null || $returnId === null || $clientId === null || $productId === null
+                || $quantity === null || $totalPrice === null || $date === null
+            ) {
+                $errors[] = [
+                    'file' => 'product_return_lists.csv',
+                    'row' => $rowNumber,
+                    'message' => 'id, return_id, client_id, product_id, quantity, total_price and date must map to valid values.',
+                ];
+                continue;
+            }
+
+            $existingQuery = DB::table('product_return_lists')
+                ->where('return_id', $returnId)
+                ->where('client_id', $clientId)
+                ->where('product_id', $productId)
+                ->where('quantity', $quantity)
+                ->where('total_price', $totalPrice)
+                ->whereDate('date', $date)
+                ->whereNull('deleted_at');
+            if ($price === null) {
+                $existingQuery->whereNull('price');
+            } else {
+                $existingQuery->where('price', $price);
+            }
+
+            if ($existingQuery->exists()) {
+                $counts['product_return_items_reused']++;
+                continue;
+            }
+
+            DB::table('product_return_lists')->insert([
+                'return_id' => $returnId,
+                'client_id' => $clientId,
+                'product_id' => $productId,
+                'quantity' => $quantity,
+                'price' => $price,
+                'total_price' => $totalPrice,
+                'date' => $date,
+                'created_at' => $this->nullableImportValue($this->importValue($row, ['created_at'])) ?? now(),
+                'updated_at' => $this->nullableImportValue($this->importValue($row, ['updated_at'])) ?? now(),
+            ]);
+            $counts['product_return_items_created']++;
+        }
     }
 
     /**
