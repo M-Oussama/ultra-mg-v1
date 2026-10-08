@@ -11,7 +11,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SubCertifyInvoices extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, \App\Models\Concerns\HasTaxInclusiveAmount;
+
+    protected $appends = ['amount_ttc'];
 
     protected $fillable = [
         'certify_invoice_id',

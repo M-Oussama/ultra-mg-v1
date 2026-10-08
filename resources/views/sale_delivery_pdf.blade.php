@@ -92,9 +92,9 @@
         .qty-sub {
             display: block;
             font-size: 9px;
-            line-height: 1.1;
+            line-height: 1.4;
             color: #6b7280;
-            white-space: nowrap;
+            white-space: normal;
         }
         .qty-ref {
             display: block;
@@ -219,9 +219,9 @@
         <thead>
             <tr>
                 <th style="width:5%">#</th>
-                <th style="width:44%">Désignation</th>
+                <th style="width:34%">Désignation</th>
                 <th class="r" style="width:15%">Prix unit.</th>
-                <th class="c" style="width:15%">Qté</th>
+                <th class="c" style="width:25%">Qté</th>
                 <th class="r" style="width:20%">Montant</th>
             </tr>
         </thead>
@@ -230,6 +230,7 @@
             @php
                 $showPrice = (bool) ($item->price_active ?? true);
                 $quantityTotal = number_format((float) $item->quantity, 0, ',', ' ');
+                $stockLines = $saleItemStockReferences[$item->id] ?? [];
                 $quantitySummary = $item->hasPackaging() ? $item->packagingLabel() : $quantityTotal;
             @endphp
             <tr>
@@ -237,7 +238,14 @@
                 <td>{{ $item->product->name ?? '-' }}</td>
                 <td class="r amount-cell">{{ $showPrice ? number_format((float) $item->price, 2, ',', ' ') . ' DZD' : '' }}</td>
                 <td class="c qty-cell">
-                    <span >{{ $quantityTotal }} </br> <small class="qty-sub"> {{ $quantitySummary }} </small></span>
+                    <span class="qty-main">{{ $quantityTotal }}</span>
+                    @if(!empty($stockLines))
+                        @foreach($stockLines as $line)
+                            <small class="qty-sub">{{ $line['carton_breakdown'] }}</small>
+                        @endforeach
+                    @else
+                        <small class="qty-sub">{{ $quantitySummary }}</small>
+                    @endif
                 
                 </td>
                 <td class="r amount-cell">{{ $showPrice ? number_format((float) $item->total_price, 2, ',', ' ') . ' DZD' : '' }}</td>

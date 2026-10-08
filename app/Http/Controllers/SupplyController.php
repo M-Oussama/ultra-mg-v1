@@ -22,6 +22,11 @@ class SupplyController extends Controller
         return (int) ($product?->units_per_package ?? 0);
     }
 
+    private function supplyItemUnitsPerPackage(SupplyItem $item): int
+    {
+        return (int) ($item->units_per_package ?: $this->resolvedUnitsPerPackage($item->product));
+    }
+
     private function packagingAvailabilityFromUnits(float $remainingQuantity, int $unitsPerPackage): array
     {
         if ($unitsPerPackage <= 0) {
@@ -70,8 +75,6 @@ class SupplyController extends Controller
         float &$remainingToAllocate,
         string $allocationPreference = 'all'
     ): void {
-        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem->product);
-
         foreach ($queue as &$batch) {
             if ($remainingToAllocate <= 0) {
                 break;
@@ -81,6 +84,10 @@ class SupplyController extends Controller
             if ($availableQuantity <= 0) {
                 continue;
             }
+
+            // A purchase batch keeps the package size that was recorded when
+            // it arrived. Do not use the product's current default here.
+            $unitsPerPackage = (int) ($batch->carton_size ?? 0);
 
             if ($allocationPreference === 'cartons') {
                 if (!$saleItem->hasPackaging() || $unitsPerPackage <= 0) {
@@ -275,14 +282,14 @@ class SupplyController extends Controller
                     'remaining_quantity' => (float) $item->quantity,
                     'available_cartons' => 0,
                     'loose_quantity' => 0.0,
-                    'carton_size' => $this->resolvedUnitsPerPackage($item->product),
+                    'carton_size' => $this->supplyItemUnitsPerPackage($item),
                     'unit_price' => (float) $item->unit_price,
                     'date' => $supply->supply_date,
                 ];
 
-                $containerAvailability = $this->packagingAvailability(
+                $containerAvailability = $this->packagingAvailabilityFromUnits(
                     $batch->remaining_quantity,
-                    $item->product
+                    $batch->carton_size
                 );
                 $batch->available_cartons = $containerAvailability['available_cartons'];
                 $batch->loose_quantity = $containerAvailability['loose_quantity'];
@@ -553,6 +560,9 @@ class SupplyController extends Controller
                         'sales_supplier_id' => $data['supplier']['id'],
                         'reference' => $reference,
                         'quantity' => $item['quantity'],
+                        'units_per_package' => !empty($item['units_per_package'])
+                            ? (int) $item['units_per_package']
+                            : null,
                         'unit_price' => $item['unit_price'],
                         'total_price' => $item['quantity'] * $item['unit_price'],
                         'supply_date' => $data['supply_date'],
@@ -636,6 +646,9 @@ class SupplyController extends Controller
                         'sales_supplier_id' => $data['supplier']['id'],
                         'reference' => $reference,
                         'quantity' => $item['quantity'],
+                        'units_per_package' => !empty($item['units_per_package'])
+                            ? (int) $item['units_per_package']
+                            : null,
                         'unit_price' => $item['unit_price'],
                         'total_price' => $item['quantity'] * $item['unit_price'],
                         'supply_date' => $data['supply_date'],

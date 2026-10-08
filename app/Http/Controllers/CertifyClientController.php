@@ -149,8 +149,8 @@ class CertifyClientController extends Controller
             'NIS' => 'nullable|string|max:255',
             'email' => 'nullable|email',
             'pdf_file' => 'nullable|file|mimes:pdf|max:10240',
-            'nif_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
-            'cnrc_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
+            'nif_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
+            'cnrc_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
         ]);
 
         if ($validator->fails()) {
@@ -221,8 +221,8 @@ class CertifyClientController extends Controller
             'NIS' => 'nullable|string|max:255',
             'email' => 'nullable|email',
             'pdf_file' => 'nullable|file|mimes:pdf|max:10240',
-            'nif_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
-            'cnrc_file' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
+            'nif_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
+            'cnrc_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png,webp,gif,bmp,tif,tiff,heic,heif|max:10240',
         ]);
 
         if ($validator->fails()) {

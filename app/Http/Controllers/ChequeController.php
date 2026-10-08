@@ -26,15 +26,16 @@ class ChequeController extends Controller
     )]
     public function getCheques(Request $request)
     {
+        $compact = filter_var($request->input('compact', false), FILTER_VALIDATE_BOOLEAN);
         $includeSubCertifyUsage = filter_var(
             $request->input('include_sub_certify', true),
             FILTER_VALIDATE_BOOLEAN
         );
         $cheques = $this->attachUsageStats(
-            Cheque::with('client')->get(),
+            ($compact ? Cheque::query() : Cheque::with(['client.city', 'client.media', 'media']))->get(),
             includeSubCertifyUsage: $includeSubCertifyUsage,
         );
-        return response()->json($this->withMediaUrls($cheques));
+        return response()->json($compact ? $cheques : $this->withMediaUrls($cheques));
     }
 
     #[OA\Post(
@@ -342,7 +343,12 @@ class ChequeController extends Controller
             }
         }
 
-        $usedAmount = $usedCertify->sum('amount') + $usedSub->sum('amount');
+        $usedAmount = (float) $usedCertify
+            ->selectRaw('COALESCE(SUM('.\App\Models\CertifyInvoices::amountTtcExpression().'), 0) as total_ttc')
+            ->toBase()->value('total_ttc')
+            + (float) $usedSub
+            ->selectRaw('COALESCE(SUM('.\App\Models\SubCertifyInvoices::amountTtcExpression().'), 0) as total_ttc')
+            ->toBase()->value('total_ttc');
         $remaining = max(0, $cheque->amount - $usedAmount);
 
         return response()->json([
@@ -441,7 +447,7 @@ class ChequeController extends Controller
                     continue;
                 }
 
-                $amount = (float) ($row->amount ?? 0);
+                $amount = (float) $row->amount_ttc;
                 foreach ($matchedChequeIds as $matchedChequeId) {
                     $usageByChequeId[$matchedChequeId] += $amount;
                 }
@@ -450,7 +456,7 @@ class ChequeController extends Controller
 
         $certifyInvoices = \App\Models\CertifyInvoices::query()
             ->without(['client', 'certifyInvoiceProducts', 'cheque', 'user'])
-            ->select(['id', 'amount', 'cheque_id', 'cheque_number'])
+            ->select(['id', 'amount', 'ht_amount', 'tva_rate', 'tva_amount', 'timbre_rate', 'timbre_amount', 'payment_type', 'cheque_id', 'cheque_number'])
             ->where(function ($query) use ($chequeIds, $chequeNumbers) {
                 $query->whereIn('cheque_id', $chequeIds);
 
@@ -464,7 +470,7 @@ class ChequeController extends Controller
         if ($includeSubCertifyUsage) {
             $subInvoices = \App\Models\SubCertifyInvoices::query()
                 ->without(['client', 'subCertifyInvoiceProducts', 'cheque'])
-                ->select(['id', 'amount', 'cheque_id', 'cheque_number'])
+                ->select(['id', 'amount', 'ht_amount', 'tva_rate', 'tva_amount', 'timbre_rate', 'timbre_amount', 'payment_type', 'cheque_id', 'cheque_number'])
                 ->where(function ($query) use ($chequeIds, $chequeNumbers) {
                     $query->whereIn('cheque_id', $chequeIds);
 

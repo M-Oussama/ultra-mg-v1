@@ -6,43 +6,33 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class SupplyItem extends Model
+class ImportProformaItem extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'supply_id',
+        'import_proforma_id',
         'product_id',
-        'sales_supplier_id',
+        'product_name',
         'reference',
         'quantity',
-        'units_per_package',
         'unit_price',
         'total_price',
-        'supply_date'
     ];
-
-    protected $with = ['product'];
 
     protected $casts = [
-        'quantity' => 'double',
+        'quantity' => 'integer',
         'unit_price' => 'double',
         'total_price' => 'double',
-        'units_per_package' => 'integer',
     ];
 
-    public function supply()
+    public function proforma()
     {
-        return $this->belongsTo(Supply::class);
+        return $this->belongsTo(ImportProforma::class, 'import_proforma_id');
     }
 
     public function product()
     {
         return $this->belongsTo(Product::class);
-    }
-
-    public function supplier()
-    {
-        return $this->belongsTo(SalesSupplier::class, 'sales_supplier_id');
     }
 }

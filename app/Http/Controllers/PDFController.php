@@ -115,7 +115,8 @@ class PDFController extends Controller
         array &$allocations,
         SaleItem $saleItem,
         float $consumed,
-        string $reference
+        string $reference,
+        int $unitsPerPackage
     ): void {
         $referenceKey = ltrim($reference, '#');
         $existingLines = $allocations[$saleItem->id] ?? [];
@@ -126,6 +127,7 @@ class PDFController extends Controller
             $existingLines[$referenceKey] = [
                 'quantity_value' => $consumed,
                 'reference' => '#' . $referenceKey,
+                'units_per_package' => $unitsPerPackage,
             ];
         }
 
@@ -135,7 +137,8 @@ class PDFController extends Controller
         );
         $existingLines[$referenceKey]['carton_breakdown'] = $this->formatPreparationCartonBreakdown(
             $saleItem,
-            (float) $existingLines[$referenceKey]['quantity_value']
+            (float) $existingLines[$referenceKey]['quantity_value'],
+            $unitsPerPackage
         );
 
         $allocations[$saleItem->id] = $existingLines;
@@ -176,6 +179,8 @@ class PDFController extends Controller
                 continue;
             }
 
+            $unitsPerPackage = (int) ($batch['units_per_package'] ?? 0);
+
             if ($allocationPreference === 'cartons') {
                 if (!$saleItem->hasPackaging() || $unitsPerPackage <= 0) {
                     continue;
@@ -203,7 +208,8 @@ class PDFController extends Controller
                     $allocations,
                     $saleItem,
                     $consumed,
-                    (string) $batch['reference']
+                    (string) $batch['reference'],
+                    $unitsPerPackage
                 );
             }
         }
@@ -252,120 +258,7 @@ class PDFController extends Controller
                 'supply_items.product_id',
                 'supply_items.reference',
                 'supply_items.quantity',
-                'supplies.id as supply_id',
-                'supplies.supply_date',
-            ])
-            ->join('supplies', 'supplies.id', '=', 'supply_items.supply_id')
-            ->whereNull('supply_items.deleted_at')
-            ->whereNull('supplies.deleted_at')
-            ->when($departmentId !== null, function ($query) use ($departmentId) {
-                $query->where('supplies.departement_id', $departmentId);
-            })
-            ->whereDate('supplies.supply_date', '<=', $saleDate)
-            ->orderBy('supplies.supply_date')
-            ->orderBy('supplies.id')
-            ->orderBy('supply_items.id')
-            ->get();
-
-        $saleItems = SaleItem::query()
-            ->select([
-                'sale_items.id',
-                'sale_items.sale_id',
-                'sale_items.product_id',
-                'sale_items.quantity',
-                'sales.sale_date',
-            ])
-            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
-            ->whereNull('sale_items.deleted_at')
-            ->whereNull('sales.deleted_at')
-            ->when($departmentId !== null, function ($query) use ($departmentId) {
-                $query->where('sales.department_id', $departmentId);
-            })
-            ->where(function ($query) use ($saleDate, $sale) {
-                $query->whereDate('sales.sale_date', '<', $saleDate)
-                    ->orWhere(function ($innerQuery) use ($saleDate, $sale) {
-                        $innerQuery->whereDate('sales.sale_date', '=', $saleDate)
-                            ->where('sales.id', '<=', $sale->id);
-                    });
-            })
-            ->orderBy('sales.sale_date')
-            ->orderBy('sales.id')
-            ->orderBy('sale_items.id')
-            ->get();
-
-        $queues = [];
-        foreach ($supplyItems as $supplyItem) {
-            $productId = (string) $supplyItem->product_id;
-            if (!isset($queues[$productId])) {
-                $queues[$productId] = [];
-            }
-
-            $queues[$productId][] = [
-                'reference' => (string) ($supplyItem->reference ?? ''),
-                'remaining_quantity' => (float) $supplyItem->quantity,
-            ];
-        }
-
-        $allocations = [];
-
-        foreach ($saleItems as $saleItem) {
-            $this->allocateStockReferencesForSaleItem($queues, $saleItem, (int) $sale->id, $allocations);
-        }
-
-        foreach ($allocations as $saleItemId => $lines) {
-            if (is_array($lines)) {
-                $allocations[$saleItemId] = array_values($lines);
-            }
-        }
-
-        return $allocations;
-    }
-
-    private function formatPreparationTotalQuantity(SaleItem $saleItem, float $quantity): string
-    {
-        $formatted = $this->formatRawQuantity($quantity);
-
-        if ($saleItem->hasPackaging()) {
-            return $formatted . ' pcs';
-        }
-
-        return $formatted;
-    }
-
-    private function formatPreparationCartonBreakdown(SaleItem $saleItem, float $quantity): string
-    {
-        if (!$saleItem->hasPackaging()) {
-            return $this->formatRawQuantity($quantity);
-        }
-
-        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem);
-        if ($unitsPerPackage <= 0) {
-            return $this->formatRawQuantity($quantity);
-        }
-
-        $cartons = (int) floor($quantity / $unitsPerPackage);
-        $remainder = (int) round(fmod($quantity, $unitsPerPackage));
-        $packageType = $this->resolvedPackageType($saleItem);
-        $label = $cartons . ' ' . $packageType . ' (' . $unitsPerPackage . ')';
-
-        if ($remainder > 0) {
-            $label .= ' + ' . $remainder . ' pcs isolées';
-        }
-
-        return $label;
-    }
-
-    private function buildPreparationSaleItemStockReferences(Sale $sale): array
-    {
-        $departmentId = $sale->department_id;
-        $saleDate = (string) $sale->sale_date;
-
-        $supplyItems = SupplyItem::query()
-            ->select([
-                'supply_items.id',
-                'supply_items.product_id',
-                'supply_items.reference',
-                'supply_items.quantity',
+                'supply_items.units_per_package',
                 'supplies.id as supply_id',
                 'supplies.supply_date',
             ])
@@ -419,6 +312,125 @@ class PDFController extends Controller
             $queues[$productId][] = [
                 'reference' => (string) ($supplyItem->reference ?? ''),
                 'remaining_quantity' => (float) $supplyItem->quantity,
+                'units_per_package' => (int) ($supplyItem->units_per_package ?: $supplyItem->product?->units_per_package ?: 0),
+            ];
+        }
+
+        $allocations = [];
+
+        foreach ($saleItems as $saleItem) {
+            $this->allocateStockReferencesForSaleItem($queues, $saleItem, (int) $sale->id, $allocations);
+        }
+
+        foreach ($allocations as $saleItemId => $lines) {
+            if (is_array($lines)) {
+                $allocations[$saleItemId] = array_values($lines);
+            }
+        }
+
+        return $allocations;
+    }
+
+    private function formatPreparationTotalQuantity(SaleItem $saleItem, float $quantity): string
+    {
+        $formatted = $this->formatRawQuantity($quantity);
+
+        if ($saleItem->hasPackaging()) {
+            return $formatted . ' pcs';
+        }
+
+        return $formatted;
+    }
+
+    private function formatPreparationCartonBreakdown(SaleItem $saleItem, float $quantity, ?int $batchUnits = null): string
+    {
+        if (!$saleItem->hasPackaging()) {
+            return $this->formatRawQuantity($quantity);
+        }
+
+        $unitsPerPackage = $batchUnits ?? $this->resolvedUnitsPerPackage($saleItem);
+        if ($unitsPerPackage <= 0) {
+            return $this->formatRawQuantity($quantity);
+        }
+
+        $cartons = (int) floor($quantity / $unitsPerPackage);
+        $remainder = (int) round(fmod($quantity, $unitsPerPackage));
+        $packageType = $this->resolvedPackageType($saleItem);
+        $label = $cartons . ' ' . $packageType . ' (' . $unitsPerPackage . ')';
+
+        if ($remainder > 0) {
+            $label .= ' + ' . $remainder . ' pcs';
+        }
+
+        return $label;
+    }
+
+    private function buildPreparationSaleItemStockReferences(Sale $sale): array
+    {
+        $departmentId = $sale->department_id;
+        $saleDate = (string) $sale->sale_date;
+
+        $supplyItems = SupplyItem::query()
+            ->select([
+                'supply_items.id',
+                'supply_items.product_id',
+                'supply_items.reference',
+                'supply_items.quantity',
+                'supply_items.units_per_package',
+                'supplies.id as supply_id',
+                'supplies.supply_date',
+            ])
+            ->join('supplies', 'supplies.id', '=', 'supply_items.supply_id')
+            ->whereNull('supply_items.deleted_at')
+            ->whereNull('supplies.deleted_at')
+            ->when($departmentId !== null, function ($query) use ($departmentId) {
+                $query->where('supplies.departement_id', $departmentId);
+            })
+            ->whereDate('supplies.supply_date', '<=', $saleDate)
+            ->orderBy('supplies.supply_date')
+            ->orderBy('supplies.id')
+            ->orderBy('supply_items.id')
+            ->get();
+
+        $saleItems = SaleItem::query()
+            ->select([
+                'sale_items.id',
+                'sale_items.sale_id',
+                'sale_items.product_id',
+                'sale_items.quantity',
+                'sale_items.package_type',
+                'sale_items.units_per_package',
+                'sales.sale_date',
+            ])
+            ->join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->whereNull('sale_items.deleted_at')
+            ->whereNull('sales.deleted_at')
+            ->when($departmentId !== null, function ($query) use ($departmentId) {
+                $query->where('sales.department_id', $departmentId);
+            })
+            ->where(function ($query) use ($saleDate, $sale) {
+                $query->whereDate('sales.sale_date', '<', $saleDate)
+                    ->orWhere(function ($innerQuery) use ($saleDate, $sale) {
+                        $innerQuery->whereDate('sales.sale_date', '=', $saleDate)
+                            ->where('sales.id', '<=', $sale->id);
+                    });
+            })
+            ->orderBy('sales.sale_date')
+            ->orderBy('sales.id')
+            ->orderBy('sale_items.id')
+            ->get();
+
+        $queues = [];
+        foreach ($supplyItems as $supplyItem) {
+            $productId = (string) $supplyItem->product_id;
+            if (!isset($queues[$productId])) {
+                $queues[$productId] = [];
+            }
+
+            $queues[$productId][] = [
+                'reference' => (string) ($supplyItem->reference ?? ''),
+                'remaining_quantity' => (float) $supplyItem->quantity,
+                'units_per_package' => (int) ($supplyItem->units_per_package ?: $supplyItem->product?->units_per_package ?: 0),
             ];
         }
 

@@ -3,12 +3,13 @@ import axios from '@axios'
 
 export const useCertifyInvoiceImportStore = defineStore('CertifyInvoiceImportStore', {
   actions: {
-    importCsv(file) {
+    importCsv(file, onUploadProgress) {
       const formData = new FormData()
       formData.append('file', file)
 
       return axios.post('/api/certifyInvoices/import-csv', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress,
       })
     },
   },

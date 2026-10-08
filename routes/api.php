@@ -21,6 +21,7 @@ use App\Http\Controllers\ProductReturnController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\ImportationInvoiceController;
+use App\Http\Controllers\ImportProformaController;
 use App\Http\Controllers\ImportationMoneyBalanceController;
 use App\Http\Controllers\ImportationPaymentController;
 use App\Http\Controllers\MoneyReceiptPaperController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\VacationController;
 use App\Http\Controllers\ZKAssignmentController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\BusinessController;
+use App\Http\Controllers\WhatsAppController;
 use App\Http\Controllers\RealLogisticsInvoiceController;
 use App\Http\Controllers\CashbookController;
 use App\Http\Controllers\CashbookMemberController;
@@ -122,6 +124,12 @@ Route::get('/check-db-schema', function() {
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/push-token', [PushTokenController::class, 'store']);
     Route::post('/push-token/clear', [PushTokenController::class, 'clear']);
+    Route::post('/whatsapp/broadcast', [WhatsAppController::class, 'broadcast'])
+        ->middleware('permission:add,sales')
+        ->name('whatsapp.broadcast');
+    Route::get('/whatsapp/templates', [WhatsAppController::class, 'templates'])
+        ->middleware('permission:add,sales')
+        ->name('whatsapp.templates');
 
     /** USERS  */
     Route::get('/users/list', [UserController::class, 'getUsers'])->middleware('permission:list,users')->name('getUsers');
@@ -329,6 +337,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/update/{id}', [SupplyController::class, 'update'])->middleware('permission:edit,suppliers');
         Route::get('/show/{id}', [SupplyController::class, 'show'])->middleware('permission:list,suppliers');
         Route::post('/delete', [SupplyController::class, 'delete'])->middleware('permission:delete,suppliers');
+    });
+
+    Route::group(['prefix' => 'import-proformas'], function () {
+        Route::get('/list', [ImportProformaController::class, 'index'])->middleware('permission:list,suppliers');
+        Route::post('/store', [ImportProformaController::class, 'store'])->middleware('permission:add,suppliers');
+        Route::get('/show/{id}', [ImportProformaController::class, 'show'])->middleware('permission:list,suppliers');
+        Route::post('/update/{id}', [ImportProformaController::class, 'update'])->middleware('permission:edit,suppliers');
+        Route::delete('/delete/{id}', [ImportProformaController::class, 'destroy'])->middleware('permission:delete,suppliers');
     });
 
     Route::group(['prefix' => 'importation-invoices'], function () {

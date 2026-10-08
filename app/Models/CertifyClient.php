@@ -97,6 +97,7 @@ class CertifyClient extends Model implements HasMedia
         $this->addMediaCollection('nif_file')
             ->singleFile()
             ->acceptsMimeTypes([
+                'application/pdf',
                 'image/jpeg',
                 'image/png',
                 'image/webp',
@@ -110,6 +111,7 @@ class CertifyClient extends Model implements HasMedia
         $this->addMediaCollection('cnrc_file')
             ->singleFile()
             ->acceptsMimeTypes([
+                'application/pdf',
                 'image/jpeg',
                 'image/png',
                 'image/webp',

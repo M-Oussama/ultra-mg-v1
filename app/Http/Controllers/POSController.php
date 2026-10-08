@@ -37,13 +37,13 @@ class POSController extends Controller
         return (int) ($saleItem->units_per_package ?? $saleItem->product?->units_per_package ?? 0);
     }
 
-    private function formatSaleItemCartonBreakdown(SaleItem $saleItem, float $quantity): string
+    private function formatSaleItemCartonBreakdown(SaleItem $saleItem, float $quantity, ?int $batchUnits = null): string
     {
         if (!$saleItem->hasPackaging()) {
             return number_format($quantity, 0, ',', ' ');
         }
 
-        $unitsPerPackage = $this->resolvedUnitsPerPackage($saleItem);
+        $unitsPerPackage = $batchUnits ?? $this->resolvedUnitsPerPackage($saleItem);
         if ($unitsPerPackage <= 0) {
             return number_format($quantity, 0, ',', ' ');
         }
@@ -70,7 +70,8 @@ class POSController extends Controller
         array &$allocations,
         SaleItem $saleItem,
         float $consumed,
-        string $reference
+        string $reference,
+        int $unitsPerPackage
     ): void {
         $referenceKey = ltrim($reference, '#');
         $existingLines = $allocations[$saleItem->id] ?? [];
@@ -81,6 +82,7 @@ class POSController extends Controller
             $existingLines[$referenceKey] = [
                 'quantity_value' => $consumed,
                 'reference' => '#' . $referenceKey,
+                'units_per_package' => $unitsPerPackage,
             ];
         }
 
@@ -90,7 +92,8 @@ class POSController extends Controller
         );
         $existingLines[$referenceKey]['carton_breakdown'] = $this->formatSaleItemCartonBreakdown(
             $saleItem,
-            (float) $existingLines[$referenceKey]['quantity_value']
+            (float) $existingLines[$referenceKey]['quantity_value'],
+            $unitsPerPackage
         );
 
         $allocations[$saleItem->id] = $existingLines;
@@ -131,6 +134,10 @@ class POSController extends Controller
                 continue;
             }
 
+            // Package size belongs to the purchase batch. A later purchase
+            // may contain a different number of units per package.
+            $unitsPerPackage = (int) ($batch['units_per_package'] ?? 0);
+
             if ($allocationPreference === 'cartons') {
                 if (!$saleItem->hasPackaging() || $unitsPerPackage <= 0) {
                     continue;
@@ -158,7 +165,8 @@ class POSController extends Controller
                     $allocations,
                     $saleItem,
                     $consumed,
-                    (string) $batch['reference']
+                    (string) $batch['reference'],
+                    $unitsPerPackage
                 );
             }
         }
@@ -207,10 +215,13 @@ class POSController extends Controller
                 'supply_items.product_id',
                 'supply_items.reference',
                 'supply_items.quantity',
+                'supply_items.units_per_package',
                 'supplies.id as supply_id',
                 'supplies.supply_date',
+                'products.units_per_package as product_units_per_package',
             ])
             ->join('supplies', 'supplies.id', '=', 'supply_items.supply_id')
+            ->join('products', 'products.id', '=', 'supply_items.product_id')
             ->whereNull('supply_items.deleted_at')
             ->whereNull('supplies.deleted_at')
             ->when($departmentId !== null, function ($query) use ($departmentId) {
@@ -257,6 +268,7 @@ class POSController extends Controller
             $queues[$productId][] = [
                 'reference' => (string) ($supplyItem->reference ?? ''),
                 'remaining_quantity' => (float) $supplyItem->quantity,
+                'units_per_package' => (int) ($supplyItem->units_per_package ?: $supplyItem->product_units_per_package ?: 0),
             ];
         }
 

@@ -36,4 +36,15 @@ return [
         'credentials' => env('FIREBASE_CREDENTIALS'),
     ],
 
+    'whatsapp' => [
+        'graph_version' => env('WHATSAPP_GRAPH_API_VERSION', 'v25.0'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'waba_id' => env('WHATSAPP_WABA_ID'),
+        'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
+        'country_code' => env('WHATSAPP_DEFAULT_COUNTRY_CODE', '213'),
+        'message_type' => env('WHATSAPP_MESSAGE_TYPE', 'text'),
+        'template_name' => env('WHATSAPP_TEMPLATE_NAME'),
+        'template_language' => env('WHATSAPP_TEMPLATE_LANGUAGE', 'en_US'),
+    ],
+
 ];

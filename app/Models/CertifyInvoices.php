@@ -23,7 +23,9 @@ use OpenApi\Attributes as OA;
 
 class CertifyInvoices extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Models\Concerns\HasTaxInclusiveAmount;
+
+    protected $appends = ['amount_ttc'];
 
     protected $fillable = [
         'client_id',

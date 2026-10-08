@@ -5,8 +5,25 @@ import { useCertifyInvoiceImportStore } from '@/views/apps/certifyInvoice/useCer
 const certifyInvoiceImportStore = useCertifyInvoiceImportStore()
 const selectedFile = ref(null)
 const uploading = ref(false)
+const importProgress = ref(0)
+let progressTimer = null
 const result = ref(null)
 const apiError = ref('')
+
+const stopProgressTimer = () => {
+  if (progressTimer) {
+    clearInterval(progressTimer)
+    progressTimer = null
+  }
+}
+
+const startProgressTimer = () => {
+  stopProgressTimer()
+  progressTimer = setInterval(() => {
+    if (importProgress.value < 92)
+      importProgress.value += 1
+  }, 450)
+}
 
 const onFileChange = files => {
   if (Array.isArray(files))
@@ -25,18 +42,35 @@ const handleImport = async () => {
   }
 
   uploading.value = true
+  importProgress.value = 1
   apiError.value = ''
   result.value = null
+  startProgressTimer()
 
   try {
-    const response = await certifyInvoiceImportStore.importCsv(selectedFile.value)
+    const response = await certifyInvoiceImportStore.importCsv(selectedFile.value, event => {
+      if (!event.total)
+        return
+
+      // The request can spend most of its time processing rows after upload.
+      // Cap the transport progress and let the waiting state continue visibly.
+      importProgress.value = Math.max(
+        importProgress.value,
+        Math.min(35, Math.round((event.loaded / event.total) * 35)),
+      )
+    })
+
+    importProgress.value = 100
     result.value = response.data
   } catch (error) {
     apiError.value = error?.response?.data?.message || 'Import failed.'
   } finally {
+    stopProgressTimer()
     uploading.value = false
   }
 }
+
+onBeforeUnmount(stopProgressTimer)
 </script>
 
 <template>
@@ -60,10 +94,31 @@ const handleImport = async () => {
               @update:model-value="onFileChange"
             />
 
-            <div class="d-flex mt-4">
+            <div
+              v-if="uploading"
+              class="mt-4"
+            >
+              <div class="d-flex align-center justify-space-between mb-2">
+                <span class="text-body-2">Importing certify invoices…</span>
+                <span class="text-body-2 font-weight-medium">{{ importProgress }}%</span>
+              </div>
+              <VProgressLinear
+                :model-value="importProgress"
+                color="dark"
+                height="8"
+                rounded
+              />
+              <p class="text-caption text-medium-emphasis mt-2 mb-0">
+                Please keep this page open while the records are being processed.
+              </p>
+            </div>
+
+            <div
+              v-else
+              class="d-flex mt-4"
+            >
               <VBtn
-                :loading="uploading"
-                :disabled="uploading || !$can(PERMISSIONS.CERTIFY_INVOICE.ADD, PERMISSIONS.CERTIFY_INVOICE.SUBJECT)"
+                :disabled="!$can(PERMISSIONS.CERTIFY_INVOICE.ADD, PERMISSIONS.CERTIFY_INVOICE.SUBJECT)"
                 @click="handleImport"
               >
                 Upload and Import

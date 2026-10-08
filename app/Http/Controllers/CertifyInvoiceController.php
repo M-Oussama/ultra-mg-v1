@@ -86,8 +86,9 @@ class CertifyInvoiceController extends Controller
                 'missing_files' => 0,
             ];
             $skipped = [];
+            $chequeIdMap = [];
 
-            DB::transaction(function () use ($directory, &$counts, &$skipped) {
+            DB::transaction(function () use ($directory, &$counts, &$skipped, &$chequeIdMap) {
                 foreach ($this->bundleCsv($directory, 'media.csv') as $row) {
                     $counts['media_rows']++;
                     $mediaId = $this->nullableBundleValue($row['id'] ?? null);
@@ -109,13 +110,7 @@ class CertifyInvoiceController extends Controller
                         continue;
                     }
 
-                    $collection = match ($ownerTable.':'.$sourceCollection) {
-                        'clients:documents' => 'pdf_file',
-                        'clients:cnrc' => 'cnrc_file',
-                        'clients:nif' => 'nif_file',
-                        'cheques:cheques' => 'cheques',
-                        default => null,
-                    };
+                    $collection = $this->bundleMediaCollection($ownerTable, $sourceCollection);
                     $model = match ($ownerTable) {
                         'clients' => $ownerId === null ? null : CertifyClient::find($ownerId),
                         'cheques' => $ownerId === null ? null : \App\Models\Cheque::find($ownerId),
@@ -221,6 +216,17 @@ class CertifyInvoiceController extends Controller
         } finally {
             File::deleteDirectory($directory);
         }
+    }
+
+    private function bundleMediaCollection(string $ownerTable, string $sourceCollection): ?string
+    {
+        return match ($ownerTable.':'.strtolower(trim($sourceCollection))) {
+            'clients:documents', 'clients:pdf_file' => 'pdf_file',
+            'clients:cnrc', 'clients:cnrc_file' => 'cnrc_file',
+            'clients:nif', 'clients:nif_file' => 'nif_file',
+            'cheques:cheques' => 'cheques',
+            default => null,
+        };
     }
 
     private function activateCertifyClientMediaFlag($model, string $collection): void
@@ -341,7 +347,7 @@ class CertifyInvoiceController extends Controller
                         ];
                         continue;
                     }
-                    $this->upsertBundle('cheques', $id, [
+                    $values = [
                         'cheque_date' => $this->nullableBundleValue($row['date'] ?? $row['cheque_date'] ?? null)
                             ?? now()->toDateString(),
                         'cheque_number' => $this->nullableBundleValue($row['number'] ?? $row['cheque_number'] ?? null) ?? '',
@@ -352,11 +358,14 @@ class CertifyInvoiceController extends Controller
                         'pdf_name' => $this->nullableBundleValue($row['pdf_name'] ?? null),
                         'company_id' => $this->nullableBundleValue($row['company_id'] ?? null),
                         'notes' => $this->nullableBundleValue($row['notes'] ?? null),
-                    ]);
+                    ];
+                    $destinationId = $this->bundleChequeDestinationId((int) $id, $values);
+                    $chequeIdMap[(string) $id] = $destinationId;
+                    $this->upsertBundle('cheques', $destinationId, $values);
                     $counts['cheques']++;
                 }
 
-                $this->importBundleMedia($directory, $counts, $skipped);
+                $this->importBundleMedia($directory, $counts, $skipped, $chequeIdMap);
 
                 foreach ($this->bundleCsv($directory, 'commands.csv') as $row) {
                     $id = $this->nullableBundleValue($row['id'] ?? null);
@@ -370,7 +379,10 @@ class CertifyInvoiceController extends Controller
                         'client_id' => $this->existingId('certify_clients', $row['client_id'] ?? null),
                         'amount' => (float) (($row['amount_ttc'] ?? null) ?: ($row['amount'] ?? 0)),
                         'payment_type' => $this->nullableBundleValue($row['payment_type'] ?? null),
-                        'cheque_id' => $this->existingId('cheques', $row['cheque_id'] ?? null),
+                        'cheque_id' => $this->mappedBundleChequeId(
+                            $row['cheque_id'] ?? null,
+                            $chequeIdMap,
+                        ),
                         'tva_amount' => (float) ($row['tva'] ?? 0),
                         'ht_amount' => (float) ($row['amount'] ?? 0),
                     ]);
@@ -462,6 +474,39 @@ class CertifyInvoiceController extends Controller
         DB::table($table)->updateOrInsert(['id' => $id], $values);
     }
 
+    private function bundleChequeDestinationId(int $sourceId, array $values): int
+    {
+        $activeSource = DB::table('cheques')
+            ->where('id', $sourceId)
+            ->whereNull('deleted_at')
+            ->value('id');
+        if ($activeSource !== null) {
+            return (int) $activeSource;
+        }
+
+        $matchingId = DB::table('cheques')
+            ->whereNull('deleted_at')
+            ->where('cheque_number', trim((string) ($values['cheque_number'] ?? '')))
+            ->where('client_id', (int) ($values['client_id'] ?? 0))
+            ->whereDate('cheque_date', (string) ($values['cheque_date'] ?? ''))
+            ->where('amount', (float) ($values['amount'] ?? 0))
+            ->orderBy('id')
+            ->value('id');
+
+        return $matchingId === null ? $sourceId : (int) $matchingId;
+    }
+
+    private function mappedBundleChequeId($sourceId, array $chequeIdMap): ?int
+    {
+        $sourceId = $this->nullableBundleValue($sourceId);
+        if ($sourceId === null) {
+            return null;
+        }
+
+        return $chequeIdMap[(string) $sourceId]
+            ?? $this->existingId('cheques', $sourceId);
+    }
+
     private function existingId(string $table, $id): ?int
     {
         $id = $this->nullableBundleValue($id);
@@ -524,13 +569,22 @@ class CertifyInvoiceController extends Controller
         return str_starts_with(strtolower($candidate), strtolower($rootPrefix)) ? $candidate : null;
     }
 
-    private function importBundleMedia(string $directory, array &$counts, array &$skipped): void
+    private function importBundleMedia(
+        string $directory,
+        array &$counts,
+        array &$skipped,
+        array $chequeIdMap = [],
+    ): void
     {
         foreach ($this->bundleCsv($directory, 'media.csv') as $row) {
             $mediaId = $this->nullableBundleValue($row['id'] ?? null);
             $modelId = $this->nullableBundleValue($row['model_id'] ?? null);
             $sourceType = (string) ($row['model_type'] ?? '');
             $relativePath = $this->nullableBundleValue($row['relative_path'] ?? null);
+            $isCheque = $sourceType === \App\Models\Cheque::class || $sourceType === 'App\\Models\\Cheque';
+            if ($isCheque && $modelId !== null) {
+                $modelId = $chequeIdMap[(string) $modelId] ?? $modelId;
+            }
 
             $model = match ($sourceType) {
                 \App\Models\Client::class, 'App\\Models\\Client' => $modelId === null ? null : CertifyClient::find($modelId),
@@ -538,13 +592,15 @@ class CertifyInvoiceController extends Controller
                 default => null,
             };
 
-            $collection = match ([$sourceType, (string) ($row['collection_name'] ?? '')]) {
-                [\App\Models\Client::class, 'documents'], ['App\\Models\\Client', 'documents'] => 'pdf_file',
-                [\App\Models\Client::class, 'cnrc'], ['App\\Models\\Client', 'cnrc'] => 'cnrc_file',
-                [\App\Models\Client::class, 'nif'], ['App\\Models\\Client', 'nif'] => 'nif_file',
-                [\App\Models\Cheque::class, 'cheques'], ['App\\Models\\Cheque', 'cheques'] => 'cheques',
+            $ownerTable = match ($sourceType) {
+                \App\Models\Client::class, 'App\\Models\\Client' => 'clients',
+                \App\Models\Cheque::class, 'App\\Models\\Cheque' => 'cheques',
                 default => null,
             };
+            $collection = $ownerTable === null ? null : $this->bundleMediaCollection(
+                $ownerTable,
+                (string) ($row['collection_name'] ?? ''),
+            );
 
             $path = $relativePath === null ? null : $directory.'/'.$relativePath;
             if ($mediaId === null || $model === null || $collection === null || $path === null || ! is_file($path)) {
@@ -608,7 +664,8 @@ class CertifyInvoiceController extends Controller
         $invoices = CertifyInvoices::orderBy('date', 'desc');
 
         if ($compact) {
-            $invoices->without(['certifyInvoiceProducts', 'cheque', 'user']);
+            $invoices->without(['client', 'certifyInvoiceProducts', 'cheque', 'user'])
+                ->with(['client' => fn ($query) => $query->without('city')]);
         }
 
         if ($searchValue !== '') {
@@ -674,20 +731,23 @@ class CertifyInvoiceController extends Controller
     {
         $invoices = CertifyInvoices::query();
         $this->applyInvoiceVisibility($invoices);
+        $ttcExpression = CertifyInvoices::amountTtcExpression();
 
         $summary = (clone $invoices)
-            ->selectRaw('COALESCE(SUM(amount), 0) as total_amount')
+            ->selectRaw("COALESCE(SUM($ttcExpression), 0) as total_amount")
             ->selectRaw('COUNT(*) as invoice_count')
             ->selectRaw('COUNT(DISTINCT client_id) as client_count')
+            ->toBase()
             ->first();
 
         $invoiceCount = (int) ($summary?->invoice_count ?? 0);
         $paymentTypeBreakdown = (clone $invoices)
             ->select('payment_type')
             ->selectRaw('COUNT(*) as invoice_count')
-            ->selectRaw('COALESCE(SUM(amount), 0) as total_amount')
+            ->selectRaw("COALESCE(SUM($ttcExpression), 0) as total_amount")
             ->groupBy('payment_type')
             ->orderBy('payment_type')
+            ->toBase()
             ->get()
             ->map(function ($row) {
                 $rawType = $row->payment_type;
@@ -706,6 +766,7 @@ class CertifyInvoiceController extends Controller
                     },
                     'invoice_count' => (int) $row->invoice_count,
                     'total_amount' => (float) $row->total_amount,
+                    'total_amount_ttc' => (float) $row->total_amount,
                 ];
             })
             ->values()
@@ -713,6 +774,7 @@ class CertifyInvoiceController extends Controller
 
         return response()->json([
             'total_amount' => (float) ($summary?->total_amount ?? 0),
+            'total_amount_ttc' => (float) ($summary?->total_amount ?? 0),
             'invoice_count' => $invoiceCount,
             'paid_invoices' => 0,
             'draft_invoices' => $invoiceCount,
