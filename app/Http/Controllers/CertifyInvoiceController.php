@@ -19,6 +19,19 @@ use ZipArchive;
 
 class CertifyInvoiceController extends Controller
 {
+    /** @var array<string, array<string, int>> */
+    private array $bundleTableColumns = [];
+
+    /** @var array<string, array<string, bool>> */
+    private array $bundleExistingIds = [];
+
+    /** @var array<string, int>|null */
+    private ?array $bundleCityIds = null;
+
+    /** @var array<string, int>|null */
+    private ?array $bundleCityNames = null;
+
+    private ?bool $bundleHasCitiesTable = null;
 
     /**
      * Import client and cheque media without importing the reference tables.
@@ -284,6 +297,7 @@ class CertifyInvoiceController extends Controller
             $skipped = [];
 
             DB::transaction(function () use ($directory, &$counts, &$skipped) {
+                $clientRows = [];
                 foreach ($this->bundleCsv($directory, 'clients.csv') as $row) {
                     $id = $this->nullableBundleValue($row['id'] ?? null);
                     if ($id === null) {
@@ -294,7 +308,7 @@ class CertifyInvoiceController extends Controller
                         $row['city_id'] ?? null,
                         $row['city_name'] ?? $row['city'] ?? $row['wilaya'] ?? null,
                     );
-                    $this->upsertBundle('certify_clients', $id, [
+                    $clientRows[] = $this->prepareBundleRow('certify_clients', $id, [
                         'name' => $row['name'] ?? '',
                         'surname' => $this->nullableBundleValue($row['surname'] ?? null),
                         'full_name' => trim(($row['name'] ?? '').' '.($row['surname'] ?? '')),
@@ -310,14 +324,16 @@ class CertifyInvoiceController extends Controller
                     ]);
                     $counts['clients']++;
                 }
+                $this->upsertBundleRows('certify_clients', $clientRows);
 
+                $productRows = [];
                 foreach ($this->bundleCsv($directory, 'products.csv') as $row) {
                     $id = $this->nullableBundleValue($row['id'] ?? null);
                     if ($id === null) {
                         $skipped[] = ['file' => 'products.csv', 'reason' => 'Missing id'];
                         continue;
                     }
-                    $this->upsertBundle('certify_products', $id, [
+                    $productRows[] = $this->prepareBundleRow('certify_products', $id, [
                         'name' => $row['name'] ?? '',
                         'product_code' => $this->nullableBundleValue($row['barcode'] ?? null),
                         'price' => (float) ($row['price'] ?? 0),
@@ -328,6 +344,7 @@ class CertifyInvoiceController extends Controller
                     ]);
                     $counts['products']++;
                 }
+                $this->upsertBundleRows('certify_products', $productRows);
 
                 foreach ($this->bundleCsv($directory, 'cheques.csv') as $row) {
                     $id = $this->nullableBundleValue($row['id'] ?? null);
@@ -361,19 +378,22 @@ class CertifyInvoiceController extends Controller
                     ];
                     $destinationId = $this->bundleChequeDestinationId((int) $id, $values);
                     $chequeIdMap[(string) $id] = $destinationId;
+                    // Keep cheque writes ordered: a later source cheque may be
+                    // logically identical and must see the row just written.
                     $this->upsertBundle('cheques', $destinationId, $values);
                     $counts['cheques']++;
                 }
 
                 $this->importBundleMedia($directory, $counts, $skipped, $chequeIdMap);
 
+                $invoiceRows = [];
                 foreach ($this->bundleCsv($directory, 'commands.csv') as $row) {
                     $id = $this->nullableBundleValue($row['id'] ?? null);
                     if ($id === null) {
                         $skipped[] = ['file' => 'commands.csv', 'reason' => 'Missing id'];
                         continue;
                     }
-                    $this->upsertBundle('certify_invoices', $id, [
+                    $invoiceRows[] = $this->prepareBundleRow('certify_invoices', $id, [
                         'fac_id' => (int) ($row['fac_id'] ?? 0),
                         'date' => $row['date'] ?? now()->toDateString(),
                         'client_id' => $this->existingId('certify_clients', $row['client_id'] ?? null),
@@ -388,7 +408,9 @@ class CertifyInvoiceController extends Controller
                     ]);
                     $counts['invoices']++;
                 }
+                $this->upsertBundleRows('certify_invoices', $invoiceRows);
 
+                $invoiceProductRows = [];
                 foreach ($this->bundleCsv($directory, 'command_products.csv') as $row) {
                     $id = $this->nullableBundleValue($row['id'] ?? null);
                     $invoiceId = $this->existingId('certify_invoices', $row['command_id'] ?? null);
@@ -397,7 +419,7 @@ class CertifyInvoiceController extends Controller
                         $skipped[] = ['file' => 'command_products.csv', 'id' => $id, 'reason' => 'Missing invoice or product'];
                         continue;
                     }
-                    $this->upsertBundle('certify_invoice_products', $id, [
+                    $invoiceProductRows[] = $this->prepareBundleRow('certify_invoice_products', $id, [
                         'certify_invoice_id' => $invoiceId,
                         'product_id' => $productId,
                         'price' => (int) ($row['price'] ?? 0),
@@ -406,6 +428,7 @@ class CertifyInvoiceController extends Controller
                     ]);
                     $counts['invoice_products']++;
                 }
+                $this->upsertBundleRows('certify_invoice_products', $invoiceProductRows);
             });
 
             $unsupported = [];
@@ -460,18 +483,44 @@ class CertifyInvoiceController extends Controller
 
     private function upsertBundle(string $table, $id, array $values): void
     {
+        $row = $this->prepareBundleRow($table, $id, $values);
+        DB::table($table)->updateOrInsert(['id' => $id], $row);
+        $this->bundleExistingIds[$table][(string) $id] = true;
+    }
+
+    private function prepareBundleRow(string $table, $id, array $values): array
+    {
         $values['id'] = $id;
         $values['created_at'] = $values['created_at'] ?? now();
         $values['updated_at'] = $values['updated_at'] ?? now();
-        $columns = array_flip(Schema::getColumnListing($table));
+        // Schema inspection is comparatively expensive. A bundle can contain
+        // thousands of rows, so resolve each destination table once instead
+        // of issuing the same metadata query for every imported row.
+        $columns = $this->bundleTableColumns[$table]
+            ??= array_flip(Schema::getColumnListing($table));
         // Cheque deletion is a Laravel soft delete. Re-importing the same
         // source row must make it visible again instead of only updating the
         // hidden row that still has deleted_at set.
         if (isset($columns['deleted_at'])) {
             $values['deleted_at'] = null;
         }
-        $values = array_intersect_key($values, $columns);
-        DB::table($table)->updateOrInsert(['id' => $id], $values);
+
+        return array_intersect_key($values, $columns);
+    }
+
+    private function upsertBundleRows(string $table, array $rows): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        $updateColumns = array_values(array_diff(array_keys($rows[0]), ['id', 'created_at']));
+        foreach (array_chunk($rows, 500) as $chunk) {
+            DB::table($table)->upsert($chunk, ['id'], $updateColumns);
+        }
+        foreach ($rows as $row) {
+            $this->bundleExistingIds[$table][(string) $row['id']] = true;
+        }
     }
 
     private function bundleChequeDestinationId(int $sourceId, array $values): int
@@ -510,17 +559,34 @@ class CertifyInvoiceController extends Controller
     private function existingId(string $table, $id): ?int
     {
         $id = $this->nullableBundleValue($id);
-        return $id !== null && DB::table($table)->where('id', $id)->exists() ? (int) $id : null;
+        if ($id === null) {
+            return null;
+        }
+
+        $key = (string) $id;
+        if (array_key_exists($key, $this->bundleExistingIds[$table] ?? [])) {
+            return $this->bundleExistingIds[$table][$key] ? (int) $id : null;
+        }
+
+        $exists = DB::table($table)->where('id', $id)->exists();
+        $this->bundleExistingIds[$table][$key] = $exists;
+
+        return $exists ? (int) $id : null;
     }
 
     private function destinationCityId($sourceCityId, $sourceCityName = null): ?int
     {
-        if (! Schema::hasTable('cities')) {
+        $this->bundleHasCitiesTable ??= Schema::hasTable('cities');
+        if (! $this->bundleHasCitiesTable) {
             return null;
         }
+        $this->loadBundleCities();
         $sourceCityId = $this->nullableBundleValue($sourceCityId);
-        if ($sourceCityId !== null && DB::table('cities')->where('id', $sourceCityId)->exists()) {
-            return (int) $sourceCityId;
+        if ($sourceCityId !== null) {
+            $cityId = $this->bundleCityIds[(string) $sourceCityId] ?? null;
+            if ($cityId !== null) {
+                return $cityId;
+            }
         }
 
         $sourceCityName = $this->nullableBundleValue($sourceCityName);
@@ -531,17 +597,34 @@ class CertifyInvoiceController extends Controller
                 return preg_replace('/[^a-z0-9]+/', '', $ascii !== false ? $ascii : $value) ?? '';
             };
             $normalizedSource = $normalize($sourceCityName);
-            foreach (DB::table('cities')->select(['id', 'name'])->get() as $city) {
-                if ($normalize((string) $city->name) === $normalizedSource) {
-                    return (int) $city->id;
-                }
-            }
+            return $this->bundleCityNames[$normalizedSource] ?? null;
         }
 
         // Never silently turn an unknown source city into the first city
         // (which is Adrar in this database). Preserve an unknown value as
         // null so the import report/data can be corrected explicitly.
         return null;
+    }
+
+    private function loadBundleCities(): void
+    {
+        if ($this->bundleCityIds !== null) {
+            return;
+        }
+
+        $normalize = static function (string $value): string {
+            $value = trim(mb_strtolower($value));
+            $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+
+            return preg_replace('/[^a-z0-9]+/', '', strtolower($ascii !== false ? $ascii : $value)) ?? '';
+        };
+        $this->bundleCityIds = [];
+        $this->bundleCityNames = [];
+        foreach (DB::table('cities')->select(['id', 'name'])->get() as $city) {
+            $id = (int) $city->id;
+            $this->bundleCityIds[(string) $id] = $id;
+            $this->bundleCityNames[$normalize((string) $city->name)] = $id;
+        }
     }
 
     private function nullableBundleValue($value)
