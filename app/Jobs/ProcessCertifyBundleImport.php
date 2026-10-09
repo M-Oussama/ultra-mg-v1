@@ -18,13 +18,37 @@ class ProcessCertifyBundleImport
 
     public function handle(CertifyInvoiceController $controller): void
     {
+        ignore_user_abort(true);
         @set_time_limit(0);
         $key = 'certify-bundle-import:'.$this->operationId;
+        // Fatal PHP errors bypass catch (Throwable), including memory
+        // exhaustion. Retain enough memory to record a definite failure.
+        $reserve = str_repeat('x', 262144);
+        $finished = false;
+        register_shutdown_function(function () use ($key, &$reserve, &$finished): void {
+            if ($finished) {
+                return;
+            }
+            $reserve = null;
+            $error = error_get_last();
+            if (! $error || ! in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+                return;
+            }
+            Cache::put($key, [
+                'operation_id' => $this->operationId,
+                'user_id' => $this->userId,
+                'status' => 'failed',
+                'progress' => 0.0,
+                'message' => 'The server stopped the import: '.$error['message'],
+                'updated_at' => now()->timestamp,
+            ], now()->addDay());
+        });
         $status = Cache::get($key, []);
         Cache::put($key, array_merge($status, [
             'status' => 'processing',
             'progress' => 0.02,
             'message' => 'Opening the archive...',
+            'updated_at' => now()->timestamp,
         ]), now()->addDay());
 
         try {
@@ -69,6 +93,7 @@ class ProcessCertifyBundleImport
                 'message' => 'Bundle import failed: '.$exception->getMessage(),
             ], now()->addDay());
         } finally {
+            $finished = true;
             File::delete($this->bundlePath);
         }
     }

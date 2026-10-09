@@ -4,15 +4,21 @@ namespace Tests\Feature;
 
 use App\Http\Controllers\CertifyInvoiceController;
 use App\Jobs\ProcessCertifyBundleImport;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
+use ZipArchive;
 
 class CertifyBundleAsyncImportTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_bundle_upload_returns_an_operation_before_processing(): void
     {
         Bus::fake();
@@ -49,6 +55,115 @@ class CertifyBundleAsyncImportTest extends TestCase
         } finally {
             Cache::forget('certify-bundle-import:'.$operationId);
             File::delete(storage_path('app/certify-import-queue/'.$operationId.'.zip'));
+        }
+    }
+
+    public function test_async_operation_commits_clients_products_invoices_and_items(): void
+    {
+        [$controller, $request, $operationId] = $this->startRealImport();
+        $this->assertDatabaseCount('certify_clients', 0);
+
+        // Execute the actual terminating callback registered by the upload,
+        // rather than merely asserting that a job was dispatched.
+        $this->app->terminate();
+        $status = $controller->bundleImportStatus($request, $operationId)->getData(true);
+
+        try {
+            $this->assertSame('completed', $status['status'], $status['message']);
+            $this->assertSame(1, $status['result']['counts']['clients']);
+            $this->assertSame(1, $status['result']['counts']['products']);
+            $this->assertSame(1, $status['result']['counts']['invoices']);
+            $this->assertSame(1, $status['result']['counts']['invoice_products']);
+            $this->assertDatabaseHas('certify_clients', ['id' => 150, 'name' => 'Amine']);
+            $this->assertDatabaseHas('certify_invoices', ['id' => 501, 'client_id' => 150]);
+            $this->assertDatabaseHas('certify_invoice_products', [
+                'id' => 901, 'certify_invoice_id' => 501, 'product_id' => 25,
+            ]);
+        } finally {
+            Cache::forget('certify-bundle-import:'.$operationId);
+        }
+    }
+
+    public function test_async_database_failure_is_reported_and_rolls_back_all_rows(): void
+    {
+        DB::unprepared("CREATE TRIGGER reject_bundle_products BEFORE INSERT ON certify_products BEGIN SELECT RAISE(ABORT, 'connection refused by destination database'); END");
+        [$controller, $request, $operationId] = $this->startRealImport();
+        $this->app->terminate();
+        $status = $controller->bundleImportStatus($request, $operationId)->getData(true);
+
+        try {
+            $this->assertSame('failed', $status['status']);
+            $this->assertStringContainsString('connection refused by destination database', $status['message']);
+            $this->assertArrayNotHasKey('result', $status);
+            $this->assertDatabaseCount('certify_clients', 0);
+            $this->assertDatabaseCount('certify_products', 0);
+            $this->assertDatabaseCount('certify_invoices', 0);
+        } finally {
+            Cache::forget('certify-bundle-import:'.$operationId);
+        }
+    }
+
+    private function startRealImport(): array
+    {
+        $cityId = DB::table('cities')->insertGetId([
+            'code' => 16, 'name' => 'Algiers', 'country' => 'Algeria',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $path = tempnam(sys_get_temp_dir(), 'certify-async-');
+        $zip = new ZipArchive();
+        $this->assertTrue($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE));
+        $zip->addFromString('clients.csv', "id,name,surname,city_id\n150,Amine,Saidi,{$cityId}\n");
+        $zip->addFromString('products.csv', "id,name,price\n25,Invoice paper,100\n");
+        $zip->addFromString('commands.csv', "id,fac_id,date,client_id,amount_ttc,amount,payment_type,tva\n501,9001,2026-10-09,150,200,200,1,0\n");
+        $zip->addFromString('command_products.csv', "id,command_id,product_id,price,quantity,amount\n901,501,25,100,2,200\n");
+        $zip->close();
+        $operationId = (string) Str::uuid();
+        $request = Request::create('/api/certifyInvoices/import-bundle/start', 'POST', [
+            'operation_id' => $operationId,
+        ]);
+        $request->setUserResolver(fn () => (object) ['id' => 17]);
+        $request->files->set('bundle', new UploadedFile($path, 'certify.zip', 'application/zip', null, true));
+        $controller = app(CertifyInvoiceController::class);
+        $response = $controller->startBundleImport($request);
+        $this->assertSame(202, $response->status());
+        $this->assertSame($operationId, $response->getData(true)['operation_id']);
+
+        return [$controller, $request, $operationId];
+    }
+
+    public function test_real_legacy_archive_commits_all_supported_rows(): void
+    {
+        $fixture = getenv('CERTIFY_IMPORT_TEST_BUNDLE');
+        if (! $fixture || ! is_file($fixture)) {
+            $this->markTestSkipped('Set CERTIFY_IMPORT_TEST_BUNDLE to run the private export fixture.');
+        }
+        DB::table('cities')->insert([
+            'id' => 1, 'code' => 1, 'name' => 'Adrar', 'country' => 'Algeria',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $path = tempnam(sys_get_temp_dir(), 'certify-real-');
+        File::copy($fixture, $path);
+        $operationId = (string) Str::uuid();
+        $request = Request::create('/api/certifyInvoices/import-bundle/start', 'POST', [
+            'operation_id' => $operationId,
+        ]);
+        $request->setUserResolver(fn () => (object) ['id' => 17]);
+        $request->files->set('bundle', new UploadedFile($path, 'certify.zip', 'application/zip', null, true));
+        $controller = app(CertifyInvoiceController::class);
+        $this->assertSame(202, $controller->startBundleImport($request)->status());
+        $this->app->terminate();
+        $status = $controller->bundleImportStatus($request, $operationId)->getData(true);
+
+        try {
+            $this->assertSame('completed', $status['status'], $status['message']);
+            $this->assertSame([], $status['result']['skipped']);
+            $this->assertDatabaseCount('certify_clients', 160);
+            $this->assertDatabaseCount('certify_products', 25);
+            $this->assertDatabaseCount('certify_invoices', 397);
+            $this->assertDatabaseCount('certify_invoice_products', 1323);
+            $this->assertSame(37, $status['result']['counts']['cheques']);
+        } finally {
+            Cache::forget('certify-bundle-import:'.$operationId);
         }
     }
 }

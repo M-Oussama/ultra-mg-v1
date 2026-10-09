@@ -39,23 +39,36 @@ class CertifyInvoiceController extends Controller
 
     public function startBundleImport(Request $request): JsonResponse
     {
+        $request->validate(['operation_id' => 'sometimes|required|uuid']);
         $file = $request->file('bundle') ?? $request->file('file');
         if (! $file || strtolower($file->getClientOriginalExtension()) !== 'zip') {
             return response()->json(['message' => 'A ZIP bundle file is required.'], 422);
         }
 
-        $operationId = (string) Str::uuid();
+        $operationId = $request->input('operation_id') ?? (string) Str::uuid();
+        $userId = optional($request->user())->id;
+        $existing = Cache::get($this->bundleImportCacheKey($operationId));
+        if (is_array($existing)) {
+            if ((string) ($existing['user_id'] ?? '') !== (string) $userId) {
+                return response()->json(['message' => 'Import operation not found.'], 404);
+            }
+
+            return response()->json([
+                'operation_id' => $operationId,
+                'status' => $existing['status'],
+            ], 202);
+        }
         $directory = storage_path('app/certify-import-queue');
         File::ensureDirectoryExists($directory);
         $bundlePath = $directory.DIRECTORY_SEPARATOR.$operationId.'.zip';
         $file->move($directory, basename($bundlePath));
-        $userId = optional($request->user())->id;
         Cache::put($this->bundleImportCacheKey($operationId), [
             'operation_id' => $operationId,
             'user_id' => $userId,
             'status' => 'queued',
             'progress' => 0.0,
             'message' => 'Upload complete. Waiting for server processing...',
+            'updated_at' => now()->timestamp,
         ], now()->addDay());
 
         Bus::dispatchAfterResponse(new ProcessCertifyBundleImport(
@@ -64,10 +77,15 @@ class CertifyInvoiceController extends Controller
             $userId,
         ));
 
-        return response()->json([
+        $response = response()->json([
             'operation_id' => $operationId,
             'status' => 'queued',
         ], 202);
+        // Send a complete response before running the terminating callback.
+        // LiteSpeed's scoped noabort rule lives in public/.htaccess.
+        $response->headers->set('Content-Length', (string) strlen($response->getContent()));
+
+        return $response;
     }
 
     public function bundleImportStatus(Request $request, string $operationId): JsonResponse
@@ -76,6 +94,13 @@ class CertifyInvoiceController extends Controller
         if (! is_array($status)
             || (string) ($status['user_id'] ?? '') !== (string) optional($request->user())->id) {
             return response()->json(['message' => 'Import operation not found.'], 404);
+        }
+
+        if (($status['status'] ?? '') === 'queued'
+            && now()->timestamp - ($status['updated_at'] ?? now()->timestamp) > 120) {
+            $status['status'] = 'failed';
+            $status['message'] = 'The server did not start the import. No data was imported. Check the server PHP error log.';
+            Cache::put($this->bundleImportCacheKey($operationId), $status, now()->addDay());
         }
 
         unset($status['user_id']);
@@ -347,6 +372,7 @@ class CertifyInvoiceController extends Controller
             $skipped = [];
 
             DB::transaction(function () use ($request, $directory, &$counts, &$skipped) {
+                $chequeIdMap = [];
                 $clientRows = [];
                 foreach ($this->bundleCsv($directory, 'clients.csv') as $row) {
                     $id = $this->nullableBundleValue($row['id'] ?? null);
@@ -358,6 +384,13 @@ class CertifyInvoiceController extends Controller
                         $row['city_id'] ?? null,
                         $row['city_name'] ?? $row['city'] ?? $row['wilaya'] ?? null,
                     );
+                    // Legacy exports have no city_id column. Apply the same
+                    // explicit default as the Flutter normalizer on the server
+                    // so an older client cannot roll back the whole bundle.
+                    $cityId ??= $this->bundleCityIds['1'] ?? null;
+                    if ($cityId === null) {
+                        throw new \RuntimeException('Client '.$id.' has no valid city and default city 1 does not exist.');
+                    }
                     $clientRows[] = $this->prepareBundleRow('certify_clients', $id, [
                         'name' => $row['name'] ?? '',
                         'surname' => $this->nullableBundleValue($row['surname'] ?? null),
@@ -492,6 +525,15 @@ class CertifyInvoiceController extends Controller
                 if (is_file($directory.'/'.$name)) {
                     $unsupported[] = $name;
                 }
+            }
+
+            if (array_sum($counts) === 0) {
+                return response()->json([
+                    'message' => 'No records were imported. The ZIP must contain supported CSV files at its root with valid record IDs.',
+                    'counts' => $counts,
+                    'skipped' => $skipped,
+                    'unsupported_files' => $unsupported,
+                ], 422);
             }
 
             return response()->json([
@@ -704,6 +746,7 @@ class CertifyInvoiceController extends Controller
             'status' => 'processing',
             'progress' => $progress,
             'message' => $message,
+            'updated_at' => now()->timestamp,
         ]), now()->addDay());
     }
 
