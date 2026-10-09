@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Helpers\NumberToLetter;
+use App\Jobs\ProcessCertifyBundleImport;
 use App\Models\CertifyInvoiceProducts;
 use App\Models\CertifyInvoices;
 use App\Models\CertifyClient;
@@ -11,9 +12,12 @@ use App\Models\CertifyProduct;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 use ZipArchive;
 
@@ -32,6 +36,52 @@ class CertifyInvoiceController extends Controller
     private ?array $bundleCityNames = null;
 
     private ?bool $bundleHasCitiesTable = null;
+
+    public function startBundleImport(Request $request): JsonResponse
+    {
+        $file = $request->file('bundle') ?? $request->file('file');
+        if (! $file || strtolower($file->getClientOriginalExtension()) !== 'zip') {
+            return response()->json(['message' => 'A ZIP bundle file is required.'], 422);
+        }
+
+        $operationId = (string) Str::uuid();
+        $directory = storage_path('app/certify-import-queue');
+        File::ensureDirectoryExists($directory);
+        $bundlePath = $directory.DIRECTORY_SEPARATOR.$operationId.'.zip';
+        $file->move($directory, basename($bundlePath));
+        $userId = optional($request->user())->id;
+        Cache::put($this->bundleImportCacheKey($operationId), [
+            'operation_id' => $operationId,
+            'user_id' => $userId,
+            'status' => 'queued',
+            'progress' => 0.0,
+            'message' => 'Upload complete. Waiting for server processing...',
+        ], now()->addDay());
+
+        Bus::dispatchAfterResponse(new ProcessCertifyBundleImport(
+            $operationId,
+            $bundlePath,
+            $userId,
+        ));
+
+        return response()->json([
+            'operation_id' => $operationId,
+            'status' => 'queued',
+        ], 202);
+    }
+
+    public function bundleImportStatus(Request $request, string $operationId): JsonResponse
+    {
+        $status = Cache::get($this->bundleImportCacheKey($operationId));
+        if (! is_array($status)
+            || (string) ($status['user_id'] ?? '') !== (string) optional($request->user())->id) {
+            return response()->json(['message' => 'Import operation not found.'], 404);
+        }
+
+        unset($status['user_id']);
+
+        return response()->json($status);
+    }
 
     /**
      * Import client and cheque media without importing the reference tables.
@@ -296,7 +346,7 @@ class CertifyInvoiceController extends Controller
             ];
             $skipped = [];
 
-            DB::transaction(function () use ($directory, &$counts, &$skipped) {
+            DB::transaction(function () use ($request, $directory, &$counts, &$skipped) {
                 $clientRows = [];
                 foreach ($this->bundleCsv($directory, 'clients.csv') as $row) {
                     $id = $this->nullableBundleValue($row['id'] ?? null);
@@ -325,6 +375,7 @@ class CertifyInvoiceController extends Controller
                     $counts['clients']++;
                 }
                 $this->upsertBundleRows('certify_clients', $clientRows);
+                $this->updateBundleImportProgress($request, 0.18, 'Clients imported');
 
                 $productRows = [];
                 foreach ($this->bundleCsv($directory, 'products.csv') as $row) {
@@ -345,6 +396,7 @@ class CertifyInvoiceController extends Controller
                     $counts['products']++;
                 }
                 $this->upsertBundleRows('certify_products', $productRows);
+                $this->updateBundleImportProgress($request, 0.34, 'Products imported');
 
                 foreach ($this->bundleCsv($directory, 'cheques.csv') as $row) {
                     $id = $this->nullableBundleValue($row['id'] ?? null);
@@ -383,8 +435,10 @@ class CertifyInvoiceController extends Controller
                     $this->upsertBundle('cheques', $destinationId, $values);
                     $counts['cheques']++;
                 }
+                $this->updateBundleImportProgress($request, 0.50, 'Cheques imported');
 
                 $this->importBundleMedia($directory, $counts, $skipped, $chequeIdMap);
+                $this->updateBundleImportProgress($request, 0.66, 'Attachments imported');
 
                 $invoiceRows = [];
                 foreach ($this->bundleCsv($directory, 'commands.csv') as $row) {
@@ -409,6 +463,7 @@ class CertifyInvoiceController extends Controller
                     $counts['invoices']++;
                 }
                 $this->upsertBundleRows('certify_invoices', $invoiceRows);
+                $this->updateBundleImportProgress($request, 0.82, 'Invoices imported');
 
                 $invoiceProductRows = [];
                 foreach ($this->bundleCsv($directory, 'command_products.csv') as $row) {
@@ -429,6 +484,7 @@ class CertifyInvoiceController extends Controller
                     $counts['invoice_products']++;
                 }
                 $this->upsertBundleRows('certify_invoice_products', $invoiceProductRows);
+                $this->updateBundleImportProgress($request, 0.96, 'Invoice items imported');
             });
 
             $unsupported = [];
@@ -625,6 +681,30 @@ class CertifyInvoiceController extends Controller
             $this->bundleCityIds[(string) $id] = $id;
             $this->bundleCityNames[$normalize((string) $city->name)] = $id;
         }
+    }
+
+    private function bundleImportCacheKey(string $operationId): string
+    {
+        return 'certify-bundle-import:'.$operationId;
+    }
+
+    private function updateBundleImportProgress(Request $request, float $progress, string $message): void
+    {
+        $operationId = $request->input('operation_id');
+        if (! is_string($operationId) || $operationId === '') {
+            return;
+        }
+
+        $key = $this->bundleImportCacheKey($operationId);
+        $status = Cache::get($key);
+        if (! is_array($status)) {
+            return;
+        }
+        Cache::put($key, array_merge($status, [
+            'status' => 'processing',
+            'progress' => $progress,
+            'message' => $message,
+        ]), now()->addDay());
     }
 
     private function nullableBundleValue($value)
