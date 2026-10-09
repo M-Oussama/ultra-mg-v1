@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Http\Controllers\CertifyInvoiceController;
 use App\Jobs\ProcessCertifyBundleImport;
+use App\Services\CertifyBundleImportStateStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -18,6 +19,58 @@ use ZipArchive;
 class CertifyBundleAsyncImportTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_prepare_status_survives_default_cache_flush_and_a_fresh_store(): void
+    {
+        $operationId = (string) Str::uuid();
+        $request = Request::create('/api/certifyInvoices/import-bundle/prepare', 'POST', [
+            'operation_id' => $operationId, 'archive_size_bytes' => 100,
+        ]);
+        $request->setUserResolver(fn () => (object) ['id' => 17]);
+        try {
+            $response = app(CertifyInvoiceController::class)->prepareBundleImport($request);
+            $this->assertSame(200, $response->status());
+            $this->assertSame(2, $response->getData(true)['protocol_version']);
+            Cache::flush();
+            $this->assertSame('awaiting_upload', (new CertifyBundleImportStateStore())->get($operationId)['status']);
+            $this->assertSame('awaiting_upload', app(CertifyInvoiceController::class)
+                ->bundleImportStatus($request, $operationId)->getData(true)['status']);
+            $request->setUserResolver(fn () => (object) ['id' => 18]);
+            $this->assertSame(404, app(CertifyInvoiceController::class)
+                ->bundleImportStatus($request, $operationId)->status());
+        } finally {
+            app(CertifyBundleImportStateStore::class)->forget($operationId);
+        }
+    }
+
+    public function test_prepare_rejects_an_archive_above_php_upload_limits(): void
+    {
+        $request = Request::create('/api/certifyInvoices/import-bundle/prepare', 'POST', [
+            'operation_id' => (string) Str::uuid(), 'archive_size_bytes' => PHP_INT_MAX,
+        ]);
+        $request->setUserResolver(fn () => (object) ['id' => 17]);
+        $response = app(CertifyInvoiceController::class)->prepareBundleImport($request);
+        $this->assertSame(413, $response->status());
+        $this->assertStringContainsString('upload_max_filesize', $response->getData(true)['message']);
+    }
+
+    public function test_prepare_reports_status_storage_failure_before_upload(): void
+    {
+        $this->app->bind(CertifyBundleImportStateStore::class, fn () => new class extends CertifyBundleImportStateStore
+        {
+            public function put(string $operationId, array $status): void
+            {
+                throw new \RuntimeException('The server cannot save import status. Make storage/app writable by PHP.');
+            }
+        });
+        $request = Request::create('/api/certifyInvoices/import-bundle/prepare', 'POST', [
+            'operation_id' => (string) Str::uuid(), 'archive_size_bytes' => 100,
+        ]);
+        $request->setUserResolver(fn () => (object) ['id' => 17]);
+        $response = app(CertifyInvoiceController::class)->prepareBundleImport($request);
+        $this->assertSame(503, $response->status());
+        $this->assertStringContainsString('storage/app', $response->getData(true)['message']);
+    }
 
     public function test_bundle_upload_returns_an_operation_before_processing(): void
     {
@@ -52,8 +105,13 @@ class CertifyBundleAsyncImportTest extends TestCase
 
             $this->assertSame(200, $status->status());
             $this->assertSame('queued', $status->getData(true)['status']);
+            $request->merge(['operation_id' => $operationId]);
+            $request->files->set('bundle', UploadedFile::fake()->create('retry.zip', 1, 'application/zip'));
+            $retry = app(CertifyInvoiceController::class)->startBundleImport($request);
+            $this->assertSame($operationId, $retry->getData(true)['operation_id']);
+            Bus::assertDispatchedAfterResponseTimes(ProcessCertifyBundleImport::class, 1);
         } finally {
-            Cache::forget('certify-bundle-import:'.$operationId);
+            app(CertifyBundleImportStateStore::class)->forget($operationId);
             File::delete(storage_path('app/certify-import-queue/'.$operationId.'.zip'));
         }
     }
@@ -80,7 +138,7 @@ class CertifyBundleAsyncImportTest extends TestCase
                 'id' => 901, 'certify_invoice_id' => 501, 'product_id' => 25,
             ]);
         } finally {
-            Cache::forget('certify-bundle-import:'.$operationId);
+            app(CertifyBundleImportStateStore::class)->forget($operationId);
         }
     }
 
@@ -99,7 +157,7 @@ class CertifyBundleAsyncImportTest extends TestCase
             $this->assertDatabaseCount('certify_products', 0);
             $this->assertDatabaseCount('certify_invoices', 0);
         } finally {
-            Cache::forget('certify-bundle-import:'.$operationId);
+            app(CertifyBundleImportStateStore::class)->forget($operationId);
         }
     }
 
@@ -124,6 +182,11 @@ class CertifyBundleAsyncImportTest extends TestCase
         $request->setUserResolver(fn () => (object) ['id' => 17]);
         $request->files->set('bundle', new UploadedFile($path, 'certify.zip', 'application/zip', null, true));
         $controller = app(CertifyInvoiceController::class);
+        $prepare = Request::create('/api/certifyInvoices/import-bundle/prepare', 'POST', [
+            'operation_id' => $operationId, 'archive_size_bytes' => filesize($path),
+        ]);
+        $prepare->setUserResolver(fn () => (object) ['id' => 17]);
+        $this->assertSame(200, $controller->prepareBundleImport($prepare)->status());
         $response = $controller->startBundleImport($request);
         $this->assertSame(202, $response->status());
         $this->assertSame($operationId, $response->getData(true)['operation_id']);
@@ -163,7 +226,7 @@ class CertifyBundleAsyncImportTest extends TestCase
             $this->assertDatabaseCount('certify_invoice_products', 1323);
             $this->assertSame(37, $status['result']['counts']['cheques']);
         } finally {
-            Cache::forget('certify-bundle-import:'.$operationId);
+            app(CertifyBundleImportStateStore::class)->forget($operationId);
         }
     }
 }

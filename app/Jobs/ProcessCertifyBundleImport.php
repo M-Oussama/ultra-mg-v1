@@ -3,9 +3,9 @@
 namespace App\Jobs;
 
 use App\Http\Controllers\CertifyInvoiceController;
+use App\Services\CertifyBundleImportStateStore;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 
 class ProcessCertifyBundleImport
@@ -20,12 +20,12 @@ class ProcessCertifyBundleImport
     {
         ignore_user_abort(true);
         @set_time_limit(0);
-        $key = 'certify-bundle-import:'.$this->operationId;
+        $store = app(CertifyBundleImportStateStore::class);
         // Fatal PHP errors bypass catch (Throwable), including memory
         // exhaustion. Retain enough memory to record a definite failure.
         $reserve = str_repeat('x', 262144);
         $finished = false;
-        register_shutdown_function(function () use ($key, &$reserve, &$finished): void {
+        register_shutdown_function(function () use ($store, &$reserve, &$finished): void {
             if ($finished) {
                 return;
             }
@@ -34,22 +34,22 @@ class ProcessCertifyBundleImport
             if (! $error || ! in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
                 return;
             }
-            Cache::put($key, [
+            $store->put($this->operationId, [
                 'operation_id' => $this->operationId,
                 'user_id' => $this->userId,
                 'status' => 'failed',
                 'progress' => 0.0,
                 'message' => 'The server stopped the import: '.$error['message'],
                 'updated_at' => now()->timestamp,
-            ], now()->addDay());
+            ]);
         });
-        $status = Cache::get($key, []);
-        Cache::put($key, array_merge($status, [
+        $status = $store->get($this->operationId) ?? [];
+        $store->put($this->operationId, array_merge($status, [
             'status' => 'processing',
             'progress' => 0.02,
             'message' => 'Opening the archive...',
             'updated_at' => now()->timestamp,
-        ]), now()->addDay());
+        ]));
 
         try {
             $request = Request::create('/api/certifyInvoices/import-bundle', 'POST', [
@@ -66,32 +66,32 @@ class ProcessCertifyBundleImport
             $response = $controller->importBundle($request);
             $result = $response->getData(true);
             if ($response->isSuccessful()) {
-                Cache::put($key, [
+                $store->put($this->operationId, [
                     'operation_id' => $this->operationId,
                     'user_id' => $this->userId,
                     'status' => 'completed',
                     'progress' => 1.0,
                     'message' => 'Import completed',
                     'result' => $result,
-                ], now()->addDay());
+                ]);
             } else {
-                Cache::put($key, [
+                $store->put($this->operationId, [
                     'operation_id' => $this->operationId,
                     'user_id' => $this->userId,
                     'status' => 'failed',
                     'progress' => 1.0,
                     'message' => $result['message'] ?? 'The import failed.',
-                ], now()->addDay());
+                ]);
             }
         } catch (\Throwable $exception) {
             report($exception);
-            Cache::put($key, [
+            $store->put($this->operationId, [
                 'operation_id' => $this->operationId,
                 'user_id' => $this->userId,
                 'status' => 'failed',
                 'progress' => 1.0,
                 'message' => 'Bundle import failed: '.$exception->getMessage(),
-            ], now()->addDay());
+            ]);
         } finally {
             $finished = true;
             File::delete($this->bundlePath);

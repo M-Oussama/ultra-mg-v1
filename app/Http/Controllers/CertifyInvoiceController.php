@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Helpers\NumberToLetter;
 use App\Jobs\ProcessCertifyBundleImport;
+use App\Services\CertifyBundleImportStateStore;
 use App\Models\CertifyInvoiceProducts;
 use App\Models\CertifyInvoices;
 use App\Models\CertifyClient;
@@ -13,7 +14,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
@@ -37,6 +37,76 @@ class CertifyInvoiceController extends Controller
 
     private ?bool $bundleHasCitiesTable = null;
 
+    public function prepareBundleImport(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'operation_id' => 'required|uuid',
+            'archive_size_bytes' => 'required|integer|min:1',
+        ]);
+        if (! class_exists(ZipArchive::class)) {
+            return response()->json(['message' => 'The production server needs the PHP ZIP extension enabled.'], 422);
+        }
+        $fileLimit = $this->phpUploadLimitBytes((string) ini_get('upload_max_filesize'));
+        $postLimit = $this->phpUploadLimitBytes((string) ini_get('post_max_size'));
+        if (($fileLimit > 0 && $validated['archive_size_bytes'] > $fileLimit)
+            || ($postLimit > 0 && $validated['archive_size_bytes'] + 65536 > $postLimit)) {
+            return response()->json([
+                'message' => 'The archive exceeds this server\'s upload limits (upload_max_filesize='.ini_get('upload_max_filesize').', post_max_size='.ini_get('post_max_size').'). Increase these PHP limits on the production server.',
+            ], 413);
+        }
+
+        $operationId = $validated['operation_id'];
+        $store = app(CertifyBundleImportStateStore::class);
+        try {
+            $directory = storage_path('app/certify-import-queue');
+            File::ensureDirectoryExists($directory);
+            if (! is_writable($directory)) {
+                throw new \RuntimeException('The server import folder is not writable. Make storage/app writable by PHP.');
+            }
+            $status = $store->get($operationId);
+            if ($status !== null && (string) ($status['user_id'] ?? '') !== (string) optional($request->user())->id) {
+                return response()->json(['message' => 'Import operation not found.'], 404);
+            }
+            if ($status === null) {
+                $status = [
+                    'operation_id' => $operationId,
+                    'user_id' => optional($request->user())->id,
+                    'status' => 'awaiting_upload',
+                    'progress' => 0.0,
+                    'message' => 'The server is ready to receive the archive.',
+                    'updated_at' => now()->timestamp,
+                ];
+                $store->put($operationId, $status);
+            }
+            if ($store->get($operationId) === null) {
+                throw new \RuntimeException('The server cannot read saved import status. Check storage/app permissions.');
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => $exception->getMessage()], 503);
+        }
+
+        return response()->json([
+            'operation_id' => $operationId,
+            'status' => $status['status'],
+            'protocol_version' => 2,
+        ]);
+    }
+
+    private function phpUploadLimitBytes(string $value): int
+    {
+        $value = trim($value);
+        $size = (int) $value;
+
+        return $size * match (strtolower(substr($value, -1))) {
+            'g' => 1073741824,
+            'm' => 1048576,
+            'k' => 1024,
+            default => 1,
+        };
+    }
+
     public function startBundleImport(Request $request): JsonResponse
     {
         $request->validate(['operation_id' => 'sometimes|required|uuid']);
@@ -47,50 +117,57 @@ class CertifyInvoiceController extends Controller
 
         $operationId = $request->input('operation_id') ?? (string) Str::uuid();
         $userId = optional($request->user())->id;
-        $existing = Cache::get($this->bundleImportCacheKey($operationId));
-        if (is_array($existing)) {
-            if ((string) ($existing['user_id'] ?? '') !== (string) $userId) {
-                return response()->json(['message' => 'Import operation not found.'], 404);
+        $store = app(CertifyBundleImportStateStore::class);
+
+        return $store->withUploadLock($operationId, function () use ($operationId, $userId, $store, $file): JsonResponse {
+            $existing = $store->get($operationId);
+            if (is_array($existing)) {
+                if ((string) ($existing['user_id'] ?? '') !== (string) $userId) {
+                    return response()->json(['message' => 'Import operation not found.'], 404);
+                }
+
+                if ($existing['status'] !== 'awaiting_upload') {
+                    return response()->json([
+                        'operation_id' => $operationId,
+                        'status' => $existing['status'],
+                    ], 202);
+                }
             }
-
-            return response()->json([
+            $directory = storage_path('app/certify-import-queue');
+            File::ensureDirectoryExists($directory);
+            $bundlePath = $directory.DIRECTORY_SEPARATOR.$operationId.'.zip';
+            $file->move($directory, basename($bundlePath));
+            $store->put($operationId, [
                 'operation_id' => $operationId,
-                'status' => $existing['status'],
+                'user_id' => $userId,
+                'status' => 'queued',
+                'progress' => 0.0,
+                'message' => 'Upload complete. Waiting for server processing...',
+                'updated_at' => now()->timestamp,
+            ]);
+
+            Bus::dispatchAfterResponse(new ProcessCertifyBundleImport(
+                $operationId,
+                $bundlePath,
+                $userId,
+            ));
+
+            $response = response()->json([
+                'operation_id' => $operationId,
+                'status' => 'queued',
             ], 202);
-        }
-        $directory = storage_path('app/certify-import-queue');
-        File::ensureDirectoryExists($directory);
-        $bundlePath = $directory.DIRECTORY_SEPARATOR.$operationId.'.zip';
-        $file->move($directory, basename($bundlePath));
-        Cache::put($this->bundleImportCacheKey($operationId), [
-            'operation_id' => $operationId,
-            'user_id' => $userId,
-            'status' => 'queued',
-            'progress' => 0.0,
-            'message' => 'Upload complete. Waiting for server processing...',
-            'updated_at' => now()->timestamp,
-        ], now()->addDay());
+            // Send a complete response before running the terminating callback.
+            // LiteSpeed's scoped noabort rule lives in public/.htaccess.
+            $response->headers->set('Content-Length', (string) strlen($response->getContent()));
 
-        Bus::dispatchAfterResponse(new ProcessCertifyBundleImport(
-            $operationId,
-            $bundlePath,
-            $userId,
-        ));
-
-        $response = response()->json([
-            'operation_id' => $operationId,
-            'status' => 'queued',
-        ], 202);
-        // Send a complete response before running the terminating callback.
-        // LiteSpeed's scoped noabort rule lives in public/.htaccess.
-        $response->headers->set('Content-Length', (string) strlen($response->getContent()));
-
-        return $response;
+            return $response;
+        });
     }
 
     public function bundleImportStatus(Request $request, string $operationId): JsonResponse
     {
-        $status = Cache::get($this->bundleImportCacheKey($operationId));
+        $store = app(CertifyBundleImportStateStore::class);
+        $status = $store->get($operationId);
         if (! is_array($status)
             || (string) ($status['user_id'] ?? '') !== (string) optional($request->user())->id) {
             return response()->json(['message' => 'Import operation not found.'], 404);
@@ -100,7 +177,7 @@ class CertifyInvoiceController extends Controller
             && now()->timestamp - ($status['updated_at'] ?? now()->timestamp) > 120) {
             $status['status'] = 'failed';
             $status['message'] = 'The server did not start the import. No data was imported. Check the server PHP error log.';
-            Cache::put($this->bundleImportCacheKey($operationId), $status, now()->addDay());
+            $store->put($operationId, $status);
         }
 
         unset($status['user_id']);
@@ -725,11 +802,6 @@ class CertifyInvoiceController extends Controller
         }
     }
 
-    private function bundleImportCacheKey(string $operationId): string
-    {
-        return 'certify-bundle-import:'.$operationId;
-    }
-
     private function updateBundleImportProgress(Request $request, float $progress, string $message): void
     {
         $operationId = $request->input('operation_id');
@@ -737,17 +809,17 @@ class CertifyInvoiceController extends Controller
             return;
         }
 
-        $key = $this->bundleImportCacheKey($operationId);
-        $status = Cache::get($key);
+        $store = app(CertifyBundleImportStateStore::class);
+        $status = $store->get($operationId);
         if (! is_array($status)) {
             return;
         }
-        Cache::put($key, array_merge($status, [
+        $store->put($operationId, array_merge($status, [
             'status' => 'processing',
             'progress' => $progress,
             'message' => $message,
             'updated_at' => now()->timestamp,
-        ]), now()->addDay());
+        ]));
     }
 
     private function nullableBundleValue($value)
