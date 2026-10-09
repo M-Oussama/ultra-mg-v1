@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\CertifyInvoiceController;
 use App\Jobs\ProcessCertifyBundleImport;
 use App\Services\CertifyBundleImportStateStore;
+use App\Services\CertifyBundleChunkUpload;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -161,7 +162,45 @@ class CertifyBundleAsyncImportTest extends TestCase
         }
     }
 
-    private function startRealImport(): array
+    public function test_chunked_archive_is_assembled_imported_and_temporary_parts_removed(): void
+    {
+        [$controller, $request, $operationId] = $this->startRealImport(true);
+        try {
+            $this->app->terminate();
+            $status = $controller->bundleImportStatus($request, $operationId)->getData(true);
+            $this->assertSame('completed', $status['status'], $status['message']);
+            $this->assertDatabaseHas('certify_clients', ['id' => 150, 'name' => 'Amine']);
+            $this->assertDatabaseHas('certify_invoices', ['id' => 501, 'client_id' => 150]);
+            $this->assertDatabaseHas('certify_invoice_products', ['id' => 901, 'certify_invoice_id' => 501]);
+            $this->assertFalse(is_dir(app(CertifyBundleChunkUpload::class)->directory($operationId)));
+        } finally {
+            app(CertifyBundleImportStateStore::class)->forget($operationId);
+            app(CertifyBundleChunkUpload::class)->cleanup($operationId);
+        }
+    }
+
+    public function test_bad_assembled_checksum_fails_before_any_rows_are_imported(): void
+    {
+        [$controller, $request, $operationId] = $this->startRealImport(true);
+        $store = app(CertifyBundleImportStateStore::class);
+        $state = $store->get($operationId);
+        $state['upload']['archive_sha256'] = str_repeat('0', 64);
+        $store->put($operationId, $state);
+        try {
+            $this->app->terminate();
+            $status = $controller->bundleImportStatus($request, $operationId)->getData(true);
+            $this->assertSame('failed', $status['status']);
+            $this->assertStringContainsString('checksum', $status['message']);
+            $this->assertDatabaseCount('certify_clients', 0);
+            $this->assertDatabaseCount('certify_products', 0);
+            $this->assertDatabaseCount('certify_invoices', 0);
+        } finally {
+            $store->forget($operationId);
+            app(CertifyBundleChunkUpload::class)->cleanup($operationId);
+        }
+    }
+
+    private function startRealImport(bool $chunked = false): array
     {
         $cityId = DB::table('cities')->insertGetId([
             'code' => 16, 'name' => 'Algiers', 'country' => 'Algeria',
@@ -174,6 +213,10 @@ class CertifyBundleAsyncImportTest extends TestCase
         $zip->addFromString('products.csv', "id,name,price\n25,Invoice paper,100\n");
         $zip->addFromString('commands.csv', "id,fac_id,date,client_id,amount_ttc,amount,payment_type,tva\n501,9001,2026-10-09,150,200,200,1,0\n");
         $zip->addFromString('command_products.csv', "id,command_id,product_id,price,quantity,amount\n901,501,25,100,2,200\n");
+        if ($chunked) {
+            $zip->addFromString('padding.bin', str_repeat('legacy-export', 25000));
+            $zip->setCompressionName('padding.bin', ZipArchive::CM_STORE);
+        }
         $zip->close();
         $operationId = (string) Str::uuid();
         $request = Request::create('/api/certifyInvoices/import-bundle/start', 'POST', [
@@ -184,9 +227,27 @@ class CertifyBundleAsyncImportTest extends TestCase
         $controller = app(CertifyInvoiceController::class);
         $prepare = Request::create('/api/certifyInvoices/import-bundle/prepare', 'POST', [
             'operation_id' => $operationId, 'archive_size_bytes' => filesize($path),
+            'chunked' => $chunked, 'archive_sha256' => hash_file('sha256', $path),
         ]);
         $prepare->setUserResolver(fn () => (object) ['id' => 17]);
-        $this->assertSame(200, $controller->prepareBundleImport($prepare)->status());
+        $prepared = $controller->prepareBundleImport($prepare);
+        $this->assertSame(200, $prepared->status());
+        if ($chunked) {
+            $bytes = File::get($path);
+            $size = $prepared->getData(true)['chunk_size_bytes'];
+            for ($offset = 0, $index = 0; $offset < strlen($bytes); $offset += $size, $index++) {
+                $part = substr($bytes, $offset, $size);
+                $chunkRequest = Request::create('/api/certifyInvoices/import-bundle/chunk', 'POST', [
+                    'operation_id' => $operationId, 'chunk_index' => $index,
+                    'chunk_sha256' => hash('sha256', $part),
+                ]);
+                $chunkRequest->setUserResolver(fn () => (object) ['id' => 17]);
+                $chunkRequest->files->set('chunk', UploadedFile::fake()->createWithContent($index.'.part', $part));
+                $this->assertSame(200, $controller->uploadBundleChunk($chunkRequest)->status());
+            }
+            $request->files->remove('bundle');
+            File::delete($path);
+        }
         $response = $controller->startBundleImport($request);
         $this->assertSame(202, $response->status());
         $this->assertSame($operationId, $response->getData(true)['operation_id']);

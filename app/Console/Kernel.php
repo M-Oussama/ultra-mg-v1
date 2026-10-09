@@ -15,6 +15,7 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
+        $schedule->command('certify:prune-import-uploads')->daily()->withoutOverlapping();
         $schedule->command('attendance:send-alerts')
             ->dailyAt('08:00')
             ->timezone(config('app.timezone', 'Africa/Algiers'))

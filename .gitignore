@@ -48,6 +48,9 @@ dist-ssr
 *.sw?
 
 # Sensitive files with secrets
+/storage/app/certify-import-queue/
+/storage/app/certify-import-status/
+/storage/app/certify-import-chunks/
 public/agbofyCoreMs/target/
 **/application-dev.yml
 **/application-prod.yml

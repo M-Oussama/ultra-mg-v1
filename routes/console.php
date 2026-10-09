@@ -17,3 +17,8 @@ use Illuminate\Support\Facades\Artisan;
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Artisan::command('certify:prune-import-uploads', function () {
+    $removed = app(\App\Services\CertifyBundleChunkUpload::class)->pruneExpired();
+    $this->info('Removed '.$removed.' expired temporary import upload(s).');
+})->purpose('Remove abandoned Certify ZIP fragments after their import status expires');

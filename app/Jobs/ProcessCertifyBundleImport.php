@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Http\Controllers\CertifyInvoiceController;
 use App\Services\CertifyBundleImportStateStore;
+use App\Services\CertifyBundleChunkUpload;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
@@ -47,11 +48,14 @@ class ProcessCertifyBundleImport
         $store->put($this->operationId, array_merge($status, [
             'status' => 'processing',
             'progress' => 0.02,
-            'message' => 'Opening the archive...',
+            'message' => isset($status['upload']) ? 'Reassembling and verifying the uploaded archive...' : 'Opening the archive...',
             'updated_at' => now()->timestamp,
         ]));
 
         try {
+            if (isset($status['upload'])) {
+                app(CertifyBundleChunkUpload::class)->assemble($this->operationId, $status['upload'], $this->bundlePath);
+            }
             $request = Request::create('/api/certifyInvoices/import-bundle', 'POST', [
                 'operation_id' => $this->operationId,
             ]);
@@ -95,6 +99,7 @@ class ProcessCertifyBundleImport
         } finally {
             $finished = true;
             File::delete($this->bundlePath);
+            app(CertifyBundleChunkUpload::class)->cleanup($this->operationId);
         }
     }
 }

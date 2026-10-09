@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Helpers\NumberToLetter;
 use App\Jobs\ProcessCertifyBundleImport;
 use App\Services\CertifyBundleImportStateStore;
+use App\Services\CertifyBundleChunkUpload;
 use App\Models\CertifyInvoiceProducts;
 use App\Models\CertifyInvoices;
 use App\Models\CertifyClient;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use OpenApi\Attributes as OA;
 use ZipArchive;
 
@@ -42,14 +44,25 @@ class CertifyInvoiceController extends Controller
         $validated = $request->validate([
             'operation_id' => 'required|uuid',
             'archive_size_bytes' => 'required|integer|min:1',
+            'chunked' => 'sometimes|boolean',
+            'archive_sha256' => [Rule::requiredIf($request->boolean('chunked')), 'regex:/^[a-f0-9]{64}$/'],
         ]);
+        $validated['archive_size_bytes'] = (int) $validated['archive_size_bytes'];
         if (! class_exists(ZipArchive::class)) {
             return response()->json(['message' => 'The production server needs the PHP ZIP extension enabled.'], 422);
         }
         $fileLimit = $this->phpUploadLimitBytes((string) ini_get('upload_max_filesize'));
         $postLimit = $this->phpUploadLimitBytes((string) ini_get('post_max_size'));
-        if (($fileLimit > 0 && $validated['archive_size_bytes'] > $fileLimit)
-            || ($postLimit > 0 && $validated['archive_size_bytes'] + 65536 > $postLimit)) {
+        $chunked = $request->boolean('chunked');
+        if ($chunked && $validated['archive_size_bytes'] > CertifyBundleChunkUpload::MAX_ARCHIVE_BYTES) {
+            return response()->json(['message' => 'The maximum resumable archive size is 512 MB.'], 413);
+        }
+        $chunkSize = min(CertifyBundleChunkUpload::CHUNK_BYTES,
+            $fileLimit > 0 ? $fileLimit : PHP_INT_MAX,
+            $postLimit > 0 ? max(0, $postLimit - 65536) : PHP_INT_MAX);
+        if (($chunked && $chunkSize < 16384)
+            || (! $chunked && (($fileLimit > 0 && $validated['archive_size_bytes'] > $fileLimit)
+                || ($postLimit > 0 && $validated['archive_size_bytes'] + 65536 > $postLimit)))) {
             return response()->json([
                 'message' => 'The archive exceeds this server\'s upload limits (upload_max_filesize='.ini_get('upload_max_filesize').', post_max_size='.ini_get('post_max_size').'). Increase these PHP limits on the production server.',
             ], 413);
@@ -63,23 +76,46 @@ class CertifyInvoiceController extends Controller
             if (! is_writable($directory)) {
                 throw new \RuntimeException('The server import folder is not writable. Make storage/app writable by PHP.');
             }
-            $status = $store->get($operationId);
-            if ($status !== null && (string) ($status['user_id'] ?? '') !== (string) optional($request->user())->id) {
-                return response()->json(['message' => 'Import operation not found.'], 404);
-            }
-            if ($status === null) {
-                $status = [
-                    'operation_id' => $operationId,
-                    'user_id' => optional($request->user())->id,
-                    'status' => 'awaiting_upload',
-                    'progress' => 0.0,
-                    'message' => 'The server is ready to receive the archive.',
-                    'updated_at' => now()->timestamp,
-                ];
-                $store->put($operationId, $status);
-            }
-            if ($store->get($operationId) === null) {
-                throw new \RuntimeException('The server cannot read saved import status. Check storage/app permissions.');
+            $status = $store->withUploadLock($operationId, function () use ($store, $operationId, $request, $chunked, $validated, $chunkSize): array|JsonResponse {
+                $status = $store->get($operationId);
+                if ($status !== null && (string) ($status['user_id'] ?? '') !== (string) optional($request->user())->id) {
+                    return response()->json(['message' => 'Import operation not found.'], 404);
+                }
+                if ($status === null) {
+                    $status = [
+                        'operation_id' => $operationId,
+                        'user_id' => optional($request->user())->id,
+                        'status' => 'awaiting_upload',
+                        'progress' => 0.0,
+                        'message' => 'The server is ready to receive the archive.',
+                        'updated_at' => now()->timestamp,
+                    ];
+                    $store->put($operationId, $status);
+                }
+                if ($chunked && $status['status'] === 'awaiting_upload') {
+                    if (isset($status['upload'])
+                        && ($status['upload']['archive_size_bytes'] !== $validated['archive_size_bytes']
+                            || $status['upload']['archive_sha256'] !== $validated['archive_sha256'])) {
+                        return response()->json(['message' => 'This request belongs to a different archive. Select the original ZIP.'], 409);
+                    }
+                    $status['upload'] ??= [
+                        'archive_size_bytes' => $validated['archive_size_bytes'],
+                        'archive_sha256' => $validated['archive_sha256'],
+                        'chunk_size_bytes' => $chunkSize,
+                        'received_chunks' => [],
+                    ];
+                    $store->put($operationId, $status);
+                }
+                if ($store->get($operationId) === null) {
+                    throw new \RuntimeException('The server cannot read saved import status. Check storage/app permissions.');
+                }
+                $status['confirmed_indices'] = isset($status['upload']) && $status['status'] === 'awaiting_upload'
+                    ? app(CertifyBundleChunkUpload::class)->receivedIndices($operationId, $status['upload']) : [];
+
+                return $status;
+            });
+            if ($status instanceof JsonResponse) {
+                return $status;
             }
         } catch (\Throwable $exception) {
             report($exception);
@@ -90,8 +126,46 @@ class CertifyInvoiceController extends Controller
         return response()->json([
             'operation_id' => $operationId,
             'status' => $status['status'],
-            'protocol_version' => 2,
+            'protocol_version' => $chunked ? 3 : 2,
+            'chunk_size_bytes' => $status['upload']['chunk_size_bytes'] ?? $chunkSize,
+            'received_chunks' => $status['confirmed_indices'],
         ]);
+    }
+
+    public function uploadBundleChunk(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'operation_id' => 'required|uuid',
+            'chunk_index' => 'required|integer|min:0',
+            'chunk_sha256' => 'required|regex:/^[a-f0-9]{64}$/',
+            'chunk' => 'required|file|max:256',
+        ]);
+        $operationId = $validated['operation_id'];
+        $store = app(CertifyBundleImportStateStore::class);
+
+        return $store->withUploadLock($operationId, function () use ($request, $validated, $operationId, $store): JsonResponse {
+            $status = $store->get($operationId);
+            if ($status === null || (string) $status['user_id'] !== (string) optional($request->user())->id) {
+                return response()->json(['message' => 'Import operation not found.'], 404);
+            }
+            if ($status['status'] === 'awaiting_upload') {
+                if (! isset($status['upload'])) {
+                    return response()->json(['message' => 'Prepare the resumable upload first.'], 409);
+                }
+                $status['upload'] = app(CertifyBundleChunkUpload::class)->receive(
+                    $operationId, $status['upload'], (int) $validated['chunk_index'],
+                    $request->file('chunk'), $validated['chunk_sha256'],
+                );
+                $status['updated_at'] = now()->timestamp;
+                $store->put($operationId, $status);
+            }
+
+            return response()->json([
+                'operation_id' => $operationId,
+                'status' => $status['status'],
+                'chunk_index' => (int) $validated['chunk_index'],
+            ]);
+        });
     }
 
     private function phpUploadLimitBytes(string $value): int
@@ -111,7 +185,7 @@ class CertifyInvoiceController extends Controller
     {
         $request->validate(['operation_id' => 'sometimes|required|uuid']);
         $file = $request->file('bundle') ?? $request->file('file');
-        if (! $file || strtolower($file->getClientOriginalExtension()) !== 'zip') {
+        if ($file && strtolower($file->getClientOriginalExtension()) !== 'zip') {
             return response()->json(['message' => 'A ZIP bundle file is required.'], 422);
         }
 
@@ -136,15 +210,22 @@ class CertifyInvoiceController extends Controller
             $directory = storage_path('app/certify-import-queue');
             File::ensureDirectoryExists($directory);
             $bundlePath = $directory.DIRECTORY_SEPARATOR.$operationId.'.zip';
-            $file->move($directory, basename($bundlePath));
-            $store->put($operationId, [
+            if ($file) {
+                $file->move($directory, basename($bundlePath));
+                unset($existing['upload']);
+            } elseif (isset($existing['upload'])) {
+                app(CertifyBundleChunkUpload::class)->assertComplete($operationId, $existing['upload']);
+            } else {
+                return response()->json(['message' => 'A ZIP bundle file is required.'], 422);
+            }
+            $store->put($operationId, array_merge($existing ?? [], [
                 'operation_id' => $operationId,
                 'user_id' => $userId,
                 'status' => 'queued',
                 'progress' => 0.0,
                 'message' => 'Upload complete. Waiting for server processing...',
                 'updated_at' => now()->timestamp,
-            ]);
+            ]));
 
             Bus::dispatchAfterResponse(new ProcessCertifyBundleImport(
                 $operationId,
