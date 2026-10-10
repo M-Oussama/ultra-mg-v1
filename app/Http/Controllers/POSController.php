@@ -1257,6 +1257,7 @@ class POSController extends Controller
         try {
             DB::beginTransaction();
 
+            app(\App\Services\BundleImportProgress::class)->update($request, 'sales', 0.06, 'Reading sales CSV files...');
             $clientRows = $this->readImportCsv($request->file('clients'));
             $productRows = $this->readImportCsv($request->file('products'));
             $saleRows = $this->readImportCsv($request->file('sales'));
@@ -1337,6 +1338,7 @@ class POSController extends Controller
                 if ($legacyId !== null) $clientMap[$legacyId] = (int) $client->id;
             }
 
+            app(\App\Services\BundleImportProgress::class)->update($request, 'sales', 0.22, 'Clients mapped. Importing sales...');
             $saleMap = [];
             foreach ($saleRows as $index => $row) {
                 $rowNumber = $index + 2;
@@ -1395,6 +1397,7 @@ class POSController extends Controller
                 if ($legacyId !== null) $saleMap[$legacyId] = (int) $sale->id;
             }
 
+            app(\App\Services\BundleImportProgress::class)->update($request, 'sales', 0.46, 'Sales imported. Importing sale items...');
             foreach ($itemRows as $index => $row) {
                 $rowNumber = $index + 2;
                 $saleReference = $this->nullableImportValue($this->importValue($row, [
@@ -1446,6 +1449,7 @@ class POSController extends Controller
                 $counts['sale_items_created']++;
             }
 
+            app(\App\Services\BundleImportProgress::class)->update($request, 'sales', 0.66, 'Sale items imported. Importing payments...');
             foreach ($paymentRows as $index => $row) {
                 $rowNumber = $index + 2;
                 $paymentExternalId = $this->nullableImportValue($this->importValue($row, [
@@ -1479,6 +1483,7 @@ class POSController extends Controller
                 $counts['payments_created']++;
             }
 
+            app(\App\Services\BundleImportProgress::class)->update($request, 'sales', 0.82, 'Payments imported. Importing product returns...');
             $this->importSalesProductReturns(
                 $returnRows,
                 $returnItemRows,
@@ -1503,6 +1508,7 @@ class POSController extends Controller
                 }
             }
 
+            app(\App\Services\BundleImportProgress::class)->update($request, 'sales', 0.97, 'Saving the sales import...');
             DB::commit();
         } catch (\Throwable $exception) {
             DB::rollBack();

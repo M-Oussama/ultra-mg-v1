@@ -1,4 +1,4 @@
-# Certify ZIP uploads on production
+# Certify data, client/cheque media, and Sales ZIP uploads on production
 
 The observed failed request contained 51,358,616 bytes (about 49 MiB) and
 received HTTP 408 with a LiteSpeed HTML response. Upload readiness and status
@@ -7,17 +7,24 @@ requests succeeded. This is an upload-request timeout, not the unrelated
 
 ## Deploy both projects
 
-Deploy the updated Laravel controller, job, routes, rate limiter, console
-schedule, and new `app/Services/CertifyBundleChunkUpload.php`. Keep the scoped
-LiteSpeed rules already in `public/.htaccess`. Then run from the live backend:
+Deploy the complete updated Laravel backend, including the shared
+`BundleUploadController`, `MediaBundleUploadController`,
+`SalesBundleUploadController`, `SalesBundleArchive`, `BundleImportProgress`,
+the updated import job and domain controllers, routes, and `public/.htaccess`.
+Keep the existing chunk/status storage services, upload rate limiter, and
+pruning schedule. Then run from the live backend:
 
 ```sh
 php artisan optimize:clear
 php artisan route:list --path=certifyInvoices/import-bundle
+php artisan route:list --path=certifyInvoices/import-media-bundle
+php artisan route:list --path=pos/sales/import-bundle
 ```
 
-The routes must include `prepare`, `chunk`, `start`, and `status`. Rebuild or
-hot-reload Flutter with the updated repository and ZIP normalizer. No new
+Each route group must include `prepare`, `chunk`, `start`, and `status`. Rebuild
+and deploy Flutter with the shared resumable transport, updated repositories,
+screens, and ZIP normalizer. Do not deploy only the former Certify controller:
+its transport now lives in the shared controller. No new
 database migration is required for chunked uploads. The proforma migration,
 if missing, is a separate deployment requirement.
 
@@ -31,6 +38,19 @@ if missing, is a separate deployment requirement.
 - The worker assembles the ZIP using streams and verifies its size and SHA-256
   before invoking the existing transactional importer.
 - ZIP normalization preserves timestamps, so retries reproduce identical bytes.
+- Client/cheque media uses the same transport but invokes only the existing
+  attachment importer. Reference clients/cheques are not created or overwritten.
+  Missing attachments are reported while valid rows continue.
+- Sales packages the selected CSVs into a deterministic ZIP, retains the target
+  department and authenticated user, then invokes the existing sales CSV
+  transaction. Returns remain in Sales, never Certify. The existing 20 MiB
+  per-CSV limit remains in place.
+- Operation IDs are bound to both the authenticated owner and import kind.
+  Sales retries cannot change departments. A lost start response is recovered
+  by polling the same operation rather than starting another import.
+- Media and Sales show confirmed upload/server progress inline. A pending
+  operation locks ZIP replacement (and Sales department changes) and provides
+  Retry upload or Check import status as appropriate.
 - Import authorization is unchanged. The chunk route alone has a separate
   per-user/IP rate limit so the normal 60-request API limit does not interrupt
   large uploads. Other API routes retain their existing limit.

@@ -3,7 +3,7 @@
     # Certify imports continue after the upload response has been sent.
     # Keep this exception scoped to the two POST import routes.
     RewriteCond %{REQUEST_METHOD} =POST
-    RewriteRule ^api/certifyInvoices/import-bundle(/start)?$ - [E=noabort:1,E=noconntimeout:1]
+    RewriteRule ^api/(certifyInvoices/import-(media-)?bundle|pos/sales/import-bundle)(/start)?$ - [E=noabort:1,E=noconntimeout:1]
 </IfModule>
 
 <IfModule mod_rewrite.c>
