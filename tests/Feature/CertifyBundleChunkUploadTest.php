@@ -62,6 +62,17 @@ class CertifyBundleChunkUploadTest extends TestCase
         return app(CertifyInvoiceController::class)->uploadBundleChunk($request);
     }
 
+    private function sendRawChunk(string $id, int $index, string $bytes, int $userId = 17, ?string $hash = null): \Illuminate\Http\JsonResponse
+    {
+        $request = Request::create('/api/certifyInvoices/import-bundle/chunk/raw', 'POST', [
+            'operation_id' => $id, 'chunk_index' => $index,
+            'chunk_sha256' => $hash ?? hash('sha256', $bytes),
+        ], [], [], ['CONTENT_TYPE' => 'application/octet-stream'], $bytes);
+        $request->setUserResolver(fn () => (object) ['id' => $userId]);
+
+        return app(CertifyInvoiceController::class)->uploadBundleRawChunk($request);
+    }
+
     public function test_chunks_resume_reassemble_exactly_and_finalize_without_a_large_request(): void
     {
         Bus::fake();
@@ -78,6 +89,28 @@ class CertifyBundleChunkUploadTest extends TestCase
         $this->assertSame(202, $controller->startBundleImport($request)->status());
         $this->assertSame(202, $controller->startBundleImport($request)->status());
         Bus::assertDispatchedAfterResponseTimes(ProcessCertifyBundleImport::class, 1);
+        $destination = storage_path('app/certify-import-queue/'.$id.'.zip');
+        $state = app(CertifyBundleImportStateStore::class)->get($id);
+        app(CertifyBundleChunkUpload::class)->assemble($id, $state['upload'], $destination);
+        $this->assertSame(hash('sha256', $bytes), hash_file('sha256', $destination));
+    }
+
+    public function test_raw_chunk_fallback_mixes_with_multipart_and_keeps_checksum_guards(): void
+    {
+        $bytes = str_repeat('media-export-', 30000);
+        [$id, $fields, $prepared] = $this->prepare($bytes);
+        $size = $prepared['chunk_size_bytes'];
+        $this->assertSame(200, $this->sendChunk($id, 0, substr($bytes, 0, $size))->status());
+        $this->assertSame(200, $this->sendRawChunk($id, 1, substr($bytes, $size))->status());
+        $this->assertSame(404, $this->sendRawChunk($id, 1, substr($bytes, $size), 18)->status());
+        try {
+            $this->sendRawChunk($id, 1, substr($bytes, $size), 17, str_repeat('0', 64));
+            $this->fail('A corrupt raw chunk must be rejected');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('chunk_sha256', $exception->errors());
+        }
+        $resumed = app(CertifyInvoiceController::class)->prepareBundleImport($this->request($fields))->getData(true);
+        $this->assertSame([0, 1], $resumed['received_chunks']);
         $destination = storage_path('app/certify-import-queue/'.$id.'.zip');
         $state = app(CertifyBundleImportStateStore::class)->get($id);
         app(CertifyBundleChunkUpload::class)->assemble($id, $state['upload'], $destination);

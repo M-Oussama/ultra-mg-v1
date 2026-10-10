@@ -265,7 +265,9 @@ class DomainBundleAsyncImportTest extends TestCase
     {
         foreach ([
             'api/certifyInvoices/import-media-bundle/chunk' => 'certify_invoices',
+            'api/certifyInvoices/import-media-bundle/chunk/raw' => 'certify_invoices',
             'api/pos/sales/import-bundle/chunk' => 'sales',
+            'api/pos/sales/import-bundle/chunk/raw' => 'sales',
         ] as $uri => $permission) {
             $route = collect(app('router')->getRoutes())->first(fn ($route) => $route->uri() === $uri);
             $middleware = app('router')->gatherRouteMiddleware($route);

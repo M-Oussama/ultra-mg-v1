@@ -163,6 +163,45 @@ class BundleUploadController extends Controller
         });
     }
 
+    public function uploadBundleRawChunk(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'operation_id' => 'required|uuid',
+            'chunk_index' => 'required|integer|min:0',
+            'chunk_sha256' => 'required|regex:/^[a-f0-9]{64}$/',
+        ]);
+        $operationId = $validated['operation_id'];
+        $store = app(CertifyBundleImportStateStore::class);
+
+        return $store->withUploadLock($operationId, function () use ($request, $validated, $operationId, $store): JsonResponse {
+            $status = $store->get($operationId);
+            if ($status === null || (string) $status['user_id'] !== (string) optional($request->user())->id
+                || ($status['kind'] ?? 'certify_data') !== $this->importKind()) {
+                return response()->json(['message' => 'Import operation not found.'], 404);
+            }
+            if ($status['status'] === 'awaiting_upload') {
+                if (! isset($status['upload'])) {
+                    return response()->json(['message' => 'Prepare the resumable upload first.'], 409);
+                }
+                $status['upload'] = app(CertifyBundleChunkUpload::class)->receiveRaw(
+                    $operationId,
+                    $status['upload'],
+                    (int) $validated['chunk_index'],
+                    $request->getContent(),
+                    $validated['chunk_sha256'],
+                );
+                $status['updated_at'] = now()->timestamp;
+                $store->put($operationId, $status);
+            }
+
+            return response()->json([
+                'operation_id' => $operationId,
+                'status' => $status['status'],
+                'chunk_index' => (int) $validated['chunk_index'],
+            ]);
+        });
+    }
+
     private function phpUploadLimitBytes(string $value): int
     {
         $value = trim($value);

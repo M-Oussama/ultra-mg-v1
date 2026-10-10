@@ -32,6 +32,9 @@ if missing, is a separate deployment requirement.
 
 - Flutter requests protocol version 3 and sends ZIP fragments of at most 256 KiB.
 - Each fragment is checksummed and acknowledged before progress advances.
+- If a browser or LiteSpeed drops a multipart fragment without an HTTP
+  response, Flutter retries that same fragment through the raw-binary chunk
+  endpoint. The same checksum, owner, import-kind, and rate-limit guards apply.
 - HTTP 408 and temporary connection failures retry the same fragment, with a
   bounded retry count. Manual retry reuses the operation and skips confirmed parts.
 - The final `start` request contains only the operation ID, not the ZIP.
@@ -41,6 +44,8 @@ if missing, is a separate deployment requirement.
 - Client/cheque media uses the same transport but invokes only the existing
   attachment importer. Reference clients/cheques are not created or overwritten.
   Missing attachments are reported while valid rows continue.
+  Flutter sends the original media ZIP rather than rebuilding all PDFs/images
+  in browser memory; collection aliases are resolved by the Laravel importer.
 - Sales packages the selected CSVs into a deterministic ZIP, retains the target
   department and authenticated user, then invokes the existing sales CSV
   transaction. Returns remain in Sales, never Certify. The existing 20 MiB

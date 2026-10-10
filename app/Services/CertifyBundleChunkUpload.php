@@ -47,6 +47,36 @@ class CertifyBundleChunkUpload
         return $upload;
     }
 
+    public function receiveRaw(string $operationId, array $upload, int $index, string $bytes, string $checksum): array
+    {
+        $count = (int) ceil($upload['archive_size_bytes'] / $upload['chunk_size_bytes']);
+        if ($index >= $count) {
+            throw ValidationException::withMessages(['chunk_index' => 'This upload part is outside the archive.']);
+        }
+        $expectedSize = min($upload['chunk_size_bytes'], $upload['archive_size_bytes'] - $index * $upload['chunk_size_bytes']);
+        if (strlen($bytes) !== $expectedSize) {
+            throw ValidationException::withMessages(['chunk' => 'The upload part is incomplete or has the wrong size.']);
+        }
+        if (! hash_equals($checksum, hash('sha256', $bytes))) {
+            throw ValidationException::withMessages(['chunk_sha256' => 'The upload part checksum does not match.']);
+        }
+        $previous = $upload['received_chunks'][$index] ?? null;
+        if ($previous !== null && ! hash_equals($previous, $checksum)) {
+            throw ValidationException::withMessages(['chunk_sha256' => 'This part was already uploaded with different data.']);
+        }
+        $directory = $this->directory($operationId);
+        File::ensureDirectoryExists($directory);
+        $temporary = $directory.'/'.$index.'.uploading';
+        if (File::put($temporary, $bytes, true) !== $expectedSize) {
+            File::delete($temporary);
+            throw new \RuntimeException('The server could not save the upload part. Check storage permissions and free disk space.');
+        }
+        File::move($temporary, $directory.'/'.$index.'.part');
+        $upload['received_chunks'][$index] = $checksum;
+
+        return $upload;
+    }
+
     public function receivedIndices(string $operationId, array $upload): array
     {
         $directory = $this->directory($operationId);

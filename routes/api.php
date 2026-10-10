@@ -169,10 +169,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/certifyInvoices/import-media-bundle/chunk', [\App\Http\Controllers\MediaBundleUploadController::class, 'uploadBundleChunk'])
         ->withoutMiddleware('throttle:api')
         ->middleware(['throttle:certify-import-upload', 'permission:add,certify_invoices']);
+    Route::post('/certifyInvoices/import-media-bundle/chunk/raw', [\App\Http\Controllers\MediaBundleUploadController::class, 'uploadBundleRawChunk'])
+        ->withoutMiddleware('throttle:api')
+        ->middleware(['throttle:certify-import-upload', 'permission:add,certify_invoices']);
     Route::post('/certifyInvoices/import-media-bundle/start', [\App\Http\Controllers\MediaBundleUploadController::class, 'startBundleImport'])->middleware('permission:add,certify_invoices');
     Route::get('/certifyInvoices/import-media-bundle/status/{operationId}', [\App\Http\Controllers\MediaBundleUploadController::class, 'bundleImportStatus'])->middleware('permission:add,certify_invoices');
     Route::post('/pos/sales/import-bundle/prepare', [\App\Http\Controllers\SalesBundleUploadController::class, 'prepareBundleImport'])->middleware('permission:add,sales');
     Route::post('/pos/sales/import-bundle/chunk', [\App\Http\Controllers\SalesBundleUploadController::class, 'uploadBundleChunk'])
+        ->withoutMiddleware('throttle:api')
+        ->middleware(['throttle:certify-import-upload', 'permission:add,sales']);
+    Route::post('/pos/sales/import-bundle/chunk/raw', [\App\Http\Controllers\SalesBundleUploadController::class, 'uploadBundleRawChunk'])
         ->withoutMiddleware('throttle:api')
         ->middleware(['throttle:certify-import-upload', 'permission:add,sales']);
     Route::post('/pos/sales/import-bundle/start', [\App\Http\Controllers\SalesBundleUploadController::class, 'startBundleImport'])->middleware('permission:add,sales');
@@ -182,6 +188,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->withoutMiddleware('throttle:api')
         ->middleware(['throttle:certify-import-upload', 'permission:add,certify_invoices'])
         ->name('uploadCertifyInvoiceBundleChunk');
+    Route::post('/certifyInvoices/import-bundle/chunk/raw', [CertifyInvoiceController::class, 'uploadBundleRawChunk'])
+        ->withoutMiddleware('throttle:api')
+        ->middleware(['throttle:certify-import-upload', 'permission:add,certify_invoices']);
     Route::post('/certifyInvoices/import-bundle/start', [CertifyInvoiceController::class, 'startBundleImport'])->middleware('permission:add,certify_invoices')->name('startCertifyInvoiceBundleImport');
     Route::get('/certifyInvoices/import-bundle/status/{operationId}', [CertifyInvoiceController::class, 'bundleImportStatus'])->middleware('permission:add,certify_invoices')->name('getCertifyInvoiceBundleImportStatus');
     Route::post('/certifyInvoices/import-bundle', [CertifyInvoiceController::class, 'importBundle'])->middleware('permission:add,certify_invoices')->name('importCertifyInvoiceBundle');
