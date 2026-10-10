@@ -72,4 +72,76 @@ class CertifyClientMediaImportTest extends TestCase
         $this->assertNull($resolver->invoke($controller, 'clients', 'cheques'));
         $this->assertNull($resolver->invoke($controller, 'cheques', 'cnrc_file'));
     }
+
+    public function test_extract_zip_safely_normalizes_windows_style_entry_paths(): void
+    {
+        $zipPath = tempnam(sys_get_temp_dir(), 'test-win-zip-');
+        $zip = new \ZipArchive();
+        $this->assertTrue($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE));
+        $zip->addFromString('media-files\\10\\file.pdf', '%PDF-1.4 sample content');
+        $zip->close();
+
+        $destDir = storage_path('app/test-extract-'.uniqid());
+        \Illuminate\Support\Facades\File::makeDirectory($destDir, 0755, true);
+
+        try {
+            $zip = new \ZipArchive();
+            $this->assertTrue($zip->open($zipPath));
+
+            $method = new ReflectionMethod(CertifyInvoiceController::class, 'extractZipSafely');
+            $method->setAccessible(true);
+            $controller = new CertifyInvoiceController();
+            $result = $method->invoke($controller, $zip, $destDir);
+            $zip->close();
+
+            $this->assertTrue($result);
+            $expectedFilePath = $destDir.DIRECTORY_SEPARATOR.'media-files'.DIRECTORY_SEPARATOR.'10'.DIRECTORY_SEPARATOR.'file.pdf';
+            $this->assertFileExists($expectedFilePath);
+            $this->assertSame('%PDF-1.4 sample content', file_get_contents($expectedFilePath));
+
+            $pathResolver = new ReflectionMethod(CertifyInvoiceController::class, 'bundleMediaPath');
+            $pathResolver->setAccessible(true);
+
+            // Forward slash path reference (like from media.csv)
+            $resolvedForward = $pathResolver->invoke($controller, $destDir, 'media-files/10/file.pdf');
+            $this->assertNotNull($resolvedForward);
+            $this->assertSame(realpath($expectedFilePath), realpath($resolvedForward));
+
+            // Windows-style path reference
+            $resolvedBackslash = $pathResolver->invoke($controller, $destDir, 'media-files\\10\\file.pdf');
+            $this->assertNotNull($resolvedBackslash);
+            $this->assertSame(realpath($expectedFilePath), realpath($resolvedBackslash));
+        } finally {
+            \Illuminate\Support\Facades\File::deleteDirectory($destDir);
+            @unlink($zipPath);
+        }
+    }
+
+    public function test_extract_zip_safely_rejects_path_traversal(): void
+    {
+        $zipPath = tempnam(sys_get_temp_dir(), 'test-traversal-');
+        $zip = new \ZipArchive();
+        $this->assertTrue($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE));
+        $zip->addFromString('..\\evil.txt', 'malicious content');
+        $zip->close();
+
+        $destDir = storage_path('app/test-extract-'.uniqid());
+        \Illuminate\Support\Facades\File::makeDirectory($destDir, 0755, true);
+
+        try {
+            $zip = new \ZipArchive();
+            $this->assertTrue($zip->open($zipPath));
+
+            $method = new ReflectionMethod(CertifyInvoiceController::class, 'extractZipSafely');
+            $method->setAccessible(true);
+            $controller = new CertifyInvoiceController();
+            $result = $method->invoke($controller, $zip, $destDir);
+            $zip->close();
+
+            $this->assertFalse($result);
+        } finally {
+            \Illuminate\Support\Facades\File::deleteDirectory($destDir);
+            @unlink($zipPath);
+        }
+    }
 }

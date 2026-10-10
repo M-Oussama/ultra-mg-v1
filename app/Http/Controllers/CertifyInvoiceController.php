@@ -57,7 +57,7 @@ class CertifyInvoiceController extends BundleUploadController
 
         try {
             $zip = new ZipArchive();
-            if ($zip->open($file->getRealPath()) !== true || ! $zip->extractTo($directory)) {
+            if ($zip->open($file->getRealPath()) !== true || ! $this->extractZipSafely($zip, $directory)) {
                 return response()->json(['message' => 'Unable to extract the ZIP media bundle.'], 422);
             }
             $zip->close();
@@ -289,7 +289,7 @@ class CertifyInvoiceController extends BundleUploadController
 
         try {
             $zip = new ZipArchive();
-            if ($zip->open($file->getRealPath()) !== true || ! $zip->extractTo($directory)) {
+            if ($zip->open($file->getRealPath()) !== true || ! $this->extractZipSafely($zip, $directory)) {
                 return response()->json(['message' => 'Unable to extract the ZIP bundle.'], 422);
             }
             $zip->close();
@@ -681,11 +681,94 @@ class CertifyInvoiceController extends BundleUploadController
             ltrim($relativePath, '/\\'),
         ));
         if ($candidate === false) {
-            return null;
+            $rawCandidate = realpath($directory.DIRECTORY_SEPARATOR.str_replace(
+                ['/'],
+                '\\',
+                ltrim($relativePath, '/\\'),
+            ));
+            if ($rawCandidate !== false) {
+                $candidate = $rawCandidate;
+            } else {
+                return null;
+            }
         }
 
         $rootPrefix = rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
         return str_starts_with(strtolower($candidate), strtolower($rootPrefix)) ? $candidate : null;
+    }
+
+    /**
+     * Safely extract a ZIP archive into a target directory.
+     * Normalizes Windows-style backslashes to forward slashes to prevent
+     * missing file errors on Linux production, and guards against Zip Slip path traversal.
+     */
+    private function extractZipSafely(ZipArchive $zip, string $destinationDirectory): bool
+    {
+        $root = realpath($destinationDirectory);
+        if ($root === false) {
+            return false;
+        }
+        $rootPrefix = rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entryName = $zip->getNameIndex($i);
+            if ($entryName === false || str_contains($entryName, "\0")) {
+                continue;
+            }
+
+            // Normalize Windows backslashes to POSIX slashes
+            $normalized = ltrim(str_replace('\\', '/', $entryName), '/');
+            if ($normalized === '') {
+                continue;
+            }
+
+            // Guard against directory traversal (Zip Slip)
+            $parts = explode('/', $normalized);
+            $cleanParts = [];
+            foreach ($parts as $part) {
+                if ($part === '' || $part === '.') {
+                    continue;
+                }
+                if ($part === '..') {
+                    return false;
+                }
+                $cleanParts[] = $part;
+            }
+            if ($cleanParts === []) {
+                continue;
+            }
+
+            $isDir = str_ends_with($entryName, '/') || str_ends_with($entryName, '\\');
+            $targetPath = $rootPrefix.implode(DIRECTORY_SEPARATOR, $cleanParts);
+
+            if (! str_starts_with($targetPath, $rootPrefix)) {
+                return false;
+            }
+
+            if ($isDir) {
+                File::ensureDirectoryExists($targetPath);
+                continue;
+            }
+
+            File::ensureDirectoryExists(dirname($targetPath));
+
+            $stream = $zip->getStream($entryName);
+            if (! $stream) {
+                return false;
+            }
+
+            $destStream = fopen($targetPath, 'wb');
+            if (! $destStream) {
+                fclose($stream);
+                return false;
+            }
+
+            stream_copy_to_stream($stream, $destStream);
+            fclose($stream);
+            fclose($destStream);
+        }
+
+        return true;
     }
 
     private function importBundleMedia(
@@ -721,7 +804,7 @@ class CertifyInvoiceController extends BundleUploadController
                 (string) ($row['collection_name'] ?? ''),
             );
 
-            $path = $relativePath === null ? null : $directory.'/'.$relativePath;
+            $path = $relativePath === null ? null : $this->bundleMediaPath($directory, $relativePath);
             if ($mediaId === null || $model === null || $collection === null || $path === null || ! is_file($path)) {
                 $skipped[] = [
                     'file' => 'media.csv',
