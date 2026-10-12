@@ -17,23 +17,61 @@ class WhatsAppController extends Controller
             return response()->json(['message' => 'WhatsApp Cloud API is not configured on the server.'], 503);
         }
 
-        $response = Http::withToken($accessToken)
-            ->acceptJson()
-            ->timeout(15)
-            ->get("https://graph.facebook.com/" . config('services.whatsapp.graph_version', 'v25.0') . "/{$wabaId}/message_templates", [
-                'fields' => 'name,language,status,category',
-                'limit' => 250,
-            ]);
+        $url = 'https://graph.facebook.com/'.config('services.whatsapp.graph_version', 'v25.0')."/{$wabaId}/message_templates";
+        $after = null;
+        $templates = collect();
+        $statusCounts = [];
 
-        if (!$response->successful()) {
-            return response()->json(['message' => $this->metaError($response)], $response->status());
+        // Meta paginates templates. Approved templates are not guaranteed to
+        // be on the first page, especially for long-lived business accounts.
+        // Use the cursor instead of following Meta's arbitrary `next` URL.
+        for ($page = 0; $page < 20; $page++) {
+            $response = Http::withToken($accessToken)
+                ->acceptJson()
+                ->timeout(15)
+                ->get($url, array_filter([
+                    'fields' => 'name,language,status,category',
+                    'limit' => 250,
+                    'after' => $after,
+                ], fn ($value) => $value !== null));
+
+            if (! $response->successful()) {
+                return response()->json(['message' => $this->metaError($response)], $response->status());
+            }
+
+            foreach ((array) $response->json('data', []) as $template) {
+                if (! is_array($template)) {
+                    continue;
+                }
+
+                $status = strtoupper(trim((string) ($template['status'] ?? 'UNKNOWN')));
+                $statusCounts[$status] = ($statusCounts[$status] ?? 0) + 1;
+                if ($status === 'APPROVED') {
+                    $templates->push($template);
+                }
+            }
+
+            $nextUrl = $response->json('paging.next');
+            $nextAfter = $response->json('paging.cursors.after');
+            if (! is_string($nextUrl) || $nextUrl === ''
+                || ! is_string($nextAfter) || $nextAfter === '' || $nextAfter === $after) {
+                break;
+            }
+            $after = $nextAfter;
         }
 
-        $templates = collect($response->json('data', []))
-            ->filter(fn ($template) => ($template['status'] ?? '') === 'APPROVED')
+        $templates = $templates
+            ->unique(fn (array $template) => strtolower((string) ($template['name'] ?? ''))
+                .':'.strtolower((string) ($template['language'] ?? '')))
             ->values();
 
-        return response()->json(['data' => $templates]);
+        return response()->json([
+            'data' => $templates,
+            'meta' => [
+                'approved_count' => $templates->count(),
+                'status_counts' => $statusCounts,
+            ],
+        ]);
     }
 
     public function broadcast(Request $request): JsonResponse
@@ -79,6 +117,7 @@ class WhatsAppController extends Controller
                     'phone' => $recipient['phone'],
                     'error' => 'Invalid phone number.',
                 ];
+
                 continue;
             }
 
@@ -96,6 +135,7 @@ class WhatsAppController extends Controller
                         $messageIds[] = $message['id'];
                     }
                 }
+
                 continue;
             }
 
@@ -123,8 +163,7 @@ class WhatsAppController extends Controller
         string $message,
         ?string $templateName,
         ?string $templateLanguage,
-    ): Response
-    {
+    ): Response {
         $version = config('services.whatsapp.graph_version', 'v25.0');
         $phoneNumberId = config('services.whatsapp.phone_number_id');
         $url = "https://graph.facebook.com/{$version}/{$phoneNumberId}/messages";
@@ -159,12 +198,14 @@ class WhatsAppController extends Controller
     private function normalizePhone(string $raw): ?string
     {
         $phone = preg_replace('/\D+/', '', trim($raw));
-        if ($phone === null || $phone === '') return null;
+        if ($phone === null || $phone === '') {
+            return null;
+        }
 
         if (str_starts_with($phone, '00')) {
             $phone = substr($phone, 2);
         } elseif (str_starts_with($phone, '0')) {
-            $phone = config('services.whatsapp.country_code', '213') . substr($phone, 1);
+            $phone = config('services.whatsapp.country_code', '213').substr($phone, 1);
         }
 
         return strlen($phone) >= 8 ? $phone : null;
@@ -177,6 +218,6 @@ class WhatsAppController extends Controller
             return (string) $error['message'];
         }
 
-        return 'Meta returned HTTP ' . $response->status() . '.';
+        return 'Meta returned HTTP '.$response->status().'.';
     }
 }
