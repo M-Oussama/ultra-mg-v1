@@ -4,44 +4,45 @@ use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BenefitController;
+use App\Http\Controllers\BusinessController;
+use App\Http\Controllers\CashbookController;
+use App\Http\Controllers\CashbookLookupController;
+use App\Http\Controllers\CashbookMemberController;
 use App\Http\Controllers\CertifyInvoiceController;
 use App\Http\Controllers\CertifyProductController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientLogController;
+use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\ComponentController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\EmployeeController;
-use App\Http\Controllers\MaintenanceController;
-use App\Http\Controllers\PDFController;
-use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\ProductCostComponentController;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\ProductReturnController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\EntrepreneurSettlementController;
 use App\Http\Controllers\ImportationInvoiceController;
-use App\Http\Controllers\ImportProformaController;
 use App\Http\Controllers\ImportationMoneyBalanceController;
 use App\Http\Controllers\ImportationPaymentController;
+use App\Http\Controllers\ImportOperationController;
+use App\Http\Controllers\ImportProformaController;
+use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\MoneyReceiptPaperController;
-use App\Http\Controllers\EntrepreneurSettlementController;
-use App\Http\Controllers\SalesSupplierController;
-use App\Http\Controllers\SupplyController;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\PDFController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\POSController;
-use App\Http\Controllers\VacationController;
-use App\Http\Controllers\ZKAssignmentController;
-use App\Http\Controllers\CompanyController;
-use App\Http\Controllers\BusinessController;
-use App\Http\Controllers\WhatsAppController;
-use App\Http\Controllers\RealLogisticsInvoiceController;
-use App\Http\Controllers\CashbookController;
-use App\Http\Controllers\CashbookMemberController;
-use App\Http\Controllers\CashbookLookupController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductCostComponentController;
+use App\Http\Controllers\ProductReturnController;
 use App\Http\Controllers\PushTokenController;
-use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\RealLogisticsInvoiceController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SalesSupplierController;
 use App\Http\Controllers\SubCertifyInvoiceController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplyController;
+use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\VacationController;
+use App\Http\Controllers\WhatsAppController;
+use App\Http\Controllers\ZKAssignmentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -59,14 +60,16 @@ use Illuminate\Support\Facades\Route;
 Route::post('/auth/login', [AuthController::class, 'Login']);
 
 // THE ULTIMATE FIX: Force rename the column via direct SQL
-Route::get('/force-fix-tokens', function() {
+Route::get('/force-fix-tokens', function () {
     try {
         if (\Illuminate\Support\Facades\Schema::hasColumn('personal_access_tokens', 'tokenable')) {
             \Illuminate\Support\Facades\DB::statement(
                 'ALTER TABLE personal_access_tokens CHANGE `tokenable` `tokenable_legacy` VARCHAR(255) NULL DEFAULT NULL'
             );
+
             return response()->json(['success' => true, 'message' => 'Column successfully renamed to tokenable_legacy. Sanctum should now work!']);
         }
+
         return response()->json(['success' => true, 'message' => 'Column tokenable was already renamed or does not exist.']);
     } catch (\Exception $e) {
         return response()->json(['success' => false, 'error' => $e->getMessage()]);
@@ -85,13 +88,14 @@ Route::get('/test-auth', function (Request $request) {
 Route::get('/deep-debug-auth', function (Request $request) {
     $header = $request->header('Authorization');
     $tokenStr = str_replace('Bearer ', '', $header);
-    
+
     if (strpos($tokenStr, '|') !== false) {
         [$id, $plainToken] = explode('|', $tokenStr, 2);
         $tokenModel = \Laravel\Sanctum\PersonalAccessToken::find($id);
-        
+
         if ($tokenModel) {
             $isValid = hash_equals($tokenModel->token, hash('sha256', $plainToken));
+
             return response()->json([
                 'token_found' => true,
                 'id_match' => $id,
@@ -105,16 +109,17 @@ Route::get('/deep-debug-auth', function (Request $request) {
             ]);
         }
     }
-    
+
     return response()->json(['error' => 'Token not found or invalid format', 'header' => $header]);
 });
 
-Route::get('/check-db-schema', function() {
+Route::get('/check-db-schema', function () {
     try {
         $columns = \Illuminate\Support\Facades\DB::select('DESCRIBE personal_access_tokens');
+
         return response()->json([
             'success' => true,
-            'columns' => $columns
+            'columns' => $columns,
         ]);
     } catch (\Exception $e) {
         return response()->json(['success' => false, 'error' => $e->getMessage()]);
@@ -339,8 +344,6 @@ Route::middleware('auth:sanctum')->group(function () {
 /**
  *  supplier
  */
-
-
 Route::middleware('auth:sanctum')->group(function () {
     Route::group(['prefix' => 'suppliers'], function () {
         Route::post('/list', [SupplierController::class, 'getSuppliers'])->middleware('permission:list,suppliers');
@@ -380,6 +383,32 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/store', [ImportationInvoiceController::class, 'store'])->middleware('permission:add,importations');
         Route::post('/update/{id}', [ImportationInvoiceController::class, 'update'])->middleware('permission:edit,importations');
         Route::delete('/delete/{id}', [ImportationInvoiceController::class, 'delete'])->middleware('permission:delete,importations');
+    });
+
+    Route::group(['prefix' => 'importations'], function () {
+        Route::get('/', [ImportOperationController::class, 'index'])->middleware('permission:list,importations');
+        Route::post('/', [ImportOperationController::class, 'store'])->middleware('permission:add,importations');
+        Route::get('/{id}/overview', [ImportOperationController::class, 'overview'])->middleware('permission:list,importations');
+        Route::post('/{id}/parent-invoices', [ImportOperationController::class, 'storeParent'])->middleware('permission:add,importations');
+        Route::post('/{id}/parent-invoices/{parentId}', [ImportOperationController::class, 'updateParent'])->middleware('permission:edit,importations');
+        Route::delete('/{id}/parent-invoices/{parentId}', [ImportOperationController::class, 'destroyParent'])->middleware('permission:delete,importations');
+        Route::get('/{id}/parent-invoices/{parentId}/balances', [ImportOperationController::class, 'balances'])->middleware('permission:list,importations');
+        Route::post('/{id}/parent-invoices/{parentId}/partials', [ImportOperationController::class, 'storePartial'])->middleware('permission:add,importations');
+        Route::post('/{id}/parent-invoices/{parentId}/partials/{partialId}', [ImportOperationController::class, 'updatePartial'])->middleware('permission:edit,importations');
+        Route::delete('/{id}/parent-invoices/{parentId}/partials/{partialId}', [ImportOperationController::class, 'destroyPartial'])->middleware('permission:delete,importations');
+        Route::post('/{id}/factory-orders', [ImportOperationController::class, 'storeFactoryOrder'])->middleware('permission:add,importations');
+        Route::post('/{id}/factory-orders/{orderId}', [ImportOperationController::class, 'updateFactoryOrder'])->middleware('permission:edit,importations');
+        Route::delete('/{id}/factory-orders/{orderId}', [ImportOperationController::class, 'destroyFactoryOrder'])->middleware('permission:delete,importations');
+        Route::post('/{id}/containers', [ImportOperationController::class, 'storeContainer'])->middleware('permission:add,importations');
+        Route::post('/{id}/containers/{containerId}', [ImportOperationController::class, 'updateContainer'])->middleware('permission:edit,importations');
+        Route::delete('/{id}/containers/{containerId}', [ImportOperationController::class, 'destroyContainer'])->middleware('permission:delete,importations');
+        Route::post('/{id}/costs', [ImportOperationController::class, 'storeCost'])->middleware('permission:add,importations');
+        Route::post('/{id}/costs/{costId}', [ImportOperationController::class, 'updateCost'])->middleware('permission:edit,importations');
+        Route::delete('/{id}/costs/{costId}', [ImportOperationController::class, 'destroyCost'])->middleware('permission:delete,importations');
+        Route::post('/{id}/payments', [ImportOperationController::class, 'storePayment'])->middleware('permission:add,importations');
+        Route::post('/{id}/commissions', [ImportOperationController::class, 'storeCommission'])->middleware('permission:add,importations');
+        Route::post('/{id}/documents', [ImportOperationController::class, 'storeDocument'])->middleware('permission:add,importations');
+        Route::get('/{id}/reconciliation', [ImportOperationController::class, 'reconciliation'])->middleware('permission:list,importations');
     });
 
     Route::group(['prefix' => 'importation-payments'], function () {
@@ -512,7 +541,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::group(['prefix' => 'zk-mobile'], function () {
     Route::post('/login', [\App\Http\Controllers\ZKMobileApiController::class, 'login']);
 
-
     Route::get('/employees', [\App\Http\Controllers\ZKMobileApiController::class, 'getEmployees']);
     Route::get('/attendance', [\App\Http\Controllers\ZKMobileApiController::class, 'getAttendance']);
 
@@ -593,4 +621,3 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
         Route::delete('/{id}', [TransactionController::class, 'destroy'])->middleware('permission:delete,transactions');
     });
 });
-
