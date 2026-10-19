@@ -125,7 +125,7 @@ class ImportAllocationService
 
     public function balances(ImportParentInvoice $parent): array
     {
-        $parent->load(['lines', 'partialInvoices.lines', 'supplier']);
+        $parent->load(['lines', 'partialInvoices.lines.parentLine', 'supplier']);
         $allocatedByLine = $this->allocatedMilliByLine($parent->id);
 
         $lines = $parent->lines->map(function (ImportParentInvoiceLine $line) use ($allocatedByLine) {
@@ -136,6 +136,7 @@ class ImportAllocationService
                 'parent_line_id' => $line->id,
                 'product_id' => $line->product_id,
                 'description' => $line->description_snapshot,
+                'unit' => $line->unit,
                 'quantity' => $this->fromFixedInt($quantity, 3),
                 'allocated_quantity' => $this->fromFixedInt($allocated, 3),
                 'remaining_quantity' => $this->fromFixedInt($quantity - $allocated, 3),
@@ -157,6 +158,15 @@ class ImportAllocationService
                 'freight_amount' => (string) $partial->freight_amount,
                 'status' => $partial->status,
                 'revision' => (int) $partial->revision,
+                'lines' => $partial->lines->map(fn ($line) => [
+                    'id' => $line->id,
+                    'parent_line_id' => $line->import_parent_invoice_line_id,
+                    'product_id' => $line->parentLine?->product_id,
+                    'description' => $line->parentLine?->description_snapshot ?? '',
+                    'unit' => $line->parentLine?->unit ?? 'pcs',
+                    'quantity' => (string) $line->quantity,
+                    'commercial_unit_price_snapshot' => (string) $line->commercial_unit_price_snapshot,
+                ])->values()->all(),
                 'total_quantity' => $qty,
                 'total_amount' => $amount,
             ];
