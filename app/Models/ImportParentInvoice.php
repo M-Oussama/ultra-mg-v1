@@ -18,6 +18,7 @@ class ImportParentInvoice extends Model
         'planned_container_count',
         'freight_per_container',
         'show_container_price',
+        'show_ports',
         'status',
         'revision',
     ];
@@ -26,6 +27,7 @@ class ImportParentInvoice extends Model
         'planned_container_count' => 'integer',
         'freight_per_container' => 'decimal:4',
         'show_container_price' => 'boolean',
+        'show_ports' => 'boolean',
         'revision' => 'integer',
     ];
 

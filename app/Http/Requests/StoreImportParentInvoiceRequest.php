@@ -20,6 +20,7 @@ class StoreImportParentInvoiceRequest extends FormRequest
             'planned_container_count' => ['required', 'integer', 'min:1'],
             'freight_per_container' => ['nullable', 'regex:/^\d{1,14}(\.\d{1,4})?$/'],
             'show_container_price' => ['sometimes', 'boolean'],
+            'show_ports' => ['sometimes', 'boolean'],
             'container_ids' => ['nullable', 'array'],
             'container_ids.*' => ['integer', 'exists:import_containers,id'],
             'lines' => ['required', 'array', 'min:1'],

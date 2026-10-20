@@ -557,6 +557,7 @@ class ImportOperationController extends Controller
                 'planned_container_count' => $data['planned_container_count'],
                 'freight_per_container' => $data['freight_per_container'] ?? '0',
                 'show_container_price' => $data['show_container_price'] ?? true,
+                'show_ports' => $data['show_ports'] ?? true,
                 'status' => 'draft',
                 'revision' => 1,
             ]);
@@ -635,6 +636,7 @@ class ImportOperationController extends Controller
                 'planned_container_count' => $data['planned_container_count'],
                 'freight_per_container' => $data['freight_per_container'] ?? '0',
                 'show_container_price' => $data['show_container_price'] ?? $parent->show_container_price ?? true,
+                'show_ports' => $data['show_ports'] ?? $parent->show_ports ?? true,
                 'revision' => $parent->revision + 1,
             ]);
 
