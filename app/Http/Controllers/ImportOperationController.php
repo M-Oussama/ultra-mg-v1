@@ -556,6 +556,7 @@ class ImportOperationController extends Controller
                 'currency' => strtoupper($data['currency']),
                 'planned_container_count' => $data['planned_container_count'],
                 'freight_per_container' => $data['freight_per_container'] ?? '0',
+                'show_container_price' => $data['show_container_price'] ?? true,
                 'status' => 'draft',
                 'revision' => 1,
             ]);
@@ -633,6 +634,7 @@ class ImportOperationController extends Controller
                 'currency' => strtoupper($data['currency']),
                 'planned_container_count' => $data['planned_container_count'],
                 'freight_per_container' => $data['freight_per_container'] ?? '0',
+                'show_container_price' => $data['show_container_price'] ?? $parent->show_container_price ?? true,
                 'revision' => $parent->revision + 1,
             ]);
 

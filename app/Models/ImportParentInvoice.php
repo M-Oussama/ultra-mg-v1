@@ -17,6 +17,7 @@ class ImportParentInvoice extends Model
         'currency',
         'planned_container_count',
         'freight_per_container',
+        'show_container_price',
         'status',
         'revision',
     ];
@@ -24,6 +25,7 @@ class ImportParentInvoice extends Model
     protected $casts = [
         'planned_container_count' => 'integer',
         'freight_per_container' => 'decimal:4',
+        'show_container_price' => 'boolean',
         'revision' => 'integer',
     ];
 

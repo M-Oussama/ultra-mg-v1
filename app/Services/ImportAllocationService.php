@@ -188,6 +188,7 @@ class ImportAllocationService
             'partials' => $partials,
             'planned_containers' => $parent->planned_container_count,
             'freight_per_container' => (string) ($parent->freight_per_container ?? '0'),
+            'show_container_price' => $parent->show_container_price ?? true,
             'sales_supplier_id' => $parent->sales_supplier_id,
             'supplier_name' => $parent->supplier?->full_name ?? $parent->supplier?->name ?? '',
             'supplier' => $parent->supplier,
