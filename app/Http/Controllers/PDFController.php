@@ -1041,7 +1041,7 @@ class PDFController extends Controller
 
         $user = auth()->user();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $query->whereIn('department_id', $deptIds);
             } else {

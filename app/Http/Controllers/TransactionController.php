@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cashbook;
 use App\Models\Transaction;
+use App\Models\AuditLog;
 use App\Services\CashbookNotificationService;
 use App\Services\CashbookService;
 use Illuminate\Http\UploadedFile;
@@ -92,6 +93,14 @@ class TransactionController extends Controller
     {
         $cashbook = $this->findCashbookOrFail($request, (int) $cashbook_id);
         $validated = $request->validate($this->transactionRules($cashbook, true));
+        $requiredAction = $validated['type'] === 'income' ? 'cash_in' : 'cash_out';
+        abort_unless(
+            $request->user()->hasPermission($requiredAction, 'cashbook_entries'),
+            403,
+            $validated['type'] === 'income'
+                ? 'You do not have permission to add cash-in entries.'
+                : 'You do not have permission to add cash-out entries.'
+        );
 
         $transaction = Transaction::create(array_merge(
             $this->transactionPayload($validated),
@@ -114,6 +123,11 @@ class TransactionController extends Controller
     public function update(Request $request, $id)
     {
         $transaction = $this->findTransactionOrFail($request, (int) $id);
+        $role = $this->cashbookService->getMemberRole($transaction->cashbook, $request->user());
+        if (!in_array($role, ['owner', 'manager'], true)
+            && (int) $transaction->user_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'You can only edit entries created by you.'], 403);
+        }
         $validated = $request->validate($this->transactionRules($transaction->cashbook, false));
 
         $payload = $this->transactionPayload($validated);
@@ -121,7 +135,9 @@ class TransactionController extends Controller
             $payload['transaction_time'] = $transaction->transaction_time;
         }
 
+        $oldValues = $transaction->toArray();
         $transaction->update($payload);
+        AuditLog::record('updated', $transaction, $oldValues, $transaction->fresh()->toArray());
 
         if ($request->boolean('replace_attachments')) {
             $transaction->clearMediaCollection('attachments');
@@ -153,8 +169,15 @@ class TransactionController extends Controller
     {
         $transaction = $this->findTransactionOrFail($request, (int) $id);
         $cashbook = $transaction->cashbook;
+        $role = $this->cashbookService->getMemberRole($cashbook, $request->user());
+        if (!in_array($role, ['owner', 'manager'], true)
+            && (int) $transaction->user_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'You can only delete entries created by you.'], 403);
+        }
+        $oldValues = $transaction->toArray();
         $this->notificationService->notifyTransactionChanged($cashbook, $transaction, 'deleted', $request->user());
         $transaction->delete();
+        AuditLog::record('deleted', $transaction, $oldValues, null);
 
         return response()->json(['message' => 'Transaction deleted successfully']);
     }

@@ -31,11 +31,17 @@ class Employee extends Model
         'birth_city_id',
         'card_issued_city_id',
         'user_id',
+        'department_id',
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
     }
     protected $casts = [
         'active' => 'boolean',

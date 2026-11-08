@@ -111,6 +111,12 @@ class DepartmentController extends Controller
             'department_type' => 'nullable|in:production,resell',
         ]);
 
+        abort_unless(
+            auth()->user()->canAccessDepartment((int) $request->input('id')),
+            403,
+            'This department is not assigned to your account.'
+        );
+
         try {
             DB::beginTransaction();
             $department = Department::find($request->input('id'));
@@ -138,8 +144,14 @@ class DepartmentController extends Controller
             'id' => 'required|exists:departments,id',
         ]);
 
+        $id = (int) $request->input('id');
+        abort_unless(
+            auth()->user()->canAccessDepartment($id),
+            403,
+            'This department is not assigned to your account.'
+        );
+
         try {
-            $id = $request->input('id');
             $department = Department::find($id);
 
             // Check if used in other tables (following the prompt's request to add it to sales, clients, products)

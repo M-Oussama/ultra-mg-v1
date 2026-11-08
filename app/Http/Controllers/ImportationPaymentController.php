@@ -36,7 +36,7 @@ class ImportationPaymentController extends Controller
         $user = Auth::user();
         if ($user && !$user->isGlobalAdmin()) {
             $query->whereHas('invoice', function($q) use ($user) {
-                if ($user->isDepartmentManager()) {
+                if ($user->hasAssignedDepartments()) {
                     $deptIds = $user->departments->pluck('id')->toArray();
                     $q->whereHas('user', function($uq) use ($deptIds) {
                         $uq->whereHas('departments', function($sq) use ($deptIds) {

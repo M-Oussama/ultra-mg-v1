@@ -70,6 +70,28 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
+    /** Permissions granted directly to this account, in addition to its role. */
+    public function permissions()
+    {
+        return $this->belongsToMany(
+            Permission::class,
+            'user_has_permissions',
+            'user_id',
+            'permission_id'
+        );
+    }
+
+    /** All permissions the account receives from its role and direct grants. */
+    public function effectivePermissions()
+    {
+        $rolePermissions = $this->role?->permissions ?? collect();
+
+        return $rolePermissions
+            ->concat($this->permissions)
+            ->unique('id')
+            ->values();
+    }
+
     public function organization()
     {
         return $this->belongsTo(Organization::class);
@@ -83,6 +105,29 @@ class User extends Authenticatable
     public function departments()
     {
         return $this->belongsToMany(Department::class);
+    }
+
+    public function hasAssignedDepartments(): bool
+    {
+        return $this->departments()->exists();
+    }
+
+    public function assignedDepartmentIds(): array
+    {
+        return $this->departments()->pluck('departments.id')->map(
+            fn ($id) => (int) $id
+        )->all();
+    }
+
+    public function canAccessDepartment(?int $departmentId): bool
+    {
+        if ($this->isGlobalAdmin()) {
+            return true;
+        }
+
+        return $departmentId !== null && $this->departments()
+            ->whereKey($departmentId)
+            ->exists();
     }
 
     /**
@@ -123,9 +168,12 @@ class User extends Authenticatable
     public function hasPermission(string $action, string $subject): bool
     {
         if ($this->isGlobalAdmin()) return true;
-        if (!$this->role) return false;
+        $hasRolePermission = $this->role && $this->role->permissions()
+            ->where('action', $action)
+            ->where('subject', $subject)
+            ->exists();
 
-        return $this->role->permissions()
+        return $hasRolePermission || $this->permissions()
             ->where('action', $action)
             ->where('subject', $subject)
             ->exists();

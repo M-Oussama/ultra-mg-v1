@@ -20,7 +20,7 @@ class MaintenanceController extends Controller
         $usersQuery = User::query();
 
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 // Filter maintenances by technicians in the same departments
                 $maintenancesQuery->whereHas('technician', function($q) use ($deptIds) {

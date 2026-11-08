@@ -26,7 +26,7 @@ class VacationController extends Controller
 
         $user = auth()->user();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $vacations->whereHas('employee', function ($q) use ($deptIds) {
                     $q->whereIn('department_id', $deptIds);

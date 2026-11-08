@@ -50,7 +50,7 @@ class ClientController extends Controller
         // Hierarchical Data Isolation
         $user = \Illuminate\Support\Facades\Auth::user();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 // Managers see all clients in their assigned departments
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $clients->whereIn('department_id', $deptIds);
@@ -111,7 +111,7 @@ class ClientController extends Controller
 
         $user = \Illuminate\Support\Facades\Auth::user();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $clients->whereIn('department_id', $deptIds);
             } else {
@@ -318,7 +318,7 @@ class ClientController extends Controller
         // Hierarchical Data Isolation
         $user = \Illuminate\Support\Facades\Auth::user();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $query->whereIn('department_id', $deptIds);
             } else {

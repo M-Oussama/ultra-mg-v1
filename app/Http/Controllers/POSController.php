@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Models\ProductStock;
+use App\Models\AuditLog;
 
 class POSController extends Controller
 {
@@ -304,12 +305,14 @@ class POSController extends Controller
         // Hierarchical Data Isolation
         $user = \Illuminate\Support\Facades\Auth::user();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
-                // Managers see all sales in their assigned departments
+            if ($user->isSalesperson() || !$user->isDepartmentManager()) {
+                // Salespeople & regular staff see only their own sales
+                $sales->where('user_id', $user->id);
+            } elseif ($user->hasAssignedDepartments()) {
+                // Department managers see all sales in their assigned departments
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $sales->whereIn('department_id', $deptIds);
             } else {
-                // Others (Salespeople) see only their own sales
                 $sales->where('user_id', $user->id);
             }
         }
@@ -344,7 +347,9 @@ class POSController extends Controller
 
         $clientsQuery = Client::query();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->isSalesperson() || !$user->isDepartmentManager()) {
+                $clientsQuery->where('user_id', $user->id);
+            } elseif ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $clientsQuery->whereIn('department_id', $deptIds);
             } else {
@@ -362,7 +367,7 @@ class POSController extends Controller
 
         $user = \Illuminate\Support\Facades\Auth::user();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $clientsQuery->whereIn('department_id', $deptIds);
                 $driversQuery->whereIn('department_id', $deptIds);
@@ -606,6 +611,14 @@ class POSController extends Controller
             DB::beginTransaction();
 
             $sale = Sale::findOrFail($data['id']);
+
+            // Ownership check: regular users can only edit their own sales
+            $user = auth()->user();
+            if ($user && !$user->isGlobalAdmin() && !$user->isDepartmentManager()) {
+                abort_unless((int) $sale->user_id === (int) $user->id, 403, 'You are only authorized to edit sales created by you.');
+            }
+
+            $oldValues = $sale->toArray();
             $department_id = array_key_exists('department_id', $data) && $data['department_id'] !== null && $data['department_id'] !== ''
                 ? $data['department_id']
                 : $request->input('department_id', $sale->department_id ?? 1);
@@ -738,6 +751,7 @@ class POSController extends Controller
             }
 
             DB::commit();
+            AuditLog::record('updated', $sale, $oldValues, $sale->fresh()->toArray());
             return response()->json(['message' => 'Product updated successfully', "id" => $sale->id]);
         } catch (\Exception $e) {
             DB::rollback();
@@ -963,6 +977,15 @@ class POSController extends Controller
         try {
             DB::beginTransaction();
             $sale = Sale::findOrFail($id);
+
+            // Ownership check: regular users can only delete their own sales
+            $user = auth()->user();
+            if ($user && !$user->isGlobalAdmin() && !$user->isDepartmentManager()) {
+                abort_unless((int) $sale->user_id === (int) $user->id, 403, 'You are only authorized to delete sales created by you.');
+            }
+
+            $oldValues = $sale->toArray();
+            AuditLog::record('deleted', $sale, $oldValues, null);
             $items = SaleItem::where('sale_id', $id)->get();
 
             foreach ($items as $item) {

@@ -42,7 +42,7 @@ class AttendanceController extends Controller
         // Hierarchical Data Isolation
         $user = auth()->user();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 // Attendance records are global, but we filter based on employees assigned to these departments
                 $query->whereHas('attendance_employee', function($q) use ($deptIds) {
@@ -71,13 +71,9 @@ class AttendanceController extends Controller
         // Filter Employees returned with attendance metadata
         $employeeQuery = Employee::query();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
-                $employeeQuery->whereHas('user', function($q) use ($deptIds) {
-                    $q->whereHas('departments', function($sq) use ($deptIds) {
-                        $sq->whereIn('departments.id', $deptIds);
-                    });
-                });
+                $employeeQuery->whereIn('department_id', $deptIds);
             } else {
                 // Salespeople see only their own employees (if any) or none
                 $employeeQuery->where('user_id', $user->id);
@@ -229,7 +225,7 @@ class AttendanceController extends Controller
         });
 
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $employeesQuery->whereIn('department_id', $deptIds);
             } else {
@@ -455,14 +451,10 @@ class AttendanceController extends Controller
 
         $user = auth()->user();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $query->whereHas('employee', function ($employeeQuery) use ($deptIds) {
-                    $employeeQuery->whereHas('user', function ($userQuery) use ($deptIds) {
-                        $userQuery->whereHas('departments', function ($departmentQuery) use ($deptIds) {
-                            $departmentQuery->whereIn('departments.id', $deptIds);
-                        });
-                    });
+                    $employeeQuery->whereIn('department_id', $deptIds);
                 });
             } else {
                 $query->whereHas('employee', function ($employeeQuery) use ($user) {

@@ -18,11 +18,12 @@ class CashbookService
             return $query;
         }
 
-        if ($user->organization_id) {
-            return $query->where('organization_id', $user->organization_id);
-        }
-
-        return $query->where('user_id', $user->id);
+        return $query->where(function (Builder $builder) use ($user) {
+            $builder->where('cashbooks.user_id', $user->id)
+                ->orWhereHas('members', function (Builder $memberQuery) use ($user) {
+                    $memberQuery->where('users.id', $user->id);
+                });
+        });
     }
 
     public function cashbooksWithAggregatesForUser(User $user): Builder
@@ -43,11 +44,29 @@ class CashbookService
             return true;
         }
 
-        if ($user->organization_id) {
-            return (int) $cashbook->organization_id === (int) $user->organization_id;
+        if ((int) $cashbook->user_id === (int) $user->id) {
+            return true;
         }
 
-        return (int) $cashbook->user_id === (int) $user->id;
+        return $cashbook->members()->where('users.id', $user->id)->exists();
+    }
+
+    public function getMemberRole(Cashbook $cashbook, User $user): ?string
+    {
+        if ($user->isGlobalAdmin()) {
+            return 'owner';
+        }
+
+        if ((int) $cashbook->user_id === (int) $user->id) {
+            return 'owner';
+        }
+
+        $member = $cashbook->members()->where('users.id', $user->id)->first();
+        if ($member) {
+            return $member->pivot->role ?? 'viewer';
+        }
+
+        return null;
     }
 
     public function getSummary(Cashbook $cashbook): array

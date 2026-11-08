@@ -68,6 +68,16 @@ class BenefitController extends Controller
         ])
             ->whereBetween('sale_date', [$from, $to]);
 
+        $user = auth()->user();
+        if ($user && !$user->isGlobalAdmin()) {
+            if ($user->isSalesperson() || !$user->isDepartmentManager()) {
+                // Regular salesperson: ONLY calculate benefits for sales created by THEM
+                $salesQuery->where('user_id', $user->id);
+            } elseif ($user->hasAssignedDepartments()) {
+                $salesQuery->whereIn('department_id', $user->assignedDepartmentIds());
+            }
+        }
+
         if ($departmentId !== '') {
             $salesQuery->where('department_id', $departmentId);
         }

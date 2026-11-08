@@ -21,7 +21,7 @@ class DashboardController extends Controller
         $vacations = YearlyVacation::with('employee')->where('end_date', '>=', date("Y/m/d"));
 
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $vacations->whereHas('employee', function($q) use ($deptIds) {
                     $q->whereIn('department_id', $deptIds);
@@ -57,7 +57,7 @@ class DashboardController extends Controller
             ->where('end_date', '>=', $elevenMonthsAgo);
 
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $vacations->whereHas('employee', function($q) use ($deptIds) {
                     $q->whereIn('department_id', $deptIds);
@@ -88,7 +88,7 @@ class DashboardController extends Controller
         $maintenances = Maintenance::orderBy('next_maintenance_date', 'asc')->where('next_maintenance_date', '>=' , Carbon::today());
 
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $maintenances->whereHas('technician', function($q) use ($deptIds) {
                     $q->whereHas('departments', function($sq) use ($deptIds) {
@@ -157,7 +157,7 @@ class DashboardController extends Controller
         $vacation = YearlyVacation::with('employee')->where('end_date', '>=', date("Y/m/d"));
 
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 $deptIds = $user->departments->pluck('id')->toArray();
                 $vacation->whereHas('employee', function($q) use ($deptIds) {
                     $q->whereIn('department_id', $deptIds);

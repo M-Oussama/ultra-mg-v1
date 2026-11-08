@@ -127,6 +127,7 @@ Route::get('/check-db-schema', function () {
 });
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/push-token', [PushTokenController::class, 'store']);
     Route::post('/push-token/clear', [PushTokenController::class, 'clear']);
     Route::post('/whatsapp/broadcast', [WhatsAppController::class, 'broadcast'])
@@ -570,7 +571,7 @@ Route::group(['prefix' => 'companies'], function () {
 /** BUSINESSES */
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/businesses/current', [BusinessController::class, 'current']);
-    Route::post('/businesses/store', [BusinessController::class, 'store']);
+    Route::post('/businesses/store', [BusinessController::class, 'store'])->middleware('permission:add,companies');
 });
 
 /** REAL LOGISTICS INVOICES */
@@ -595,7 +596,7 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
         Route::put('/{id}', [CashbookController::class, 'update'])->middleware('permission:edit,cashbooks');
         Route::delete('/{id}', [CashbookController::class, 'destroy'])->middleware('permission:delete,cashbooks');
         Route::get('/{id}/summary', [CashbookController::class, 'summary'])->middleware('permission:view,cashbooks');
-        Route::get('/{id}/export-pdf', [CashbookController::class, 'exportPdf'])->middleware('permission:download,cashbooks');
+        Route::get('/{id}/export-pdf', [CashbookController::class, 'exportPdf'])->middleware('permission:export,cashbook_entries');
         Route::post('/{id}/import-excel', [CashbookController::class, 'importExcel'])->middleware('permission:sync,cashbooks');
 
         Route::get('/{id}/lookups', [CashbookLookupController::class, 'index'])->middleware('permission:list,cashbook_settings');
@@ -611,13 +612,13 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
 
         // Transactions within a cashbook
         Route::get('/{id}/transactions', [TransactionController::class, 'index'])->middleware('permission:list,transactions');
-        Route::post('/{id}/transactions', [TransactionController::class, 'store'])->middleware('permission:add,transactions');
+        Route::post('/{id}/transactions', [TransactionController::class, 'store']);
     });
 
     // Standalone Transactions
     Route::group(['prefix' => 'transactions'], function () {
         Route::get('/{id}', [TransactionController::class, 'show'])->middleware('permission:list,transactions');
-        Route::match(['put', 'post'], '/{id}', [TransactionController::class, 'update'])->middleware('permission:edit,transactions');
-        Route::delete('/{id}', [TransactionController::class, 'destroy'])->middleware('permission:delete,transactions');
+        Route::match(['put', 'post'], '/{id}', [TransactionController::class, 'update'])->middleware('permission:edit,cashbook_entries');
+        Route::delete('/{id}', [TransactionController::class, 'destroy'])->middleware('permission:delete,cashbook_entries');
     });
 });

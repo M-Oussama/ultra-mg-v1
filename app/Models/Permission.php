@@ -130,6 +130,13 @@ class Permission extends Model
         const EDIT_TRANSACTION = ['ACTION' => 'edit', 'SUBJECT' => 'transactions'];
         const DELETE_TRANSACTION = ['ACTION' => 'delete', 'SUBJECT' => 'transactions'];
 
+    // granular cashbook entry permissions
+        const CASH_IN_ENTRY = ['ACTION' => 'cash_in', 'SUBJECT' => 'cashbook_entries'];
+        const CASH_OUT_ENTRY = ['ACTION' => 'cash_out', 'SUBJECT' => 'cashbook_entries'];
+        const EDIT_CASH_ENTRY = ['ACTION' => 'edit', 'SUBJECT' => 'cashbook_entries'];
+        const DELETE_CASH_ENTRY = ['ACTION' => 'delete', 'SUBJECT' => 'cashbook_entries'];
+        const EXPORT_CASH_ENTRY = ['ACTION' => 'export', 'SUBJECT' => 'cashbook_entries'];
+
     //dashboard
         const ADMIN_DASHBOARD = ['ACTION' => 'admin', 'SUBJECT' => 'dashboard'];
 
@@ -192,6 +199,7 @@ class Permission extends Model
         self::ADD_CASHBOOK, self::LIST_CASHBOOK, self::EDIT_CASHBOOK, self::DELETE_CASHBOOK, self::VIEW_CASHBOOK, self::DOWNLOAD_CASHBOOK, self::SYNC_CASHBOOK,
         self::ADD_CASHBOOK_SETTING, self::LIST_CASHBOOK_SETTING, self::EDIT_CASHBOOK_SETTING, self::DELETE_CASHBOOK_SETTING,
         self::ADD_TRANSACTION, self::LIST_TRANSACTION, self::EDIT_TRANSACTION, self::DELETE_TRANSACTION,
+        self::CASH_IN_ENTRY, self::CASH_OUT_ENTRY, self::EDIT_CASH_ENTRY, self::DELETE_CASH_ENTRY, self::EXPORT_CASH_ENTRY,
         self::LIST_LOGISTIC, self::ADD_LOGISTIC, self::EDIT_LOGISTIC, self::DELETE_LOGISTIC, self::PREVIEW_LOGISTIC, self::DOWNLOAD_LOGISTIC,
         self::LIST_IMPORTATION, self::LIST_REPORT, self::LIST_SETTING, self::ADMIN_SECURITY,
         self::LIST_DEPARTMENT, self::ADD_DEPARTMENT, self::EDIT_DEPARTMENT, self::DELETE_DEPARTMENT,
@@ -220,6 +228,7 @@ class Permission extends Model
         self::ADD_CASHBOOK, self::LIST_CASHBOOK, self::EDIT_CASHBOOK, self::DELETE_CASHBOOK, self::VIEW_CASHBOOK, self::DOWNLOAD_CASHBOOK, self::SYNC_CASHBOOK,
         self::ADD_CASHBOOK_SETTING, self::LIST_CASHBOOK_SETTING, self::EDIT_CASHBOOK_SETTING, self::DELETE_CASHBOOK_SETTING,
         self::ADD_TRANSACTION, self::LIST_TRANSACTION, self::EDIT_TRANSACTION, self::DELETE_TRANSACTION,
+        self::CASH_IN_ENTRY, self::CASH_OUT_ENTRY, self::EDIT_CASH_ENTRY, self::DELETE_CASH_ENTRY, self::EXPORT_CASH_ENTRY,
         self::LIST_LOGISTIC, self::ADD_LOGISTIC, self::EDIT_LOGISTIC, self::DELETE_LOGISTIC, self::PREVIEW_LOGISTIC, self::DOWNLOAD_LOGISTIC,
         self::LIST_IMPORTATION, self::LIST_REPORT, self::LIST_SETTING, self::ADMIN_SECURITY,
         self::LIST_DEPARTMENT, self::ADD_DEPARTMENT, self::EDIT_DEPARTMENT, self::DELETE_DEPARTMENT,

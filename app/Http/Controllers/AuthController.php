@@ -11,6 +11,20 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function me(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        $user->load('role.permissions', 'permissions', 'organization');
+
+        return response()->json([
+            'userData' => $user,
+            'userAbilities' => $user->effectivePermissions(),
+        ]);
+    }
+
     public function Login(Request $request) {
         $request->validate([
             'email' => 'required|email',
@@ -21,7 +35,7 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $user = Auth::user();
-            $user->load('role.permissions', 'organization');
+            $user->load('role.permissions', 'permissions', 'organization');
 
             // Standard Sanctum token creation.
             // Some production databases still have the legacy NOT NULL tokenable column,
@@ -42,7 +56,7 @@ class AuthController extends Controller
                 'business_id' => $user->organization_id ?? 1,
                 'business_name' => $user->organization?->name ?? 'Business',
                 'userData' => $user,
-                'userAbilities' => $user->role ? $user->role->permissions : []
+                'userAbilities' => $user->effectivePermissions()
             ]);
         }
 

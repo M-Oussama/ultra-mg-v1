@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cashbook;
+use App\Models\AuditLog;
 use App\Models\Transaction;
 use App\Services\CashbookImportService;
 use App\Services\CashbookNotificationService;
@@ -100,7 +101,9 @@ class CashbookController extends Controller
         ]);
 
         $cashbook = $this->findCashbookOrFail($request, $id);
+        $oldValues = $cashbook->toArray();
         $cashbook->update($validated);
+        AuditLog::record('updated', $cashbook, $oldValues, $cashbook->fresh()->toArray());
         $updatedCashbook = $this->cashbookService->cashbooksWithAggregatesForUser($request->user())
             ->where('id', $cashbook->id)
             ->first();
@@ -116,8 +119,10 @@ class CashbookController extends Controller
     public function destroy(Request $request, $id)
     {
         $cashbook = $this->findCashbookOrFail($request, $id);
+        $oldValues = $cashbook->toArray();
         $this->notificationService->notifyCashbookDeleted($cashbook, $request->user());
         $cashbook->delete();
+        AuditLog::record('deleted', $cashbook, $oldValues, null);
 
         return response()->json(['message' => 'Cashbook deleted successfully']);
     }

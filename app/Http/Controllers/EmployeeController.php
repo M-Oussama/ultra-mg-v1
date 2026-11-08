@@ -31,19 +31,11 @@ class EmployeeController extends Controller
         // Hierarchical Data Isolation
         $user = auth()->user();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
-                $deptIds = $user->departments->pluck('id')->toArray();
-                $query->whereHas('user', function($q) use ($deptIds) {
-                    $q->whereHas('departments', function($sq) use ($deptIds) {
-                        $sq->whereIn('departments.id', $deptIds);
-                    });
-                });
-            } else {
-                $query->where('user_id', $user->id);
-            }
+            $query->whereIn('department_id', $user->assignedDepartmentIds());
         }
 
         $employees = $query->with([
+            'department',
             'employeeCareer' => function ($careerQuery) {
                 $careerQuery->orderByDesc('start_date')->orderByDesc('id');
             },
@@ -70,34 +62,58 @@ class EmployeeController extends Controller
     }
     public function getEmployee($Id): JsonResponse
     {
-       $employee = Employee::find($Id);
+       $employee = Employee::with('department')->findOrFail($Id);
+       $this->authorizeEmployeeDepartment($employee);
 
         return response()->json(["employee" => $employee]);
     }
 
     public function store(Request $request) {
-        $employee_data = $request->input('employee');
+        $validated = $request->validate([
+            'employee' => 'required|array',
+            'employee.department_id' => 'required|integer|exists:departments,id',
+        ]);
+        $employee_data = array_merge($request->input('employee'), $validated['employee']);
+        $this->authorizeDepartment((int) $employee_data['department_id']);
         $employee_data['user_id'] = auth()->id();
         $employee = Employee::create($employee_data);
 
-        return response()->json(['message' => 'Employee created successfully', 'employee' => $employee]);
+        return response()->json(['message' => 'Employee created successfully', 'employee' => $employee->load('department')]);
     }
 
     public function update(Request $request,$id) {
 
-        $employee_data = $request->input('employee');
-        $employee = Employee::find($id);
+        $validated = $request->validate([
+            'employee' => 'required|array',
+            'employee.department_id' => 'required|integer|exists:departments,id',
+        ]);
+        $employee_data = array_merge($request->input('employee'), $validated['employee']);
+        $employee = Employee::findOrFail($id);
+        $this->authorizeEmployeeDepartment($employee);
+        $this->authorizeDepartment((int) $employee_data['department_id']);
         $employee->update($employee_data);
 
         // Optionally, you can return a response, redirect the user, or perform any other actions here
-        return response()->json(['message' => 'Employee updated successfully', 'employee' => $employee]);
+        return response()->json(['message' => 'Employee updated successfully', 'employee' => $employee->load('department')]);
     }
 
     public function destroy(Request $request ,$id){
-        $employee = Employee::find($id);
+        $employee = Employee::findOrFail($id);
+        $this->authorizeEmployeeDepartment($employee);
         $employee->delete();
         return response()->json(['message' => 'Employee deleted successfully']);
 
+    }
+
+    private function authorizeEmployeeDepartment(Employee $employee): void
+    {
+        $this->authorizeDepartment($employee->department_id ? (int) $employee->department_id : null);
+    }
+
+    private function authorizeDepartment(?int $departmentId): void
+    {
+        $user = auth()->user();
+        abort_unless($user && $user->canAccessDepartment($departmentId), 403, 'This department is not assigned to your account.');
     }
 
     public function getCities(){

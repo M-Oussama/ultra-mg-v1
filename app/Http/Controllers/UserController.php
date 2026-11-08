@@ -6,6 +6,7 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use OpenApi\Attributes as OA;
 
 class UserController extends Controller
@@ -44,7 +45,7 @@ class UserController extends Controller
         $perPage = $request->input('perPage', 10); // Default per page value is 10 if not provided
         $currentPage = $request->input('currentPage', 1); // Default current page value is 1 if not provided
 
-        $users = User::when($searchValue, function ($queryBuilder) use ($searchValue) {
+        $users = User::with('permissions')->when($searchValue, function ($queryBuilder) use ($searchValue) {
             // Search for users with matching name or email
             $queryBuilder->where('name', 'LIKE', '%' . $searchValue . '%')
                 ->orWhere('email', 'LIKE', '%' . $searchValue . '%');
@@ -88,23 +89,36 @@ class UserController extends Controller
             'name' => 'string|max:255',
             'email' => 'email|unique:users,email',
             'password' => 'string',
-            'role_id' => 'integer'
+            'role_id' => 'required|integer|exists:roles,id',
+            'permissions' => 'sometimes|array',
+            'permissions.*.id' => 'required|integer|exists:permissions,id',
+            'department_ids' => 'sometimes|array',
+            'department_ids.*' => 'integer|distinct|exists:departments,id',
         ]);
 
         // Create a new user record in the database using User::create()
-        $user = User::create([
-            'name' => $validatedData['name'],
-            'email' => $validatedData['email'],
-            'password' => bcrypt($validatedData['password']),
-            'role_id' => $validatedData['role_id']
-        ]);
+        $user = DB::transaction(function () use ($validatedData, $request) {
+            $user = User::create([
+                'name' => $validatedData['name'],
+                'email' => $validatedData['email'],
+                'password' => bcrypt($validatedData['password']),
+                'role_id' => $validatedData['role_id']
+            ]);
 
-        if ($request->has('department_ids')) {
-            $user->departments()->sync($request->input('department_ids'));
-        }
+            if ($request->has('department_ids')) {
+                $user->departments()->sync($request->input('department_ids'));
+            }
+
+            $user->permissions()->sync(collect($validatedData['permissions'] ?? [])->pluck('id'));
+
+            return $user;
+        });
 
         // Optionally, you can return a response, redirect the user, or perform any other actions here
-        return response()->json(['message' => 'User created successfully', 'user' => $user]);
+        return response()->json([
+            'message' => 'User created successfully',
+            'user' => $user->load('role', 'permissions', 'departments'),
+        ]);
 
     }
 
@@ -133,7 +147,11 @@ class UserController extends Controller
         $validatedData = $request->validate([
             'name' => 'string|max:255',
             'email' => 'email',
-            'role_id' => 'integer'
+            'role_id' => 'integer|exists:roles,id',
+            'permissions' => 'sometimes|array',
+            'permissions.*.id' => 'required|integer|exists:permissions,id',
+            'department_ids' => 'sometimes|array',
+            'department_ids.*' => 'integer|distinct|exists:departments,id',
         ]);
 
         // Check if the passwordChanged field is present in the request data,and it is true the user want to change password
@@ -146,17 +164,22 @@ class UserController extends Controller
         }
 
 
-        $user = User::find($id);
+        $user = User::findOrFail($id);
 
-        // Create a new user record in the database using User::create()
-        $user->update($validatedData);
+        DB::transaction(function () use ($user, $validatedData, $request) {
+            $user->update(collect($validatedData)->except('permissions')->all());
 
-        if ($request->has('department_ids')) {
-            $user->departments()->sync($request->input('department_ids'));
-        }
+            if ($request->has('department_ids')) {
+                $user->departments()->sync($request->input('department_ids'));
+            }
+
+            if (array_key_exists('permissions', $validatedData)) {
+                $user->permissions()->sync(collect($validatedData['permissions'])->pluck('id'));
+            }
+        });
 
         // Optionally, you can return a response, redirect the user, or perform any other actions here
-        return response()->json(['message' => 'User updated successfully', 'user' => $user->load('departments')]);
+        return response()->json(['message' => 'User updated successfully', 'user' => $user->load('role', 'permissions', 'departments')]);
 
     }
 

@@ -60,7 +60,7 @@ class ImportationInvoiceController extends Controller
         // Hierarchical Data Isolation
         $user = Auth::user();
         if ($user && !$user->isGlobalAdmin()) {
-            if ($user->isDepartmentManager()) {
+            if ($user->hasAssignedDepartments()) {
                 // Managers see invoices from all users in their assigned departments
                 // Note: This assumes we link invoices to departments or via users.
                 // Since ImportationInvoice doesn't have department_id yet, we filter by the user's department.

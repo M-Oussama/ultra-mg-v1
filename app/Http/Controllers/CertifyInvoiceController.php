@@ -992,7 +992,7 @@ class CertifyInvoiceController extends BundleUploadController
             return $query;
         }
 
-        if ($user->isDepartmentManager()) {
+        if ($user->hasAssignedDepartments()) {
             $deptIds = $user->departments->pluck('id')->toArray();
             return $query->whereHas('client', function ($clientQuery) use ($deptIds) {
                 $clientQuery->whereIn('department_id', $deptIds);
