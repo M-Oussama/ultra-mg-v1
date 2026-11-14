@@ -10,7 +10,8 @@ return new class extends Migration
     {
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            // Audit records must also support legacy users.id definitions.
+            $table->foreignId('user_id')->nullable();
             $table->string('action'); // 'create', 'update', 'delete'
             $table->string('auditable_type'); // e.g. 'App\Models\Sale'
             $table->unsignedBigInteger('auditable_id')->nullable();

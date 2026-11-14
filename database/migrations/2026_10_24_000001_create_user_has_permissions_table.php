@@ -10,7 +10,9 @@ return new class extends Migration
     {
         Schema::create('user_has_permissions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            // Keep this unconstrained for deployments whose legacy users.id
+            // type or storage engine differs from Laravel's foreignId().
+            $table->foreignId('user_id');
             $table->foreignId('permission_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
             $table->unique(['user_id', 'permission_id']);
