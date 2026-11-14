@@ -35,11 +35,13 @@ class ImportParentInvoiceLine extends Model
         'unit',
         'quantity',
         'commercial_unit_price',
+        'customs_percentage_snapshot',
     ];
 
     protected $casts = [
         'quantity' => 'decimal:3',
         'commercial_unit_price' => 'decimal:4',
+        'customs_percentage_snapshot' => 'decimal:4',
     ];
 
     public function parentInvoice()

@@ -30,6 +30,7 @@ class StoreImportParentInvoiceRequest extends FormRequest
             'lines.*.unit' => ['nullable', 'string', 'max:30'],
             'lines.*.quantity' => ['required', 'regex:/^\d{1,15}(\.\d{1,3})?$/', 'not_in:0,0.0,0.00,0.000'],
             'lines.*.commercial_unit_price' => ['required', 'regex:/^\d{1,14}(\.\d{1,4})?$/'],
+            'lines.*.customs_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
     }
 }

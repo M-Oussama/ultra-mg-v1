@@ -18,6 +18,8 @@ class StoreImportPartialInvoiceRequest extends FormRequest
             'number' => ['required', 'string', 'max:80'],
             'container_allocation_count' => [$allocationRequired, 'integer', 'min:1'],
             'freight_amount' => ['nullable', 'regex:/^\d{1,14}(\.\d{1,4})?$/'],
+            'agent_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'bank_exchange_rate_dzd' => ['nullable', 'numeric', 'gt:0'],
             'container_ids' => ['nullable', 'array'],
             'container_ids.*' => ['integer', 'exists:import_containers,id'],
             'idempotency_key' => ['nullable', 'string', 'max:100'],

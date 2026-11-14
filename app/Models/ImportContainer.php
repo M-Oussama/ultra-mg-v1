@@ -10,9 +10,11 @@ class ImportContainer extends Model
 
     protected $fillable = [
         'real_freight_amount',
+        'transitaire_fee_dzd',
     ];
 
     protected $casts = [
         'real_freight_amount' => 'decimal:4',
+        'transitaire_fee_dzd' => 'decimal:4',
     ];
 }

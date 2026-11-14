@@ -27,6 +27,8 @@ class ImportPartialInvoice extends Model
         'number',
         'container_allocation_count',
         'freight_amount',
+        'agent_percentage',
+        'bank_exchange_rate_dzd',
         'real_invoice_number',
         'real_invoice_date',
         'loaded_at',
@@ -38,6 +40,8 @@ class ImportPartialInvoice extends Model
     protected $casts = [
         'container_allocation_count' => 'integer',
         'freight_amount' => 'decimal:4',
+        'agent_percentage' => 'decimal:4',
+        'bank_exchange_rate_dzd' => 'decimal:4',
         'real_invoice_date' => 'date',
         'loaded_at' => 'datetime',
         'revision' => 'integer',

@@ -93,6 +93,8 @@ class ImportAllocationService
                 'number' => $data['number'],
                 'container_allocation_count' => $data['container_allocation_count'],
                 'freight_amount' => $data['freight_amount'] ?? '0',
+                'agent_percentage' => $data['agent_percentage'] ?? '0',
+                'bank_exchange_rate_dzd' => $data['bank_exchange_rate_dzd'] ?? null,
                 'status' => 'draft',
                 'revision' => 1,
                 'idempotency_key' => $data['idempotency_key'] ?? null,
@@ -141,6 +143,7 @@ class ImportAllocationService
                 'allocated_quantity' => $this->fromFixedInt($allocated, 3),
                 'remaining_quantity' => $this->fromFixedInt($quantity - $allocated, 3),
                 'commercial_unit_price' => (string) $line->commercial_unit_price,
+                'customs_percentage' => (string) $line->customs_percentage_snapshot,
             ];
         })->values()->all();
 
@@ -150,12 +153,37 @@ class ImportAllocationService
         $partials = $parent->partialInvoices->map(function ($partial) {
             $qty = (float) $partial->lines->sum('quantity');
             $amount = (float) $partial->lines->sum(fn ($l) => (float) $l->quantity * (float) $l->commercial_unit_price_snapshot);
+            $rate = (float) ($partial->bank_exchange_rate_dzd ?? 0);
+            $realGoods = $partial->realTotals()['goods'] ?? 0;
+            $agentAmount = $realGoods * (float) $partial->agent_percentage / 100;
+            $customsForeign = (float) $partial->lines->sum(function ($line) {
+                $quantity = $line->real_quantity ?? $line->quantity;
+                $unitPrice = $line->real_unit_price ?? $line->commercial_unit_price_snapshot;
+                $percentage = $line->parentLine?->customs_percentage_snapshot ?? 0;
+
+                return (float) $quantity * (float) $unitPrice * (float) $percentage / 100;
+            });
+            $transitaireDzd = (float) $partial->containers->sum('transitaire_fee_dzd');
+            $bankDzd = $amount * $rate;
+            $customsDzd = $customsForeign * $rate;
+            $agentDzd = $agentAmount * $rate;
 
             return [
                 'id' => $partial->id,
                 'number' => $partial->number,
                 'container_allocation_count' => (int) $partial->container_allocation_count,
                 'freight_amount' => (string) $partial->freight_amount,
+                'agent_percentage' => (string) $partial->agent_percentage,
+                'bank_exchange_rate_dzd' => $partial->bank_exchange_rate_dzd === null ? null : (string) $partial->bank_exchange_rate_dzd,
+                'settlement' => [
+                    'agent_amount' => round($agentAmount, 4),
+                    'agent_amount_dzd' => round($agentDzd, 2),
+                    'bank_amount_dzd' => round($bankDzd, 2),
+                    'customs_amount' => round($customsForeign, 4),
+                    'customs_amount_dzd' => round($customsDzd, 2),
+                    'transitaire_amount_dzd' => round($transitaireDzd, 2),
+                    'total_required_dzd' => round($agentDzd + $bankDzd + $customsDzd + $transitaireDzd, 2),
+                ],
                 'real_invoice_number' => $partial->real_invoice_number,
                 'real_invoice_date' => $partial->real_invoice_date?->toDateString(),
                 'loaded_at' => $partial->loaded_at?->toISOString(),
@@ -167,6 +195,7 @@ class ImportAllocationService
                     'container_number' => $container->container_number,
                     'freight_amount' => $container->freight_amount,
                     'real_freight_amount' => $container->real_freight_amount,
+                    'transitaire_fee_dzd' => $container->transitaire_fee_dzd,
                 ])->values()->all(),
                 'status' => $partial->status,
                 'revision' => (int) $partial->revision,
@@ -180,6 +209,7 @@ class ImportAllocationService
                     'commercial_unit_price_snapshot' => (string) $line->commercial_unit_price_snapshot,
                     'real_quantity' => $line->real_quantity,
                     'real_unit_price' => $line->real_unit_price,
+                    'customs_percentage' => $line->parentLine?->customs_percentage_snapshot,
                 ])->values()->all(),
                 'total_quantity' => $qty,
                 'total_amount' => $amount,

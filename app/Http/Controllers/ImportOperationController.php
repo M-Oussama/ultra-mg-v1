@@ -318,6 +318,7 @@ class ImportOperationController extends Controller
             'booking_reference' => ['nullable', 'string', 'max:100'],
             'freight_amount' => ['nullable', 'numeric', 'min:0'],
             'real_freight_amount' => ['nullable', 'numeric', 'min:0'],
+            'transitaire_fee_dzd' => ['nullable', 'numeric', 'min:0'],
             'container_size' => ['nullable', 'string', 'max:30'],
             'status' => ['required', 'string', 'max:30'],
         ]);
@@ -326,6 +327,7 @@ class ImportOperationController extends Controller
         $parentId = $data['parent_id'] ?? null;
         $partialId = $data['partial_id'] ?? null;
         $freightAmount = $data['freight_amount'] ?? '0';
+        $transitaireFee = $data['transitaire_fee_dzd'] ?? '0';
         $size = $data['container_size'] ?? null;
         $baseNumber = trim((string) ($data['container_number'] ?? ''));
         $booking = $data['booking_reference'] ?? null;
@@ -334,7 +336,7 @@ class ImportOperationController extends Controller
 
         $createdIds = [];
         DB::transaction(function () use (
-            $id, $count, $parentId, $partialId, $freightAmount, $size,
+            $id, $count, $parentId, $partialId, $freightAmount, $transitaireFee, $size,
             $baseNumber, $booking, $seal, $status, &$createdIds
         ) {
             for ($i = 0; $i < $count; $i++) {
@@ -352,6 +354,7 @@ class ImportOperationController extends Controller
                     'seal_number' => $seal,
                     'booking_reference' => $booking,
                     'freight_amount' => $freightAmount,
+                    'transitaire_fee_dzd' => $transitaireFee,
                     'container_size' => $size,
                     'status' => $status,
                     'created_at' => now(),
@@ -382,6 +385,8 @@ class ImportOperationController extends Controller
             'seal_number' => ['nullable', 'string', 'max:80'],
             'booking_reference' => ['nullable', 'string', 'max:100'],
             'freight_amount' => ['nullable', 'numeric', 'min:0'],
+            'real_freight_amount' => ['nullable', 'numeric', 'min:0'],
+            'transitaire_fee_dzd' => ['nullable', 'numeric', 'min:0'],
             'container_size' => ['nullable', 'string', 'max:30'],
             'status' => ['required', 'string', 'max:30'],
         ]);
@@ -397,6 +402,7 @@ class ImportOperationController extends Controller
             'booking_reference' => $data['booking_reference'] ?? $container->booking_reference,
             'freight_amount' => $data['freight_amount'] ?? $container->freight_amount,
             'real_freight_amount' => $data['real_freight_amount'] ?? $container->real_freight_amount,
+            'transitaire_fee_dzd' => $data['transitaire_fee_dzd'] ?? $container->transitaire_fee_dzd,
             'container_size' => $data['container_size'] ?? $container->container_size,
             'status' => $data['status'] ?? $container->status,
             'updated_at' => now(),
@@ -587,6 +593,7 @@ class ImportOperationController extends Controller
                 'unit' => $line['unit'] ?? 'pcs',
                 'quantity' => $line['quantity'],
                 'commercial_unit_price' => $line['commercial_unit_price'],
+                'customs_percentage_snapshot' => $line['customs_percentage'] ?? 0,
             ])->all());
 
             if (! empty($data['container_ids'])) {
@@ -729,6 +736,7 @@ class ImportOperationController extends Controller
                         'unit' => $incoming['unit'] ?? 'pcs',
                         'quantity' => $incoming['quantity'],
                         'commercial_unit_price' => $incoming['commercial_unit_price'],
+                        'customs_percentage_snapshot' => $incoming['customs_percentage'] ?? 0,
                     ]);
                     $processedLineIds[] = $line->id;
                 } else {
@@ -738,6 +746,7 @@ class ImportOperationController extends Controller
                         'unit' => $incoming['unit'] ?? 'pcs',
                         'quantity' => $incoming['quantity'],
                         'commercial_unit_price' => $incoming['commercial_unit_price'],
+                        'customs_percentage_snapshot' => $incoming['customs_percentage'] ?? 0,
                     ]);
                     $processedLineIds[] = $newLine->id;
                 }
@@ -851,6 +860,8 @@ class ImportOperationController extends Controller
                 $record->update([
                     'number' => $data['number'] ?? $record->number,
                     'freight_amount' => $data['freight_amount'] ?? $record->freight_amount,
+                    'agent_percentage' => $data['agent_percentage'] ?? $record->agent_percentage,
+                    'bank_exchange_rate_dzd' => $data['bank_exchange_rate_dzd'] ?? $record->bank_exchange_rate_dzd,
                     'container_allocation_count' => $data['container_allocation_count'] ?? $record->container_allocation_count,
                     'revision' => $record->revision + 1,
                 ]);
@@ -962,6 +973,8 @@ class ImportOperationController extends Controller
             $record->update([
                 'number' => $data['number'] ?? $record->number,
                 'freight_amount' => $data['freight_amount'] ?? $record->freight_amount,
+                'agent_percentage' => $data['agent_percentage'] ?? $record->agent_percentage,
+                'bank_exchange_rate_dzd' => $data['bank_exchange_rate_dzd'] ?? $record->bank_exchange_rate_dzd,
                 'container_allocation_count' => $containerCount,
                 'revision' => $record->revision + 1,
             ]);

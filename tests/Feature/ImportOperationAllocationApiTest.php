@@ -160,11 +160,13 @@ class ImportOperationAllocationApiTest extends TestCase
                     'description' => 'Glass jars',
                     'quantity' => '500000.000',
                     'commercial_unit_price' => '0.1250',
+                    'customs_percentage' => '5.0000',
                 ],
                 [
                     'description' => 'Jar lids',
                     'quantity' => '200000.000',
                     'commercial_unit_price' => '0.0500',
+                    'customs_percentage' => '10.0000',
                 ],
             ],
         ])->assertCreated()->json('parent_invoice');
@@ -183,12 +185,21 @@ class ImportOperationAllocationApiTest extends TestCase
             'real_unit_price' => '0.1280',
         ]);
         \App\Models\ImportPartialInvoice::whereKey($partial['id'])->update(['loaded_at' => now()]);
+        \Illuminate\Support\Facades\DB::table('import_containers')->insert([
+            'import_operation_id' => $operationId,
+            'import_parent_invoice_id' => $parent['id'],
+            'import_partial_invoice_id' => $partial['id'],
+            'status' => 'planned',
+            'transitaire_fee_dzd' => '100000.0000',
+        ]);
 
         $this->postJson(
             "/api/importations/{$operationId}/parent-invoices/{$parent['id']}/partials/{$partial['id']}",
             [
                 'number' => 'A1',
                 'container_allocation_count' => 1,
+                'agent_percentage' => '10.0000',
+                'bank_exchange_rate_dzd' => '140.0000',
                 'lines' => [
                     ['parent_line_id' => $parent['lines'][0]['id'], 'quantity' => '280000.000'],
                     ['parent_line_id' => $parent['lines'][1]['id'], 'quantity' => '50000.000'],
@@ -202,6 +213,17 @@ class ImportOperationAllocationApiTest extends TestCase
             ->assertJsonPath('partial_invoice.lines.0.real_unit_price', '0.1280')
             ->assertJsonPath('partial_invoice.lines.1.import_parent_invoice_line_id', $parent['lines'][1]['id'])
             ->assertJsonPath('partial_invoice.lines.1.quantity', '50000.000');
+
+        $this->getJson("/api/importations/{$operationId}/overview")
+            ->assertOk()
+            ->assertJsonPath('balances.0.partials.0.agent_percentage', '10.0000')
+            ->assertJsonPath('balances.0.partials.0.bank_exchange_rate_dzd', '140.0000')
+            ->assertJsonPath('balances.0.partials.0.settlement.agent_amount', 3680.768)
+            ->assertJsonPath('balances.0.partials.0.settlement.agent_amount_dzd', 515307.52)
+            ->assertJsonPath('balances.0.partials.0.settlement.bank_amount_dzd', 5250000)
+            ->assertJsonPath('balances.0.partials.0.settlement.customs_amount_dzd', 292653.76)
+            ->assertJsonPath('balances.0.partials.0.settlement.transitaire_amount_dzd', 100000)
+            ->assertJsonPath('balances.0.partials.0.settlement.total_required_dzd', 6157961.28);
     }
 
     private function createPartial(
