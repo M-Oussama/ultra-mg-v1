@@ -27,15 +27,24 @@ class ImportOperationAllocationApiTest extends TestCase
             'currency' => 'USD',
             'planned_container_count' => 5,
             'freight_per_container' => '1000.0000',
-            'lines' => [[
-                'description' => 'Packaging cups',
-                'unit' => 'pcs',
-                'quantity' => '2000000.000',
-                'commercial_unit_price' => '0.1250',
-            ]],
+            'lines' => [
+                [
+                    'description' => 'Packaging cups',
+                    'unit' => 'pcs',
+                    'quantity' => '2000000.000',
+                    'commercial_unit_price' => '0.1250',
+                ],
+                [
+                    'description' => 'Packaging lids',
+                    'unit' => 'pcs',
+                    'quantity' => '500000.000',
+                    'commercial_unit_price' => '0.0500',
+                ],
+            ],
         ])->assertCreated()->json('parent_invoice');
 
         $lineId = $parent['lines'][0]['id'];
+        $secondLineId = $parent['lines'][1]['id'];
         $this->createPartial($operation['id'], $parent['id'], 'A1', 'allocation-a1', $lineId, '400000.000');
         $this->createPartial($operation['id'], $parent['id'], 'A2', 'allocation-a2', $lineId, '350000.000');
 
@@ -72,6 +81,20 @@ class ImportOperationAllocationApiTest extends TestCase
             ->assertJsonPath('partial_invoice.id', $partialId)
             ->assertJsonPath('partial_invoice.lines.0.id', $allocationId)
             ->assertJsonPath('balances.partials.0.lines.0.quantity', '400000.000');
+        $this->assertDatabaseHas('import_containers', ['id' => $containerId, 'import_partial_invoice_id' => $partialId]);
+        $this->assertDatabaseHas('import_costs', ['id' => $costId, 'import_partial_invoice_id' => $partialId]);
+
+        $this->postJson("/api/importations/{$operation['id']}/parent-invoices/{$parent['id']}/partials/{$partialId}", [
+            'number' => 'A1 revised',
+            'lines' => [
+                ['parent_line_id' => $lineId, 'quantity' => '400000.000'],
+                ['parent_line_id' => $secondLineId, 'quantity' => '100000.000'],
+            ],
+        ])->assertOk()
+            ->assertJsonPath('partial_invoice.id', $partialId)
+            ->assertJsonPath('partial_invoice.lines.0.id', $allocationId)
+            ->assertJsonPath('partial_invoice.lines.1.import_parent_invoice_line_id', $secondLineId)
+            ->assertJsonPath('balances.partials.0.lines.1.quantity', '100000.000');
         $this->assertDatabaseHas('import_containers', ['id' => $containerId, 'import_partial_invoice_id' => $partialId]);
         $this->assertDatabaseHas('import_costs', ['id' => $costId, 'import_partial_invoice_id' => $partialId]);
     }

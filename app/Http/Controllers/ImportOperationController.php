@@ -888,54 +888,134 @@ class ImportOperationController extends Controller
             });
             return response()->json(['partial_invoice' => $updated, 'balances' => $allocations->balances($parent)]);
         }
-        $hasReferences = DB::table('import_costs')->where('import_partial_invoice_id', $partialId)->exists()
-            || DB::table('import_documents')->where('import_partial_invoice_id', $partialId)->exists()
-            || DB::table('import_operation_payments')->where('import_partial_invoice_id', $partialId)->exists();
-        if ($hasReferences) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'invoice' => ['This partial invoice is already referenced by operation records and cannot be replaced.'],
-            ]);
-        }
-        $before = $partial->load('lines')->toArray();
-        $data += [
-            'container_allocation_count' => $partial->container_allocation_count,
-            'freight_amount' => $partial->freight_amount,
-            'lines' => $partial->lines->map(fn ($line) => [
-                'parent_line_id' => $line->import_parent_invoice_line_id,
-                'quantity' => (string) $line->quantity,
-            ])->all(),
-        ];
-        $replacement = DB::transaction(function () use ($partial, $parent, $data, $allocations, $incomingContainerIds) {
-            DB::table('import_containers')
-                ->where('import_partial_invoice_id', $partial->id)
-                ->update(['import_partial_invoice_id' => null]);
-            $partial->lines()->delete();
-            $partial->forceDelete();
+        $updated = DB::transaction(function () use ($parent, $partialId, $data, $incomingContainerIds) {
+            $lockedParent = $parent->newQuery()->whereKey($parent->id)->lockForUpdate()->firstOrFail();
+            $record = $lockedParent->partialInvoices()->whereKey($partialId)->lockForUpdate()->firstOrFail();
+            $before = $record->load('lines')->toArray();
+            $requestedLines = collect($data['lines']);
+            $requestedLineIds = $requestedLines->pluck('parent_line_id')->map(fn ($id) => (int) $id)->all();
+            $parentLines = $lockedParent->lines()
+                ->whereIn('id', $requestedLineIds)
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
 
-            $created = $allocations->createPartial($parent, $data);
-            if (!empty($incomingContainerIds)) {
-                DB::table('import_containers')
-                    ->whereIn('id', $incomingContainerIds)
-                    ->where('import_operation_id', $parent->import_operation_id)
-                    ->update([
-                        'import_parent_invoice_id' => $parent->id,
-                        'import_partial_invoice_id' => $created->id,
-                        'updated_at' => now(),
-                    ]);
+            if ($parentLines->count() !== count($requestedLineIds)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'lines' => ['Every allocation must reference a line from this parent invoice.'],
+                ]);
             }
-            return $created;
-        });
-        ImportAuditEvent::create([
-            'entity_type' => \App\Models\ImportPartialInvoice::class,
-            'entity_id' => $replacement->id,
-            'action' => 'updated',
-            'actor_id' => Auth::id(),
-            'before_json' => $before,
-            'after_json' => $replacement->toArray(),
-            'occurred_at' => now(),
-        ]);
 
-        return response()->json(['partial_invoice' => $replacement, 'balances' => $allocations->balances($parent)]);
+            $toMilli = static function ($value): int {
+                [$whole, $fraction] = array_pad(explode('.', trim((string) $value), 2), 2, '');
+                $fraction = substr(str_pad($fraction, 3, '0'), 0, 3);
+
+                return ((int) $whole * 1000) + (int) $fraction;
+            };
+            $allocatedByOthers = DB::table('import_partial_invoice_lines as allocation')
+                ->join('import_partial_invoices as other_partial', 'other_partial.id', '=', 'allocation.import_partial_invoice_id')
+                ->where('other_partial.import_parent_invoice_id', $lockedParent->id)
+                ->where('other_partial.id', '!=', $record->id)
+                ->whereNull('other_partial.deleted_at')
+                ->where('other_partial.status', '!=', 'cancelled')
+                ->whereIn('allocation.import_parent_invoice_line_id', $requestedLineIds)
+                ->groupBy('allocation.import_parent_invoice_line_id')
+                ->select([
+                    'allocation.import_parent_invoice_line_id',
+                    DB::raw('SUM(allocation.quantity) as total_allocated'),
+                ])
+                ->get()
+                ->keyBy('import_parent_invoice_line_id');
+            $errors = [];
+            foreach ($requestedLines as $index => $requested) {
+                $lineId = (int) $requested['parent_line_id'];
+                $parentLine = $parentLines[$lineId];
+                $allocatedMilli = isset($allocatedByOthers[$lineId])
+                    ? $toMilli($allocatedByOthers[$lineId]->total_allocated)
+                    : 0;
+                $remainingMilli = $toMilli($parentLine->quantity) - $allocatedMilli;
+                $requestedMilli = $toMilli($requested['quantity']);
+                if ($requestedMilli > $remainingMilli) {
+                    $errors["lines.$index.quantity"] = [
+                        "Requested {$requested['quantity']} exceeds the quantity available on the parent invoice.",
+                    ];
+                }
+            }
+            if ($errors) {
+                throw \Illuminate\Validation\ValidationException::withMessages($errors);
+            }
+
+            $containerCount = (int) ($data['container_allocation_count'] ?? $record->container_allocation_count);
+            $allocatedContainersByOthers = (int) $lockedParent->partialInvoices()
+                ->where('id', '!=', $record->id)
+                ->where('status', '!=', 'cancelled')
+                ->sum('container_allocation_count');
+            $availableContainers = (int) $lockedParent->planned_container_count - $allocatedContainersByOthers;
+            if ($containerCount > $availableContainers) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'container_allocation_count' => [
+                        "Requested {$containerCount} containers exceeds the available {$availableContainers}.",
+                    ],
+                ]);
+            }
+
+            $record->update([
+                'number' => $data['number'] ?? $record->number,
+                'freight_amount' => $data['freight_amount'] ?? $record->freight_amount,
+                'container_allocation_count' => $containerCount,
+                'revision' => $record->revision + 1,
+            ]);
+
+            $existingAllocations = $record->lines()->lockForUpdate()->get()
+                ->keyBy('import_parent_invoice_line_id');
+            foreach ($requestedLines as $requested) {
+                $lineId = (int) $requested['parent_line_id'];
+                $allocation = $existingAllocations->get($lineId);
+                if ($allocation) {
+                    $allocation->update(['quantity' => $requested['quantity']]);
+                } else {
+                    $record->lines()->create([
+                        'import_parent_invoice_line_id' => $lineId,
+                        'quantity' => $requested['quantity'],
+                        'commercial_unit_price_snapshot' => $parentLines[$lineId]->commercial_unit_price,
+                    ]);
+                }
+            }
+            $record->lines()
+                ->whereNotIn('import_parent_invoice_line_id', $requestedLineIds)
+                ->delete();
+
+            if (array_key_exists('container_ids', $data)) {
+                DB::table('import_containers')
+                    ->where('import_partial_invoice_id', $record->id)
+                    ->whereNotIn('id', $incomingContainerIds)
+                    ->update(['import_partial_invoice_id' => null, 'updated_at' => now()]);
+                if (! empty($incomingContainerIds)) {
+                    DB::table('import_containers')
+                        ->whereIn('id', $incomingContainerIds)
+                        ->where('import_operation_id', $lockedParent->import_operation_id)
+                        ->update([
+                            'import_parent_invoice_id' => $lockedParent->id,
+                            'import_partial_invoice_id' => $record->id,
+                            'updated_at' => now(),
+                        ]);
+                }
+            }
+
+            ImportAuditEvent::create([
+                'entity_type' => \App\Models\ImportPartialInvoice::class,
+                'entity_id' => $record->id,
+                'action' => 'updated',
+                'actor_id' => Auth::id(),
+                'before_json' => $before,
+                'after_json' => $record->fresh('lines')->toArray(),
+                'occurred_at' => now(),
+            ]);
+
+            return $record->fresh('lines.parentLine');
+        });
+
+        return response()->json(['partial_invoice' => $updated, 'balances' => $allocations->balances($parent)]);
     }
 
     public function destroyPartial(int $id, int $parentId, int $partialId)
