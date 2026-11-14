@@ -142,6 +142,68 @@ class ImportOperationAllocationApiTest extends TestCase
         $this->assertDatabaseCount('import_partial_invoice_lines', 1);
     }
 
+    public function test_loaded_partial_keeps_real_values_when_planned_quantity_is_reduced_and_a_product_is_added(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['email' => 'admin@gmail.com']));
+
+        $operationId = $this->postJson('/api/importations', [
+            'reference' => 'IMP-2026-003',
+            'currency' => 'USD',
+        ])->assertCreated()->json('operation.id');
+
+        $parent = $this->postJson("/api/importations/{$operationId}/parent-invoices", [
+            'number' => 'A',
+            'currency' => 'USD',
+            'planned_container_count' => 2,
+            'lines' => [
+                [
+                    'description' => 'Glass jars',
+                    'quantity' => '500000.000',
+                    'commercial_unit_price' => '0.1250',
+                ],
+                [
+                    'description' => 'Jar lids',
+                    'quantity' => '200000.000',
+                    'commercial_unit_price' => '0.0500',
+                ],
+            ],
+        ])->assertCreated()->json('parent_invoice');
+
+        $partial = $this->createPartial(
+            $operationId,
+            $parent['id'],
+            'A1',
+            'loaded-allocation',
+            $parent['lines'][0]['id'],
+            '300000.000'
+        );
+        $allocation = \App\Models\ImportPartialInvoiceLine::findOrFail($partial['lines'][0]['id']);
+        $allocation->update([
+            'real_quantity' => '287560.000',
+            'real_unit_price' => '0.1280',
+        ]);
+        \App\Models\ImportPartialInvoice::whereKey($partial['id'])->update(['loaded_at' => now()]);
+
+        $this->postJson(
+            "/api/importations/{$operationId}/parent-invoices/{$parent['id']}/partials/{$partial['id']}",
+            [
+                'number' => 'A1',
+                'container_allocation_count' => 1,
+                'lines' => [
+                    ['parent_line_id' => $parent['lines'][0]['id'], 'quantity' => '280000.000'],
+                    ['parent_line_id' => $parent['lines'][1]['id'], 'quantity' => '50000.000'],
+                ],
+            ]
+        )->assertOk()
+            ->assertJsonPath('partial_invoice.id', $partial['id'])
+            ->assertJsonPath('partial_invoice.lines.0.id', $allocation->id)
+            ->assertJsonPath('partial_invoice.lines.0.quantity', '280000.000')
+            ->assertJsonPath('partial_invoice.lines.0.real_quantity', '287560.000')
+            ->assertJsonPath('partial_invoice.lines.0.real_unit_price', '0.1280')
+            ->assertJsonPath('partial_invoice.lines.1.import_parent_invoice_line_id', $parent['lines'][1]['id'])
+            ->assertJsonPath('partial_invoice.lines.1.quantity', '50000.000');
+    }
+
     private function createPartial(
         int $operationId,
         int $parentId,

@@ -13,7 +13,7 @@ class ImportPartialInvoiceLine extends Model
     protected static function booted(): void
     {
         static::updating(function (self $line) {
-            if (!$line->isDirty('quantity') && !$line->isDirty('commercial_unit_price_snapshot')) {
+            if (!$line->isDirty('commercial_unit_price_snapshot')) {
                 return;
             }
 
@@ -22,7 +22,7 @@ class ImportPartialInvoiceLine extends Model
                 : $line->partialInvoice()->first();
             if ($partial?->loaded_at !== null) {
                 throw ValidationException::withMessages([
-                    'partial_invoice_line' => 'Partial invoice lines cannot be changed after loading.',
+                    'commercial_unit_price_snapshot' => 'The planned unit price cannot be changed after loading.',
                 ]);
             }
         });
