@@ -200,6 +200,9 @@ class ImportOperationAllocationApiTest extends TestCase
                 'container_allocation_count' => 1,
                 'agent_percentage' => '10.0000',
                 'bank_exchange_rate_dzd' => '140.0000',
+                'transport_amount' => '1000.0000',
+                'transport_customs_percentage' => '5.0000',
+                'transport_exchange_rate_dzd' => '140.0000',
                 'lines' => [
                     ['parent_line_id' => $parent['lines'][0]['id'], 'quantity' => '280000.000'],
                     ['parent_line_id' => $parent['lines'][1]['id'], 'quantity' => '50000.000'],
@@ -223,7 +226,10 @@ class ImportOperationAllocationApiTest extends TestCase
             ->assertJsonPath('balances.0.partials.0.settlement.bank_amount_dzd', 5250000)
             ->assertJsonPath('balances.0.partials.0.settlement.customs_amount_dzd', 292653.76)
             ->assertJsonPath('balances.0.partials.0.settlement.transitaire_amount_dzd', 100000)
-            ->assertJsonPath('balances.0.partials.0.settlement.total_required_dzd', 6157961.28);
+            ->assertJsonPath('balances.0.partials.0.settlement.transport_amount_dzd', 140000)
+            ->assertJsonPath('balances.0.partials.0.settlement.transport_customs_amount_dzd', 7000)
+            ->assertJsonPath('balances.0.partials.0.settlement.transport_total_dzd', 147000)
+            ->assertJsonPath('balances.0.partials.0.settlement.total_required_dzd', 6304961.28);
     }
 
     private function createPartial(

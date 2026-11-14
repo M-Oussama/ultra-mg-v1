@@ -95,6 +95,9 @@ class ImportAllocationService
                 'freight_amount' => $data['freight_amount'] ?? '0',
                 'agent_percentage' => $data['agent_percentage'] ?? '0',
                 'bank_exchange_rate_dzd' => $data['bank_exchange_rate_dzd'] ?? null,
+                'transport_amount' => $data['transport_amount'] ?? '0',
+                'transport_customs_percentage' => $data['transport_customs_percentage'] ?? '0',
+                'transport_exchange_rate_dzd' => $data['transport_exchange_rate_dzd'] ?? null,
                 'status' => 'draft',
                 'revision' => 1,
                 'idempotency_key' => $data['idempotency_key'] ?? null,
@@ -167,6 +170,11 @@ class ImportAllocationService
             $bankDzd = $amount * $rate;
             $customsDzd = $customsForeign * $rate;
             $agentDzd = $agentAmount * $rate;
+            $transportAmount = (float) $partial->transport_amount;
+            $transportRate = (float) ($partial->transport_exchange_rate_dzd ?? 0);
+            $transportDzd = $transportAmount * $transportRate;
+            $transportCustomsDzd = $transportDzd * (float) $partial->transport_customs_percentage / 100;
+            $transportTotalDzd = $transportDzd + $transportCustomsDzd;
 
             return [
                 'id' => $partial->id,
@@ -175,6 +183,9 @@ class ImportAllocationService
                 'freight_amount' => (string) $partial->freight_amount,
                 'agent_percentage' => (string) $partial->agent_percentage,
                 'bank_exchange_rate_dzd' => $partial->bank_exchange_rate_dzd === null ? null : (string) $partial->bank_exchange_rate_dzd,
+                'transport_amount' => (string) $partial->transport_amount,
+                'transport_customs_percentage' => (string) $partial->transport_customs_percentage,
+                'transport_exchange_rate_dzd' => $partial->transport_exchange_rate_dzd === null ? null : (string) $partial->transport_exchange_rate_dzd,
                 'settlement' => [
                     'agent_amount' => round($agentAmount, 4),
                     'agent_amount_dzd' => round($agentDzd, 2),
@@ -182,7 +193,10 @@ class ImportAllocationService
                     'customs_amount' => round($customsForeign, 4),
                     'customs_amount_dzd' => round($customsDzd, 2),
                     'transitaire_amount_dzd' => round($transitaireDzd, 2),
-                    'total_required_dzd' => round($agentDzd + $bankDzd + $customsDzd + $transitaireDzd, 2),
+                    'transport_amount_dzd' => round($transportDzd, 2),
+                    'transport_customs_amount_dzd' => round($transportCustomsDzd, 2),
+                    'transport_total_dzd' => round($transportTotalDzd, 2),
+                    'total_required_dzd' => round($agentDzd + $bankDzd + $customsDzd + $transitaireDzd + $transportTotalDzd, 2),
                 ],
                 'real_invoice_number' => $partial->real_invoice_number,
                 'real_invoice_date' => $partial->real_invoice_date?->toDateString(),

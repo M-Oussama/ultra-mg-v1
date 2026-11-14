@@ -862,6 +862,9 @@ class ImportOperationController extends Controller
                     'freight_amount' => $data['freight_amount'] ?? $record->freight_amount,
                     'agent_percentage' => $data['agent_percentage'] ?? $record->agent_percentage,
                     'bank_exchange_rate_dzd' => $data['bank_exchange_rate_dzd'] ?? $record->bank_exchange_rate_dzd,
+                    'transport_amount' => $data['transport_amount'] ?? $record->transport_amount,
+                    'transport_customs_percentage' => $data['transport_customs_percentage'] ?? $record->transport_customs_percentage,
+                    'transport_exchange_rate_dzd' => $data['transport_exchange_rate_dzd'] ?? $record->transport_exchange_rate_dzd,
                     'container_allocation_count' => $data['container_allocation_count'] ?? $record->container_allocation_count,
                     'revision' => $record->revision + 1,
                 ]);
@@ -975,6 +978,9 @@ class ImportOperationController extends Controller
                 'freight_amount' => $data['freight_amount'] ?? $record->freight_amount,
                 'agent_percentage' => $data['agent_percentage'] ?? $record->agent_percentage,
                 'bank_exchange_rate_dzd' => $data['bank_exchange_rate_dzd'] ?? $record->bank_exchange_rate_dzd,
+                'transport_amount' => $data['transport_amount'] ?? $record->transport_amount,
+                'transport_customs_percentage' => $data['transport_customs_percentage'] ?? $record->transport_customs_percentage,
+                'transport_exchange_rate_dzd' => $data['transport_exchange_rate_dzd'] ?? $record->transport_exchange_rate_dzd,
                 'container_allocation_count' => $containerCount,
                 'revision' => $record->revision + 1,
             ]);
