@@ -1,0 +1,9 @@
+106:        $employees->each(function (Employee $employee) use ($entries) {
+168:    public function getPayrollSheet(Request $request): JsonResponse
+193:        $employees->each(function (Employee $employee) use ($workDayEntries, $payrollEntries, $activeMap) {
+197:            $employee->setAttribute('monthly_salary', (float) ($payroll->monthly_salary ?? 0));
+224:            'entries.*.monthly_salary' => ['nullable', 'numeric', 'min:0'],
+235:                    'monthly_salary' => (float) ($entry['monthly_salary'] ?? 0),
+301:                        'monthly_salary' => $entry['monthly_salary'],
+331:                'monthly_salary',
+372:                    $monthlySalary = (float) ($payroll?->monthly_salary ?? 0);

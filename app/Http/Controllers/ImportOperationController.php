@@ -163,6 +163,23 @@ class ImportOperationController extends Controller
             ])
             ->get();
 
+        $containersByPartial = $containers->groupBy('import_partial_invoice_id');
+        $operation->parentInvoices->each(function (ImportParentInvoice $parent) use ($containersByPartial) {
+            $parent->setAttribute('pd', $parent->pdTotals());
+            $parent->setAttribute('real', $parent->realTotals());
+            $parent->setAttribute('variance', $parent->variance());
+            $parent->partialInvoices->each(function ($partial) use ($containersByPartial) {
+                $partial->setAttribute('pd', $partial->pdTotals());
+                $partial->setAttribute('real', $partial->realTotals());
+                $partial->setAttribute('variance', $partial->variance());
+                $partial->setRelation('containers', $containersByPartial->get($partial->id, collect())->values());
+                $partial->lines->each(function ($line) {
+                    $line->setAttribute('real_quantity', $line->real_quantity);
+                    $line->setAttribute('real_unit_price', $line->real_unit_price);
+                });
+            });
+        });
+
         $costs = DB::table('import_costs as cost')
             ->leftJoin('import_partial_invoices as p', 'p.id', '=', 'cost.import_partial_invoice_id')
             ->leftJoin('import_parent_invoices as pi', 'pi.id', '=', 'cost.import_parent_invoice_id')
@@ -300,6 +317,7 @@ class ImportOperationController extends Controller
             'seal_number' => ['nullable', 'string', 'max:80'],
             'booking_reference' => ['nullable', 'string', 'max:100'],
             'freight_amount' => ['nullable', 'numeric', 'min:0'],
+            'real_freight_amount' => ['nullable', 'numeric', 'min:0'],
             'container_size' => ['nullable', 'string', 'max:30'],
             'status' => ['required', 'string', 'max:30'],
         ]);
@@ -378,6 +396,7 @@ class ImportOperationController extends Controller
             'seal_number' => $data['seal_number'] ?? $container->seal_number,
             'booking_reference' => $data['booking_reference'] ?? $container->booking_reference,
             'freight_amount' => $data['freight_amount'] ?? $container->freight_amount,
+            'real_freight_amount' => $data['real_freight_amount'] ?? $container->real_freight_amount,
             'container_size' => $data['container_size'] ?? $container->container_size,
             'status' => $data['status'] ?? $container->status,
             'updated_at' => now(),
@@ -927,6 +946,113 @@ class ImportOperationController extends Controller
         $partial->delete();
 
         return response()->json(['message' => 'Partial invoice deleted.']);
+    }
+
+    public function markDomiciled($parentId)
+    {
+        $parent = ImportParentInvoice::findOrFail($parentId);
+        $parent->domiciled_at = now();
+        $parent->save();
+
+        return response()->json(['parent_invoice' => $parent]);
+    }
+
+    public function closeOperation($parentId)
+    {
+        $parent = ImportParentInvoice::findOrFail($parentId);
+        if ($parent->domiciled_at === null) {
+            return response()->json(['message' => 'The parent invoice must be domiciled before closing.'], 422);
+        }
+
+        $parent->closed_at = now();
+        $parent->save();
+
+        return response()->json(['parent_invoice' => $parent]);
+    }
+
+    public function saveRealValues(Request $request, $id)
+    {
+        $data = $request->validate([
+            'lines' => ['required', 'array'],
+            'lines.*.import_partial_invoice_line_id' => ['required', 'integer'],
+            'lines.*.real_quantity' => ['required', 'numeric', 'min:0'],
+            'lines.*.real_unit_price' => ['required', 'numeric', 'min:0'],
+            'containers' => ['required', 'array'],
+            'containers.*.import_container_id' => ['required', 'integer'],
+            'containers.*.real_freight_amount' => ['nullable', 'numeric', 'min:0'],
+            'real_invoice_number' => ['nullable', 'string', 'max:80'],
+            'real_invoice_date' => ['nullable', 'date'],
+        ]);
+
+        return DB::transaction(function () use ($data, $id) {
+            $partial = \App\Models\ImportPartialInvoice::query()
+                ->with(['lines', 'parentInvoice', 'containers'])
+                ->lockForUpdate()
+                ->findOrFail($id);
+            $parent = $partial->parentInvoice()->lockForUpdate()->firstOrFail();
+
+            if ($parent->closed_at !== null) {
+                return response()->json(['message' => 'The parent invoice is closed.'], 422);
+            }
+
+            $lineMap = $partial->lines->keyBy('id');
+            foreach ($data['lines'] as $lineData) {
+                $line = $lineMap->get((int) $lineData['import_partial_invoice_line_id']);
+                if ($line === null) {
+                    return response()->json(['message' => 'A line does not belong to this partial invoice.'], 422);
+                }
+                $line->real_quantity = $lineData['real_quantity'];
+                $line->real_unit_price = $lineData['real_unit_price'];
+                $line->save();
+            }
+
+            $containerMap = $partial->containers->keyBy('id');
+            foreach ($data['containers'] as $containerData) {
+                $container = $containerMap->get((int) $containerData['import_container_id']);
+                if ($container === null) {
+                    return response()->json(['message' => 'A container does not belong to this partial invoice.'], 422);
+                }
+                $container->real_freight_amount = $containerData['real_freight_amount'] ?? null;
+                $container->save();
+            }
+
+            $partial->real_invoice_number = $data['real_invoice_number'] ?? null;
+            $partial->real_invoice_date = $data['real_invoice_date'] ?? null;
+            if ($partial->loaded_at === null) {
+                $partial->loaded_at = now();
+            }
+            $partial->save();
+
+            $partials = $parent->partialInvoices()->with(['lines', 'containers'])->get();
+            $parentLines = $parent->lines()->get()->keyBy('id');
+            $realQuantities = [];
+            foreach ($partials as $partialInvoice) {
+                foreach ($partialInvoice->lines as $line) {
+                    if ($line->real_quantity !== null) {
+                        $realQuantities[$line->import_parent_invoice_line_id] =
+                            ($realQuantities[$line->import_parent_invoice_line_id] ?? 0) + (float) $line->real_quantity;
+                    }
+                }
+            }
+            foreach ($parentLines as $parentLineId => $parentLine) {
+                if (($realQuantities[$parentLineId] ?? 0) > (float) $parentLine->quantity) {
+                    return response()->json(['message' => 'Real quantity exceeds the parent line quantity.'], 422);
+                }
+            }
+
+            $parent->load('partialInvoices.lines', 'partialInvoices.containers');
+            if ($parent->realTotals()['total'] > $parent->pdTotals()['total']) {
+                return response()->json(['message' => 'Real totals exceed the parent invoice total.'], 422);
+            }
+
+            $partial->load(['lines', 'containers']);
+            return response()->json([
+                'partial_invoice' => $partial,
+                'pdTotals' => $partial->pdTotals(),
+                'realTotals' => $partial->realTotals(),
+                'variance' => $partial->variance(),
+            ]);
+        });
     }
 
     private function parentForOperation(int $operationId, int $parentId): ImportParentInvoice

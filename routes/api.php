@@ -324,6 +324,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendance-plans/active-employees', [\App\Http\Controllers\AttendancePlanningController::class, 'getActiveEmployees'])->middleware('permission:list,attendances')->name('getAttendanceActiveEmployees');
     Route::post('/attendance-plans/active-employees', [\App\Http\Controllers\AttendancePlanningController::class, 'saveActiveEmployees'])->middleware('permission:edit,attendances')->name('saveAttendanceActiveEmployees');
     Route::get('/attendance-plans/monthly-work-days', [\App\Http\Controllers\AttendancePlanningController::class, 'getMonthlyWorkDays'])->middleware('permission:list,attendances')->name('getAttendanceMonthlyWorkDays');
+    Route::get('/attendance-plans/suggested-work-days', [\App\Http\Controllers\AttendancePlanningController::class, 'getSuggestedWorkDays'])->middleware('permission:list,attendances');
     Route::post('/attendance-plans/monthly-work-days', [\App\Http\Controllers\AttendancePlanningController::class, 'saveMonthlyWorkDays'])->middleware('permission:edit,attendances')->name('saveAttendanceMonthlyWorkDays');
     Route::get('/attendance-plans/payroll', [\App\Http\Controllers\AttendancePlanningController::class, 'getPayrollSheet'])->middleware('permission:list,attendances')->name('getAttendancePayrollSheet');
     Route::post('/attendance-plans/payroll', [\App\Http\Controllers\AttendancePlanningController::class, 'savePayrollSheet'])->middleware('permission:edit,attendances')->name('saveAttendancePayrollSheet');
@@ -393,9 +394,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/parent-invoices', [ImportOperationController::class, 'storeParent'])->middleware('permission:add,importations');
         Route::post('/{id}/parent-invoices/{parentId}', [ImportOperationController::class, 'updateParent'])->middleware('permission:edit,importations');
         Route::delete('/{id}/parent-invoices/{parentId}', [ImportOperationController::class, 'destroyParent'])->middleware('permission:delete,importations');
+        Route::post('/parent-invoices/{parentId}/domicile', [ImportOperationController::class, 'markDomiciled'])->middleware('permission:edit,importations');
+        Route::post('/parent-invoices/{parentId}/close', [ImportOperationController::class, 'closeOperation'])->middleware('permission:edit,importations');
         Route::get('/{id}/parent-invoices/{parentId}/balances', [ImportOperationController::class, 'balances'])->middleware('permission:list,importations');
         Route::post('/{id}/parent-invoices/{parentId}/partials', [ImportOperationController::class, 'storePartial'])->middleware('permission:add,importations');
         Route::post('/{id}/parent-invoices/{parentId}/partials/{partialId}', [ImportOperationController::class, 'updatePartial'])->middleware('permission:edit,importations');
+        Route::put('/partials/{id}/real', [ImportOperationController::class, 'saveRealValues'])->middleware('permission:edit,importations');
         Route::delete('/{id}/parent-invoices/{parentId}/partials/{partialId}', [ImportOperationController::class, 'destroyPartial'])->middleware('permission:delete,importations');
         Route::post('/{id}/factory-orders', [ImportOperationController::class, 'storeFactoryOrder'])->middleware('permission:add,importations');
         Route::post('/{id}/factory-orders/{orderId}', [ImportOperationController::class, 'updateFactoryOrder'])->middleware('permission:edit,importations');

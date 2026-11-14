@@ -7,6 +7,7 @@ use App\Models\AttendanceActiveEmployeeMonth;
 use App\Models\Employee;
 use App\Models\EmployeeMonthlyPayroll;
 use App\Models\EmployeeMonthlyWorkDay;
+use App\Services\PayableDaysCalculator;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -122,6 +123,31 @@ class AttendancePlanningController extends Controller
         ]);
     }
 
+    public function getSuggestedWorkDays(Request $request, PayableDaysCalculator $calc): JsonResponse
+    {
+        $month = (int) $request->query('month', now()->month);
+        $year = (int) $request->query('year', now()->year);
+
+        [$activeIds] = $this->resolveActiveEmployeeIds($month, $year);
+        $suggestions = collect($activeIds)->map(function ($id) use ($calc, $month, $year) {
+            $employeeId = (int) $id;
+            $days = $calc->calculate($employeeId, $month, $year);
+
+            return [
+                'employee_id' => $employeeId,
+                'normal_days' => $days['normal_days'],
+                'extra_days' => $days['extra_days'],
+                'payable_days' => $days['payable_days'],
+            ];
+        })->values();
+
+        return response()->json([
+            'month' => $month,
+            'year' => $year,
+            'suggestions' => $suggestions,
+        ]);
+    }
+
     public function saveMonthlyWorkDays(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -129,7 +155,7 @@ class AttendancePlanningController extends Controller
             'year' => ['required', 'integer', 'min:2000'],
             'entries' => ['required', 'array'],
             'entries.*.employee_id' => ['required', 'integer', 'exists:employees,id'],
-            'entries.*.work_days' => ['required', 'integer', 'min:0', 'max:31'],
+            'entries.*.work_days' => ['required', 'integer', 'min:0', 'max:62'],
             'entries.*.cnas_days' => ['nullable', 'integer', 'min:0', 'max:31'],
             'entries.*.out_date' => ['nullable', 'string', 'max:32'],
             'entries.*.in_date' => ['nullable', 'string', 'max:32'],
@@ -190,11 +216,24 @@ class AttendancePlanningController extends Controller
 
         $activeMap = array_flip($activeIds);
 
-        $employees->each(function (Employee $employee) use ($workDayEntries, $payrollEntries, $activeMap) {
+        $previousSalaries = EmployeeMonthlyPayroll::query()
+            ->where(function ($q) use ($month, $year) {
+                $q->where('year', '<', $year)
+                  ->orWhere(function ($q2) use ($month, $year) {
+                      $q2->where('year', $year)->where('month', '<', $month);
+                  });
+            })
+            ->orderByDesc('year')->orderByDesc('month')
+            ->get()
+            ->unique('employee_id')
+            ->keyBy('employee_id');
+
+        $employees->each(function (Employee $employee) use ($workDayEntries, $payrollEntries, $activeMap, $previousSalaries) {
             $payroll = $payrollEntries[$employee->id] ?? null;
             $employee->setAttribute('work_days', (int) ($workDayEntries[$employee->id]->work_days ?? 0));
             $employee->setAttribute('cnas_days', (int) ($workDayEntries[$employee->id]->cnas_days ?? 0));
-            $employee->setAttribute('monthly_salary', (float) ($payroll->monthly_salary ?? 0));
+            $employee->setAttribute('monthly_salary',
+                (float) ($payroll->monthly_salary ?? $previousSalaries[$employee->id]->monthly_salary ?? 0));
             $employee->setAttribute('objectives_amount', (float) ($payroll->objectives_amount ?? 0));
             $employee->setAttribute('is_payroll_selected', isset($activeMap[$employee->id]));
         });
@@ -219,7 +258,7 @@ class AttendancePlanningController extends Controller
             'year' => ['required', 'integer', 'min:2000'],
             'entries' => ['required', 'array'],
             'entries.*.employee_id' => ['required', 'integer', 'exists:employees,id'],
-            'entries.*.work_days' => ['required', 'integer', 'min:0', 'max:31'],
+            'entries.*.work_days' => ['required', 'integer', 'min:0', 'max:62'],
             'entries.*.cnas_days' => ['nullable', 'integer', 'min:0', 'max:31'],
             'entries.*.monthly_salary' => ['nullable', 'numeric', 'min:0'],
             'entries.*.objectives_amount' => ['nullable', 'numeric', 'min:0'],

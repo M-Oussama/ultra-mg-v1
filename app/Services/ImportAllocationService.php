@@ -125,7 +125,7 @@ class ImportAllocationService
 
     public function balances(ImportParentInvoice $parent): array
     {
-        $parent->load(['lines', 'partialInvoices.lines.parentLine', 'supplier']);
+        $parent->load(['lines', 'partialInvoices.lines.parentLine', 'partialInvoices.containers', 'supplier']);
         $allocatedByLine = $this->allocatedMilliByLine($parent->id);
 
         $lines = $parent->lines->map(function (ImportParentInvoiceLine $line) use ($allocatedByLine) {
@@ -156,6 +156,18 @@ class ImportAllocationService
                 'number' => $partial->number,
                 'container_allocation_count' => (int) $partial->container_allocation_count,
                 'freight_amount' => (string) $partial->freight_amount,
+                'real_invoice_number' => $partial->real_invoice_number,
+                'real_invoice_date' => $partial->real_invoice_date?->toDateString(),
+                'loaded_at' => $partial->loaded_at?->toISOString(),
+                'pd' => $partial->pdTotals(),
+                'real' => $partial->realTotals(),
+                'variance' => $partial->variance(),
+                'containers' => $partial->containers->map(fn ($container) => [
+                    'id' => $container->id,
+                    'container_number' => $container->container_number,
+                    'freight_amount' => $container->freight_amount,
+                    'real_freight_amount' => $container->real_freight_amount,
+                ])->values()->all(),
                 'status' => $partial->status,
                 'revision' => (int) $partial->revision,
                 'lines' => $partial->lines->map(fn ($line) => [
@@ -166,6 +178,8 @@ class ImportAllocationService
                     'unit' => $line->parentLine?->unit ?? 'pcs',
                     'quantity' => (string) $line->quantity,
                     'commercial_unit_price_snapshot' => (string) $line->commercial_unit_price_snapshot,
+                    'real_quantity' => $line->real_quantity,
+                    'real_unit_price' => $line->real_unit_price,
                 ])->values()->all(),
                 'total_quantity' => $qty,
                 'total_amount' => $amount,
