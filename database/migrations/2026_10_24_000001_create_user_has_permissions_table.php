@@ -13,7 +13,7 @@ return new class extends Migration
             // Keep this unconstrained for deployments whose legacy users.id
             // type or storage engine differs from Laravel's foreignId().
             $table->foreignId('user_id');
-            $table->foreignId('permission_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('permission_id');
             $table->timestamps();
             $table->unique(['user_id', 'permission_id']);
         });

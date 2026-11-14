@@ -11,9 +11,7 @@ return new class extends Migration
         Schema::table('employees', function (Blueprint $table) {
             $table->foreignId('department_id')
                 ->nullable()
-                ->after('id')
-                ->constrained('departments')
-                ->nullOnDelete();
+                ->after('id');
             $table->index(['department_id', 'active']);
         });
     }
@@ -22,7 +20,7 @@ return new class extends Migration
     {
         Schema::table('employees', function (Blueprint $table) {
             $table->dropIndex(['department_id', 'active']);
-            $table->dropConstrainedForeignId('department_id');
+            $table->dropColumn('department_id');
         });
     }
 };

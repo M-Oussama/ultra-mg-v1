@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('action'); // 'create', 'update', 'delete'
             $table->string('auditable_type'); // e.g. 'App\Models\Sale'
             $table->unsignedBigInteger('auditable_id')->nullable();
-            $table->foreignId('department_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('department_id')->nullable();
             $table->json('old_values')->nullable();
             $table->json('new_values')->nullable();
             $table->string('ip_address', 45)->nullable();
