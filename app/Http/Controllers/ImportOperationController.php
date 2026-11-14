@@ -908,6 +908,8 @@ class ImportOperationController extends Controller
             $before = $record->load('lines')->toArray();
             $requestedLines = collect($data['lines']);
             $requestedLineIds = $requestedLines->pluck('parent_line_id')->map(fn ($id) => (int) $id)->all();
+            $existingAllocations = $record->lines()->lockForUpdate()->get()
+                ->keyBy('import_parent_invoice_line_id');
             $parentLines = $lockedParent->lines()
                 ->whereIn('id', $requestedLineIds)
                 ->lockForUpdate()
@@ -948,10 +950,16 @@ class ImportOperationController extends Controller
                     ? $toMilli($allocatedByOthers[$lineId]->total_allocated)
                     : 0;
                 $remainingMilli = $toMilli($parentLine->quantity) - $allocatedMilli;
+                $currentMilli = $existingAllocations->has($lineId)
+                    ? $toMilli($existingAllocations[$lineId]->quantity)
+                    : 0;
+                $editableMilli = max($remainingMilli, $currentMilli);
                 $requestedMilli = $toMilli($requested['quantity']);
-                if ($requestedMilli > $remainingMilli) {
+                if ($requestedMilli > $editableMilli) {
                     $errors["lines.$index.quantity"] = [
-                        "Requested {$requested['quantity']} exceeds the quantity available on the parent invoice.",
+                        "Requested {$requested['quantity']} exceeds the editable quantity ".
+                        number_format($editableMilli / 1000, 3, '.', '').
+                        ' available on the parent invoice.',
                     ];
                 }
             }
@@ -985,8 +993,6 @@ class ImportOperationController extends Controller
                 'revision' => $record->revision + 1,
             ]);
 
-            $existingAllocations = $record->lines()->lockForUpdate()->get()
-                ->keyBy('import_parent_invoice_line_id');
             foreach ($requestedLines as $requested) {
                 $lineId = (int) $requested['parent_line_id'];
                 $allocation = $existingAllocations->get($lineId);

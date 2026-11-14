@@ -185,6 +185,19 @@ class ImportOperationAllocationApiTest extends TestCase
             'real_unit_price' => '0.1280',
         ]);
         \App\Models\ImportPartialInvoice::whereKey($partial['id'])->update(['loaded_at' => now()]);
+        $otherPartial = \App\Models\ImportPartialInvoice::create([
+            'import_parent_invoice_id' => $parent['id'],
+            'number' => 'A2',
+            'container_allocation_count' => 0,
+            'freight_amount' => '0',
+            'status' => 'draft',
+            'revision' => 1,
+        ]);
+        $otherPartial->lines()->create([
+            'import_parent_invoice_line_id' => $parent['lines'][0]['id'],
+            'quantity' => '300000.000',
+            'commercial_unit_price_snapshot' => '0.1250',
+        ]);
         \Illuminate\Support\Facades\DB::table('import_containers')->insert([
             'import_operation_id' => $operationId,
             'import_parent_invoice_id' => $parent['id'],
